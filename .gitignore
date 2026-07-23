@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+
+# Build outputs
+frontend/.next/
+frontend/out/
+backend/dist/
+build/
+*.egg
+
+# Virtual environments
+backend/venv/
+.venv/
+venv/
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+.env.staging
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Alembic
+backend/alembic/versions/*.pyc
+
+# Temp
+/tmp/
+*.tmp
