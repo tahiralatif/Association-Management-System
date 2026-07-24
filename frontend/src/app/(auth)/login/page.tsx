@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "@/components/logo";
-import { login as apiLogin, type LoginResponse } from "@/lib/api";
+import { login as apiLogin, getUser, type LoginResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,11 +27,14 @@ export default function LoginPage() {
 
     try {
       const data = await apiLogin(email, password, tenantId);
-      ctxLogin(
-        { email: data.email, roles: data.roles, token_type: data.token_type, tenant_id: tenantId },
-        data.access_token
-      );
-      router.push("/dashboard");
+      // apiLogin already stores token + user in localStorage via /me
+      // Just update React state with the stored user
+      const storedUser = getUser();
+      if (storedUser) {
+        ctxLogin(storedUser, data.access_token);
+      }
+      // Use hard navigation for reliable redirect after auth
+      window.location.href = "/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

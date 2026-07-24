@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "@/components/logo";
-import { register as apiRegister } from "@/lib/api";
+import { register as apiRegister, getUser } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,11 +41,14 @@ export default function RegisterPage() {
 
     try {
       const data = await apiRegister(email, password, firstName, lastName, tenantId);
-      ctxLogin(
-        { email: data.email, roles: data.roles, token_type: data.token_type, tenant_id: tenantId },
-        data.access_token
-      );
-      router.push("/dashboard");
+      // apiRegister already stores token + user in localStorage via /me
+      // Just update React state with the stored user
+      const storedUser = getUser();
+      if (storedUser) {
+        ctxLogin(storedUser, data.access_token);
+      }
+      // Use hard navigation for reliable redirect after auth
+      window.location.href = "/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

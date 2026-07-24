@@ -6,6 +6,7 @@ import {
   getUser,
   setUser as storeUser,
   clearToken,
+  setToken,
   getToken,
   type AuthUser,
 } from "@/lib/api";
@@ -20,7 +21,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/", "/login", "/register", "/marketing"];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
@@ -37,14 +38,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
+  // Redirect unauthenticated users away from protected routes
   useEffect(() => {
-    if (!loading && !user && !PUBLIC_PATHS.includes(pathname)) {
+    if (loading) return; // Don't redirect while still loading
+    if (!user && !PUBLIC_PATHS.includes(pathname)) {
       router.replace("/login");
     }
   }, [loading, user, pathname, router]);
 
-  const login = (u: AuthUser, _token: string) => {
-    storeUser(u);
+  const login = (u: AuthUser, token: string) => {
+    // Token and user are already persisted by api.ts login/register
+    // Just update React state
     setUserState(u);
   };
 

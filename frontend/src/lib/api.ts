@@ -767,8 +767,14 @@ export async function apiFetch<T = unknown>(
 
   if (res.status === 401) {
     clearToken();
+    // Use router-safe redirect instead of hard page reload
+    // Only redirect if not already on a public path
     if (typeof window !== "undefined") {
-      window.location.href = "/login";
+      const currentPath = window.location.pathname;
+      const publicPaths = ["/", "/login", "/register"];
+      if (!publicPaths.includes(currentPath)) {
+        window.location.href = "/login";
+      }
     }
     throw new Error("Unauthorized");
   }
@@ -806,6 +812,26 @@ export async function apiFetch<T = unknown>(
 
 // ---------- auth ----------
 
+export interface MeResponse {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  roles: string[];
+  tenant_id?: string;
+}
+
+async function fetchMe(token: string): Promise<MeResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) throw new Error("Failed to fetch user profile");
+  return res.json();
+}
+
 export async function login(
   email: string,
   password: string,
@@ -817,7 +843,15 @@ export async function login(
   });
 
   setToken(data.access_token);
-  setUser({ email: data.email, roles: data.roles, token_type: data.token_type, tenant_id });
+
+  // Fetch real user profile from /me
+  try {
+    const me = await fetchMe(data.access_token);
+    setUser({ email: me.email, roles: me.roles, token_type: data.token_type, tenant_id: me.tenant_id || tenant_id });
+  } catch {
+    // Fallback: use what we know
+    setUser({ email, roles: ["member"], token_type: data.token_type, tenant_id });
+  }
 
   return data;
 }
@@ -835,7 +869,15 @@ export async function register(
   });
 
   setToken(data.access_token);
-  setUser({ email: data.email, roles: data.roles, token_type: data.token_type, tenant_id });
+
+  // Fetch real user profile from /me
+  try {
+    const me = await fetchMe(data.access_token);
+    setUser({ email: me.email, roles: me.roles, token_type: data.token_type, tenant_id: me.tenant_id || tenant_id });
+  } catch {
+    // Fallback: use what we know
+    setUser({ email, roles: ["member"], token_type: data.token_type, tenant_id });
+  }
 
   return data;
 }
