@@ -7,6 +7,7 @@ import { motion, useScroll, useSpring } from "framer-motion";
 import Link from "next/link";
 import * as THREE from "three";
 import Logo from "@/components/logo";
+import { useAuth } from "@/lib/auth-context";
 
 /* ═══════════════════════════════════════════════════════════
    COLORS
@@ -149,6 +150,7 @@ function Counter({ end, label, prefix = "", suffix = "" }: { end: number; label:
    ═══════════════════════════════════════════════════════════ */
 
 function Navbar() {
+  const { isAuthenticated, user, logout } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 20);
@@ -190,16 +192,33 @@ function Navbar() {
           </a>
         </nav>
         <div className="flex items-center gap-3">
-          <Link href="/login" className="text-[13px] font-medium px-4 py-2 transition-colors duration-300" style={{ color: C.textSecondary }}>
-            Sign In
-          </Link>
-          <Link
-            href="/register"
-            className="text-[13px] font-semibold px-5 py-2 rounded-lg transition-all duration-300"
-            style={{ backgroundColor: C.teal, color: "#fff", boxShadow: "0 2px 8px rgba(13,148,136,0.25)" }}
-          >
-            Get Started
-          </Link>
+          {isAuthenticated ? (
+            <>
+              <Link href="/dashboard" className="text-[13px] font-medium px-4 py-2 transition-colors duration-300" style={{ color: C.textSecondary }}>
+                Dashboard
+              </Link>
+              <button
+                onClick={() => logout()}
+                className="text-[13px] font-semibold px-5 py-2 rounded-lg transition-all duration-300 cursor-pointer"
+                style={{ backgroundColor: "#dc2626", color: "#fff", boxShadow: "0 2px 8px rgba(220,38,38,0.25)" }}
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="text-[13px] font-medium px-4 py-2 transition-colors duration-300" style={{ color: C.textSecondary }}>
+                Sign In
+              </Link>
+              <Link
+                href="/register"
+                className="text-[13px] font-semibold px-5 py-2 rounded-lg transition-all duration-300"
+                style={{ backgroundColor: C.teal, color: "#fff", boxShadow: "0 2px 8px rgba(13,148,136,0.25)" }}
+              >
+                Get Started
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </motion.header>

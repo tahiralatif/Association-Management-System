@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "@/components/logo";
-import { login as apiLogin, getUser, type LoginResponse } from "@/lib/api";
+import { login as apiLogin, API_BASE } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,30 +16,51 @@ export default function LoginPage() {
   const { login: ctxLogin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [tenantId, setTenantId] = useState("");
+  const [tenantId, setTenantId] = useState("demo-association");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setNeedsVerification(false);
+    setResendSent(false);
     setLoading(true);
 
     try {
       const data = await apiLogin(email, password, tenantId);
-      // apiLogin already stores token + user in localStorage via /me
-      // Just update React state with the stored user
-      const storedUser = getUser();
-      if (storedUser) {
-        ctxLogin(storedUser, data.access_token);
-      }
-      // Use hard navigation for reliable redirect after auth
+      const storedUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
+      ctxLogin(storedUser, data.access_token);
       window.location.href = "/dashboard";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const msg = err instanceof Error ? err.message : "Login failed";
+      if (msg.toLowerCase().includes("verify")) {
+        setNeedsVerification(true);
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/auth/resend-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, tenant_id: tenantId }),
+      });
+      if (res.ok) {
+        setResendSent(true);
+      }
+    } catch {
+      // ignore
+    }
+    setResendLoading(false);
   };
 
   return (
@@ -55,19 +76,30 @@ export default function LoginPage() {
             {error && (
               <div className="p-3 rounded-md bg-red-50 text-red-700 text-sm border border-red-200">
                 {error}
+                {needsVerification && !resendSent && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={handleResendVerification}
+                      disabled={resendLoading}
+                      className="text-cyan-700 font-medium hover:underline disabled:opacity-50"
+                    >
+                      {resendLoading ? "Sending..." : "→ Resend verification email"}
+                    </button>
+                  </div>
+                )}
+                {resendSent && (
+                  <div className="mt-2 text-green-700 font-medium">
+                    ✅ Verification email sent! Check your inbox.
+                  </div>
+                )}
               </div>
             )}
-            <div className="p-3 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-600">
-              <p className="font-medium text-slate-800 mb-1">🔐 Demo Credentials</p>
-              <p><strong>Email:</strong> daniel.harris@example.com</p>
-              <p><strong>Password:</strong> Demo1234!</p>
-              <p><strong>Tenant:</strong> demo-association</p>
-            </div>
             <div className="space-y-2">
               <Label htmlFor="tenant_id">Tenant ID</Label>
               <Input
                 id="tenant_id"
-                placeholder="Enter tenant ID"
+                placeholder="e.g. demo-association"
                 value={tenantId}
                 onChange={(e) => setTenantId(e.target.value)}
                 required
@@ -101,10 +133,20 @@ export default function LoginPage() {
             <p className="text-center text-sm text-slate-500">
               Don&apos;t have an account?{" "}
               <Link href="/register" className="text-blue-600 hover:underline">
-                Register
+                Create one
               </Link>
             </p>
           </form>
+
+          {/* Demo credentials */}
+          <div className="mt-6 p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
+            <p className="text-sm font-semibold text-cyan-800 mb-2">🔑 Demo Credentials</p>
+            <div className="space-y-1 text-xs text-cyan-700">
+              <p><strong>Admin:</strong> daniel.harris@example.com</p>
+              <p><strong>Password:</strong> Demo1234!</p>
+              <p><strong>Tenant:</strong> demo-association</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

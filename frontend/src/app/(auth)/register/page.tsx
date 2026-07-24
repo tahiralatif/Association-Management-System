@@ -1,19 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "@/components/logo";
-import { register as apiRegister, getUser } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
+import { register as apiRegister } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const { login: ctxLogin } = useAuth();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -22,6 +18,8 @@ export default function RegisterPage() {
   const [tenantId, setTenantId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,15 +38,10 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const data = await apiRegister(email, password, firstName, lastName, tenantId);
-      // apiRegister already stores token + user in localStorage via /me
-      // Just update React state with the stored user
-      const storedUser = getUser();
-      if (storedUser) {
-        ctxLogin(storedUser, data.access_token);
-      }
-      // Use hard navigation for reliable redirect after auth
-      window.location.href = "/dashboard";
+      await apiRegister(email, password, firstName, lastName, tenantId);
+      // Don't auto-login — show "check your email" screen
+      setRegisteredEmail(email);
+      setRegistered(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -56,6 +49,49 @@ export default function RegisterPage() {
     }
   };
 
+  // ── Post-registration: "Check your email" screen ──
+  if (registered) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-2"><Logo size="lg" /></div>
+            <CardTitle className="text-2xl font-bold text-slate-900">AssocHub</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <div className="w-16 h-16 bg-cyan-100 rounded-full flex items-center justify-center mx-auto text-3xl">
+              ✉️
+            </div>
+            <h2 className="text-xl font-semibold text-slate-900">Check Your Email</h2>
+            <p className="text-slate-600 text-sm">
+              We&apos;ve sent a verification link to<br />
+              <strong className="text-slate-900">{registeredEmail}</strong>
+            </p>
+            <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-4 text-sm text-cyan-800">
+              <p className="font-medium mb-1">📝 Next steps:</p>
+              <ol className="text-left list-decimal list-inside space-y-1">
+                <li>Open your email inbox</li>
+                <li>Click the <strong>Verify My Email</strong> button</li>
+                <li>Then come back and sign in</li>
+              </ol>
+            </div>
+            <p className="text-xs text-slate-400">
+              Didn&apos;t get it? Check your spam folder, or{" "}
+              <Link href="/login" className="text-cyan-600 hover:underline">try logging in</Link> to resend.
+            </p>
+            <Link
+              href="/login"
+              className="inline-block w-full py-3 px-6 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg transition-colors"
+            >
+              Go to Sign In
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ── Registration form ──
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <Card className="w-full max-w-md">

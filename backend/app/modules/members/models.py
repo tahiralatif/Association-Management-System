@@ -57,6 +57,9 @@ class User(Base):
     last_name: Mapped[str] = mapped_column(String(100))
     roles: Mapped[list] = mapped_column(JSON, default=["member"])
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=True)
+    verification_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    verification_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(
