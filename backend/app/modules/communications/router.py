@@ -102,10 +102,9 @@ async def send_campaign(
         from app.tasks.email import send_bulk_emails_task
         # Build email list from campaign targets
         from sqlalchemy import select
-        from app.modules.members.models import MemberProfile
-        from app.modules.auth.models import User
+        from app.modules.members.models import MemberProfile, User
 
-        query = select(User.email, User.full_name, MemberProfile.id.label("member_id")).join(
+        query = select(User.email, User.first_name, User.last_name, MemberProfile.id.label("member_id")).join(
             MemberProfile, User.id == MemberProfile.user_id
         ).where(MemberProfile.tenant_id == user.tenant_id)
         result = await db.execute(query)
@@ -115,15 +114,16 @@ async def send_campaign(
             {
                 "to": m.email,
                 "subject": campaign.subject,
-                "html_body": campaign.html_body.replace("{{name}}", m.full_name or "Member"),
+                "html_body": campaign.html_body.replace("{{name}}", (m.first_name or m.last_name or "Member")),
             }
             for m in members
             if m.email
         ]
         if emails:
             send_bulk_emails_task.delay(emails, tenant_id=user.tenant_id)
-    except Exception:
-        pass  # Celery may not be running; campaign is still marked as sending
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to dispatch campaign emails: {e}")
 
     from app.core.audit import log_audit_event
     await log_audit_event(db, user.tenant_id, user.sub, "send", "campaign", campaign_id,
