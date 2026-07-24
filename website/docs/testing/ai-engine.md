@@ -1,97 +1,138 @@
 ---
 sidebar_position: 25
-title: AI Engine Testing
+title: AI Engine
 ---
 
-# Testing: AI Engine Module
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## Prerequisites
+# Testing: AI Engine
+
+Test AI chat, insights, predictions, and semantic search.
+
+## Demo Credentials
+
+| Role | Email | Password | Tenant |
+|---|---|---|---|
+| **Admin** | `daniel.harris@example.com` | `Demo1234!` | `demo-association` |
+
+---
+
+## Test 1: AI Chat
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Click **AI Engine** in the sidebar
+2. Type: "How many active members do we have?"
+3. ✅ AI responds with real data from your database
+4. Try: "What events are coming up?"
+5. Try: "Show me the revenue breakdown"
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-TOKEN=$(curl -s -X POST http://localhost:8002/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
-
-API="http://localhost:8002/api/v1"
-```
-
-## Test 1: List AI Models
-
-```bash
-curl -s "$API/ai/models" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
-
-**Expected:** `HTTP 200` — List of available AI models (may be empty if no models configured).
-
-## Test 2: Chat with AI
-
-```bash
-curl -s -X POST "$API/ai/chat" \
+curl -X POST https://ams.14.jugaar.ai/api/v1/ai/chat \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "message": "How many members does the association have?",
-    "context": "association_management"
-  }' | python3 -m json.tool
+  -d '{"message": "How many active members do we have?"}'
 ```
 
-**Expected:** `HTTP 200` — AI response based on member data.
+**Expected: 200 OK** with AI response using real member data.
 
-## Test 3: Get AI Insights
+</TabItem>
+</Tabs>
+
+## Test 2: AI Health
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Check the AI health status indicator
+2. ✅ Shows green when LLM is connected
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s "$API/ai/insights" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/ai/health \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` — Cached insights or empty list.
+</TabItem>
+</Tabs>
 
-## Test 4: Generate Insights
+## Test 3: AI Insights
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Click on "Insights" in the AI section
+2. ✅ See auto-generated insights about your data
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s -X POST "$API/ai/insights" \
+curl -s https://ams.14.jugaar.ai/api/v1/ai/insights \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+</TabItem>
+</Tabs>
+
+## Test 4: Churn Prediction
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Go to a member profile in the Members module
+2. Look for AI churn risk indicator
+3. ✅ Shows risk level and factors
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+```bash
+curl -X POST https://ams.14.jugaar.ai/api/v1/ai/predict/churn/{member_id} \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+</TabItem>
+</Tabs>
+
+## Test 5: Anomaly Detection
+
+<Tabs>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+```bash
+curl -X POST https://ams.14.jugaar.ai/api/v1/ai/predict/anomalies \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"module": "members", "analysis_type": "summary"}' | python3 -m json.tool
+  -d '{"module": "finances", "lookback_days": 30}'
 ```
 
-**Expected:** `HTTP 200` — Generated insights about member data.
+</TabItem>
+</Tabs>
 
-## Test 5: AI Usage Statistics
+## Test 6: Available Models
+
+<Tabs>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s "$API/ai/usage" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/ai/models \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` — API call counts, token usage, costs.
+</TabItem>
+</Tabs>
 
-## Automated Test Script
+---
 
-```bash
-#!/bin/bash
-API="http://localhost:8002/api/v1"
-TOKEN=$(curl -s -X POST "$API/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
-PASS=0; FAIL=0
+## Related
 
-echo "=== AI Engine Module Tests ==="
-for ep in \
-  "AI Models|GET|$API/ai/models" \
-  "AI Insights|GET|$API/ai/insights" \
-  "AI Usage|GET|$API/ai/usage"; do
-  IFS='|' read -r name method url <<< "$ep"
-  C=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" "$url" -H "Authorization: Bearer $TOKEN")
-  [ "$C" = "200" ] && echo "✅ $name" && ((PASS++)) || echo "❌ $name (HTTP $C)" && ((FAIL++))
-done
-
-# Chat (requires Groq API key)
-C=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API/ai/chat" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"message":"Hello","context":"general"}')
-[ "$C" = "200" ] && echo "✅ AI Chat" && ((PASS++)) || echo "⚠️ AI Chat (HTTP $C - may need Groq key)" && ((FAIL++))
-
-echo ""
-echo "AI Tests: $PASS passed, $FAIL failed"
-```
+- [Modules: AI Engine](../modules/ai-engine)
+- [Testing: Analytics](./analytics)

@@ -3,38 +3,56 @@ sidebar_position: 6
 title: Members
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Members Module
 
-Full member lifecycle management — from registration to retention analytics.
+Full member lifecycle management — from registration to retention.
 
-## Features
+## What Can You Do?
 
-- **Member Profiles:** Name, email, phone, address, membership type, status
-- **Groups:** Organize members into committees, boards, interest groups
-- **Tags:** Flexible labeling (VIP, speaker, volunteer, etc.)
-- **Bulk Operations:** Add/remove tags, change status, export in bulk
-- **Import/Export:** CSV import with field mapping, CSV/JSON export
-- **Activity Logs:** Track every member interaction
-- **Staff Notes:** Internal notes visible only to staff/admins
-- **Self-Service Portal:** Members can update their own profiles
-- **Churn Prediction:** AI-powered at-risk member identification
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
 
-## API Endpoints (26 endpoints)
+**Add people** — Create new member profiles with name, email, phone, membership type, and status.
+
+**Organize** — Put members into groups (committees, boards, interest groups) and tag them (VIP, speaker, volunteer).
+
+**Bulk actions** — Select multiple members and add/remove tags or change status all at once.
+
+**Import/Export** — Bring in members from a CSV file or export your list.
+
+**Self-service** — Members can update their own profiles.
+
+**AI-powered** — The system predicts which members might leave (churn prediction).
+
+### Try it now:
+
+1. Click **Members** in the sidebar
+2. You'll see a list of all 78 members
+3. Click on any member to see their full profile
+4. Try searching by name using the search bar
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+### API Endpoints (26)
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| `GET` | `/members/` | List all members (paginated, filterable) | Staff+ |
-| `GET` | `/members/me` | Get current user's profile | Member |
+| `GET` | `/members/` | List all members (paginated) | Staff+ |
+| `GET` | `/members/me` | Current user's profile | Member |
 | `GET` | `/members/stats` | Member statistics | Staff+ |
 | `GET` | `/members/{id}` | Get member by ID | Staff+ |
 | `POST` | `/members/` | Create new member | Staff+ |
 | `PUT` | `/members/{id}` | Update member | Staff+ |
 | `DELETE` | `/members/{id}` | Delete member | Admin |
-| `GET` | `/members/groups` | List member groups | Member |
+| `GET` | `/members/groups` | List groups | Member |
 | `POST` | `/members/groups` | Create group | Staff+ |
-| `POST` | `/members/groups/{id}/members` | Add member to group | Staff+ |
+| `POST` | `/members/groups/{id}/members` | Add to group | Staff+ |
 | `DELETE` | `/members/groups/{id}/members/{mid}` | Remove from group | Staff+ |
-| `GET` | `/members/tags` | List all tags | Member |
+| `GET` | `/members/tags` | List tags | Member |
 | `POST` | `/members/tags` | Create tag | Staff+ |
 | `POST` | `/members/{id}/tags` | Add tag to member | Staff+ |
 | `DELETE` | `/members/{id}/tags/{tag}` | Remove tag | Staff+ |
@@ -42,7 +60,7 @@ Full member lifecycle management — from registration to retention analytics.
 | `POST` | `/members/bulk/remove-tags` | Bulk remove tags | Staff+ |
 | `POST` | `/members/bulk/change-status` | Bulk status change | Staff+ |
 | `POST` | `/members/import` | Import from CSV | Admin |
-| `GET` | `/members/export` | Export members (CSV/JSON) | Staff+ |
+| `GET` | `/members/export` | Export (CSV/JSON) | Staff+ |
 | `GET` | `/members/{id}/activity` | Activity log | Staff+ |
 | `POST` | `/members/{id}/notes` | Add staff note | Staff+ |
 | `GET` | `/members/{id}/notes` | List staff notes | Staff+ |
@@ -50,7 +68,7 @@ Full member lifecycle management — from registration to retention analytics.
 | `DELETE` | `/members/{id}/notes/{nid}` | Delete note | Staff+ |
 | `GET` | `/members/search` | Search members | Member |
 
-## Data Model
+### Data Model
 
 ```json
 {
@@ -63,23 +81,50 @@ Full member lifecycle management — from registration to retention analytics.
   "status": "active",
   "joined_date": "2025-01-15",
   "tags": ["board-member", "vip"],
-  "groups": ["executive-committee"],
-  "created_at": "2025-01-15T10:00:00Z",
-  "updated_at": "2026-07-24T05:00:00Z"
+  "groups": ["executive-committee"]
 }
 ```
 
-## Membership Types
+### Example: List Members
 
-| Type | Description | Typical Use |
-|---|---|---|
-| `basic` | Standard membership | Regular members |
-| `premium` | Enhanced benefits | Active contributors |
-| `lifetime` | One-time payment | Long-term supporters |
-| `student` | Discounted rate | Students |
-| `honorary` | No fee | Distinguished members |
+```bash
+curl -s https://ams.14.jugaar.ai/api/v1/members/ \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+```
 
-## Member Statuses
+### Example: Create a Member
+
+```bash
+curl -X POST https://ams.14.jugaar.ai/api/v1/members/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "email": "jane@example.com",
+    "membership_type": "basic",
+    "status": "active"
+  }'
+```
+
+### Example: Search Members
+
+```bash
+curl -s "https://ams.14.jugaar.ai/api/v1/members/search?q=daniel" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Membership Types
+
+| Type | Description |
+|---|---|
+| `basic` | Standard membership |
+| `premium` | Enhanced benefits |
+| `lifetime` | One-time payment |
+| `student` | Discounted rate |
+| `honorary` | No fee |
+
+### Member Statuses
 
 | Status | Meaning |
 |---|---|
@@ -88,20 +133,13 @@ Full member lifecycle management — from registration to retention analytics.
 | `suspended` | Temporarily suspended |
 | `pending` | Awaiting approval |
 
-## Testing
+</TabItem>
+</Tabs>
 
-```bash
-TOKEN="your-jwt-token"
-API="http://localhost:8002/api/v1"
+---
 
-# List members
-curl -s "$API/members/" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+## Related
 
-# Get member stats
-curl -s "$API/members/stats" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-
-# Search members
-curl -s "$API/members/search?q=daniel" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
-
-See [Testing: Members](../testing/members.md) for the complete test suite.
+- [Testing: Members](../testing/members)
+- [AI: Churn Prediction](./ai-engine)
+- [Communications: Email Campaigns](./communications)

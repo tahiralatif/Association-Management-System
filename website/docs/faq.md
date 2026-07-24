@@ -1,108 +1,96 @@
 ---
-sidebar_position: 34
+sidebar_position: 29
 title: FAQ
 ---
 
 # Frequently Asked Questions
 
+## Demo Credentials
+
+| Role | Email | Password | Tenant |
+|---|---|---|---|
+| **Admin** (full access) | `daniel.harris@example.com` | `Demo1234!` | `demo-association` |
+| **Member** (limited access) | `demo@gmail.com` | `Demo1234!` | `demo-association` |
+
+---
+
 ## General
 
 ### What is AssocHub?
+AssocHub is an open-source, AI-powered Association Management System (AMS). It handles memberships, finances, events, communications, elections, documents, workflows, and analytics — all in one platform.
 
-AssocHub is an open-source, self-hosted Association Management System (AMS) with AI built into every module. It helps non-profits, professional associations, and membership organizations manage members, finances, events, communications, elections, and more.
+### Is it free?
+Yes. AssocHub is open-source and free to self-host. There's also a managed cloud option starting at ~$29/month.
 
-### Is AssocHub free?
-
-Yes. AssocHub is open-source and free to self-host. You pay for your own infrastructure (server, database). For managed hosting, pricing is flat-rate per tenant with no per-contact fees.
-
-### How does AssocHub compare to Wild Apricot or MemberClicks?
-
-AssocHub offers 156 API endpoints across 11 modules with built-in AI, elections, and workflows — all with zero per-contact pricing. See the full [competitive comparison](https://github.com/tahiralatif/Association-Management-System/blob/main/docs/COMPARISON.md).
-
-### What tech stack does AssocHub use?
-
-- **Backend:** Python, FastAPI, SQLAlchemy, PostgreSQL + pgvector
-- **Frontend:** Next.js 16, React 19, TypeScript, Tailwind CSS
-- **AI:** Groq (Llama 3.3 70B)
+### What technology does it use?
+- **Backend:** Python + FastAPI + PostgreSQL
+- **Frontend:** Next.js + TypeScript + Tailwind CSS
+- **AI:** Llama models via OpenRouter
 - **Queue:** Redis + Celery
-- **Payments:** Stripe
 
-## Authentication
+### How many modules are there?
+11 integrated modules with 199 REST API endpoints.
 
-### How do I register?
+---
 
-Go to `https://ams.14.jugaar.ai/register`, fill in the form, and click Create Account. You'll be logged in automatically.
+## Login & Registration
 
-### What are the password requirements?
+### What are the demo credentials?
+See the table at the top of this page, or check the hint box on the login page.
 
-At least 8 characters, with uppercase, lowercase, digit, and special character. Common passwords are rejected.
+### I can't log in. What's wrong?
+1. Make sure you're using `Demo1234!` (capital D, capital D, exclamation mark)
+2. Tenant ID must be exactly `demo-association`
+3. If you registered a new account, you need to verify your email first
+4. Check [Troubleshooting](./troubleshooting) for more help
 
-### Can I have multiple roles?
+### The password requirements are:
+- At least 8 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one special character (!@#$%^&*)
 
-Yes. Users can have multiple roles (e.g., `staff` + `tenant_admin`). Roles are stored as an array.
+### I didn't receive a verification email
+1. Check your spam/junk folder
+2. Click "Resend verification email" on the login page
+3. Make sure you entered the correct email during registration
 
-### How long does a login session last?
-
-JWT tokens expire after 24 hours. You'll need to log in again after expiry.
+---
 
 ## Modules
 
-### Can I import existing member data?
+### Which modules require admin access?
+Members, Finances, Events, Communications, Elections, Documents, Workflows, and Integrations require staff or admin role. Dashboard, AI Chat, and Documents (read-only) are available to all users.
 
-Yes. Go to Members → Import and upload a CSV file. The system supports field mapping for columns.
+### Does the AI chat actually work with real data?
+Yes. The AI uses your actual database — member counts, revenue, events, etc. It's not a generic chatbot.
 
-### Does AssocHub support online payments?
+### Can I import members from a CSV file?
+Yes. Go to Members → Import and upload a CSV file. The system maps columns automatically.
 
-Yes. AssocHub integrates with Stripe for checkout sessions, recurring payments, and payment webhooks.
+### How do elections work?
+Elections support ranked-choice voting. Candidates are nominated, members vote by ranking candidates, and results are calculated using instant-runoff elimination.
 
-### Can I create custom workflows?
-
-Yes. The workflow builder supports 12+ action types including email, member updates, delays, conditional branches, webhooks, and AI analysis.
-
-### Is there an AI assistant?
-
-Yes. AssocHub includes a built-in AI chat powered by Groq (Llama 3.3 70B) that can answer questions about your association data, predict member churn, detect anomalies, and generate documents.
-
-### Can I run elections?
-
-Yes. AssocHub has a full elections module supporting ranked-choice voting, secret ballots, nominations, quorum tracking, and real-time results.
+---
 
 ## Technical
 
-### Can I self-host AssocHub?
+### Can I self-host it?
+Yes. Docker deployment is supported. See [Deployment Guide](./admin/deployment).
 
-Yes. AssocHub is designed for self-hosting. See the [Deployment Guide](./admin/deployment) for instructions.
+### What database does it use?
+PostgreSQL with pgvector extension (for AI embeddings).
 
-### What database does AssocHub use?
+### Are there rate limits on the AI?
+OpenRouter has generous limits. The system automatically falls back to other models if one hits its limit.
 
-PostgreSQL with the pgvector extension for AI-powered semantic search.
+### Where is the API documentation?
+See [API Reference](./api-reference) or visit the live API docs at `https://ams.14.jugaar.ai/docs`.
 
-### Does AssocHub support multiple organizations?
+---
 
-Yes. AssocHub supports multi-tenancy where multiple organizations share one installation with completely isolated data.
+## Related
 
-### Is there a REST API?
-
-Yes. AssocHub has 161 REST API endpoints. Interactive documentation is available at `/docs` (Swagger UI) on any running instance.
-
-### Can I extend AssocHub?
-
-Yes. AssocHub is open-source (MIT license). You can fork, modify, and extend any module. The modular architecture makes it easy to add new features.
-
-## Troubleshooting
-
-### I'm getting 401 errors. What do I do?
-
-Your token may have expired. Log in again to get a fresh token. See [Troubleshooting](./troubleshooting) for more details.
-
-### The AI chat isn't working. Why?
-
-You need a valid Groq API key set in the `GROQ_API_KEY` environment variable. Get one free at [console.groq.com](https://console.groq.com).
-
-### How do I reset my admin password?
-
-See the [Troubleshooting Guide](./troubleshooting#reset-admin-password) for step-by-step instructions.
-
-### Where can I report bugs?
-
-Open an issue on [GitHub](https://github.com/tahiralatif/Association-Management-System/issues).
+- [Getting Started](./getting-started)
+- [Troubleshooting](./troubleshooting)
+- [API Reference](./api-reference)

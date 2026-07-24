@@ -3,75 +3,107 @@ sidebar_position: 7
 title: Finances
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Finances Module
 
-Complete financial management — invoices, expenses, budgets, dues, and Stripe payments.
+Manage money — invoices, payments, expenses, and budgets.
 
-## Features
+## What Can You Do?
 
-- **Invoices:** Auto-numbered, line items, tax calculations, PDF generation
-- **Expenses:** Submit, approve/reject workflow, categorization
-- **Budgets:** Set departmental budgets, track spending vs budget
-- **Dues Structures:** Annual, monthly, tiered membership dues
-- **Payments:** Stripe checkout integration, payment recording
-- **Recurring Transactions:** Auto-generate monthly invoices
-- **Financial Reports:** Revenue by category, outstanding balances, P&L
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
 
-## API Endpoints (20 endpoints)
+**Invoices** — Create invoices, send them to members, track who's paid and who hasn't.
+
+**Expenses** — Log what your association spends money on (venue, catering, marketing, etc.).
+
+**Budgets** — Set spending limits per department or project and track how much you've used.
+
+**Dues** — Define membership fee schedules (annual, monthly, etc.).
+
+**Stripe** — Accept online payments via Stripe.
+
+### Try it now:
+
+1. Click **Finances** in the sidebar
+2. See the financial overview — total revenue, pending invoices, expenses
+3. Browse the invoices list
+4. Check the budgets section
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+### API Endpoints (20)
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
+| `GET` | `/finances/finances/dashboard` | Financial overview | Staff+ |
 | `GET` | `/finances/finances/invoices` | List invoices | Staff+ |
 | `POST` | `/finances/finances/invoices` | Create invoice | Staff+ |
 | `GET` | `/finances/finances/invoices/stats` | Invoice statistics | Staff+ |
-| `GET` | `/finances/finances/invoices/{id}` | Get invoice details | Staff+ |
+| `GET` | `/finances/finances/invoices/{id}` | Get invoice | Staff+ |
 | `PUT` | `/finances/finances/invoices/{id}` | Update invoice | Staff+ |
-| `DELETE` | `/finances/finances/invoices/{id}` | Void invoice | Admin |
-| `POST` | `/finances/finances/invoices/{id}/pay` | Record payment | Staff+ |
+| `POST` | `/finances/finances/invoices/{id}/payments` | Record payment | Staff+ |
 | `GET` | `/finances/finances/expenses` | List expenses | Staff+ |
-| `POST` | `/finances/finances/expenses` | Submit expense | Staff+ |
-| `PUT` | `/finances/finances/expenses/{id}/approve` | Approve expense | Admin |
-| `PUT` | `/finances/finances/expenses/{id}/reject` | Reject expense | Admin |
-| `GET` | `/finances/finances/dues` | List dues structures | Staff+ |
-| `POST` | `/finances/finances/dues` | Create dues structure | Admin |
+| `POST` | `/finances/finances/expenses` | Create expense | Staff+ |
+| `PUT` | `/finances/finances/expenses/{id}` | Update expense | Staff+ |
 | `GET` | `/finances/finances/budgets` | List budgets | Staff+ |
-| `POST` | `/finances/finances/budgets` | Create budget | Admin |
-| `GET` | `/finances/finances/reports` | Financial reports | Staff+ |
-| `GET` | `/finances/finances/reports/summary` | Revenue summary | Staff+ |
-| `POST` | `/finances/finances/payments/create-checkout` | Stripe checkout | Member |
-| `POST` | `/finances/finances/payments/webhook` | Stripe webhook | System |
-| `GET` | `/finances/finances/payments/history` | Payment history | Member |
+| `POST` | `/finances/finances/budgets` | Create budget | Staff+ |
+| `PUT` | `/finances/finances/budgets/{id}` | Update budget | Staff+ |
+| `GET` | `/finances/finances/dues-schedules` | List dues schedules | Staff+ |
+| `POST` | `/finances/finances/dues-schedules` | Create dues schedule | Staff+ |
+| `GET` | `/finances/finances/dues-schedules/{id}` | Get schedule | Staff+ |
+| `PUT` | `/finances/finances/dues-schedules/{id}` | Update schedule | Staff+ |
+| `POST` | `/finances/finances/dues-schedules/{id}/generate` | Generate invoices | Staff+ |
+| `GET` | `/finances/finances/expenses/stats` | Expense statistics | Staff+ |
+| `GET` | `/finances/finances/budgets/stats` | Budget statistics | Staff+ |
 
-## Invoice Lifecycle
+:::warning
+Note the double `/finances/finances/` in the URL — this is the actual route structure.
+:::
 
-```
-Draft → Sent → Partially Paid → Paid → Closed
-  ↓                  ↓
-Voided            Overdue
-```
-
-## Expense Approval Flow
-
-```
-Submitted → Under Review → Approved → Rejected
-     ↓            ↓            ↓
-   Pending    In Progress   Paid
-```
-
-## Testing
+### Example: List Invoices
 
 ```bash
-TOKEN="your-jwt-token"
-API="http://localhost:8002/api/v1"
-
-# List invoices
-curl -s "$API/finances/finances/invoices" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-
-# Get invoice stats
-curl -s "$API/finances/finances/invoices/stats" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-
-# List budgets
-curl -s "$API/finances/finances/budgets" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/finances/finances/invoices \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
 ```
 
-See [Testing: Finances](../testing/finances.md) for complete test scripts.
+### Example: Create an Invoice
+
+```bash
+curl -X POST https://ams.14.jugaar.ai/api/v1/finances/finances/invoices \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "member_id": "uuid-of-member",
+    "amount": 250.00,
+    "description": "Annual membership fee",
+    "due_date": "2026-08-15"
+  }'
+```
+
+### Example: Record a Payment
+
+```bash
+curl -X POST https://ams.14.jugaar.ai/api/v1/finances/finances/invoices/{invoice_id}/payments \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 250.00,
+    "payment_method": "stripe"
+  }'
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+## Related
+
+- [Testing: Finances](../testing/finances)
+- [Integrations: Stripe](./integrations)
+- [Analytics](./analytics)

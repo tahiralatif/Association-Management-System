@@ -3,74 +3,108 @@ sidebar_position: 13
 title: AI Engine
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # AI Engine Module
 
-Built-in AI assistant powered by Groq (Llama 3.3 70B) with predictive analytics.
+Ask your association data questions in natural language and get intelligent answers.
 
-## Features
+## What Can You Do?
 
-- **AI Chat:** Natural language assistant for association management
-- **Churn Prediction:** RFM (Recency, Frequency, Monetary) scoring
-- **Anomaly Detection:** Z-score and IQR-based statistical analysis
-- **Semantic Search:** Vector embeddings via pgvector for document search
-- **Document Generation:** AI-powered report and letter generation
-- **Insights Engine:** Automated insights across all modules
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
 
-## API Endpoints (11 endpoints)
+**Chat Assistant** — Ask questions in plain English. The AI knows your data and answers using real numbers.
+
+**AI Insights** — Get automatic analysis of trends across your association.
+
+**Semantic Search** — Find documents by meaning, not just keywords.
+
+**Churn Prediction** — AI identifies members at risk of leaving.
+
+**Anomaly Detection** — Catches unusual financial transactions or attendance patterns.
+
+**Document Generation** — AI creates polished reports, minutes, and letters.
+
+### Try it now:
+
+1. Click **AI Engine** in the sidebar
+2. Type: "How many active members do we have?"
+3. The AI answers with your actual data
+4. Try: "What events are coming up this month?"
+5. Try: "Show me the revenue breakdown"
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+### API Endpoints (11)
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| `GET` | `/ai/models` | List available AI models | Staff+ |
-| `POST` | `/ai/chat` | Chat with AI assistant | Member |
-| `POST` | `/ai/insights` | Generate insights | Staff+ |
-| `GET` | `/ai/insights` | Get cached insights | Member |
-| `POST` | `/ai/predict/churn` | Predict member churn | Staff+ |
-| `POST` | `/ai/detect/anomalies` | Detect anomalies in data | Staff+ |
-| `POST` | `/ai/embeddings` | Create vector embeddings | Staff+ |
-| `POST` | `/ai/search/semantic` | Semantic search | Member |
+| `POST` | `/ai/chat` | Chat with AI | Everyone |
+| `GET` | `/ai/health` | AI service health | Everyone |
+| `GET` | `/ai/insights` | Auto-generated insights | Staff+ |
+| `POST` | `/ai/embeddings/search` | Semantic search | Staff+ |
+| `GET` | `/ai/models` | Available AI models | Staff+ |
+| `POST` | `/ai/predict/churn/{member_id}` | Churn prediction | Staff+ |
+| `POST` | `/ai/predict/anomalies` | Anomaly detection | Staff+ |
 | `POST` | `/ai/generate/document` | AI document generation | Staff+ |
-| `POST` | `/ai/generate/email` | AI email generation | Staff+ |
-| `GET` | `/ai/usage` | AI usage statistics | Staff+ |
+| `GET` | `/ai/conversations/{session_id}` | Conversation history | Member |
+| `DELETE` | `/ai/conversations/{session_id}` | Delete conversation | Member |
+| `GET` | `/ai/embeddings/stats` | Embedding statistics | Staff+ |
 
-## AI Chat Example
+### LLM Configuration
 
-```bash
-curl -X POST http://localhost:8002/api/v1/ai/chat \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "How many active members do we have?",
-    "context": "association_management"
-  }'
-```
+- **Provider:** OpenRouter (primary), Groq (fallback)
+- **Primary Model:** `meta-llama/llama-3.1-8b-instruct`
+- **Fallback Models:** `google/gemma-4-31b-it:free` → `llama-3.1-8b-instant`
+- **Embeddings:** pgvector with 384-dimensional vectors
 
-## Churn Prediction
-
-Uses RFM analysis to score members:
-- **Recency:** How recently did they interact?
-- **Frequency:** How often do they engage?
-- **Monetary:** How much do they spend?
-
-Members scoring below threshold are flagged as "at-risk."
-
-## Semantic Search
-
-Documents are embedded using Groq's embedding model and stored in PostgreSQL's pgvector extension. Search uses cosine similarity.
-
-## Testing
+### Example: Chat
 
 ```bash
-TOKEN="your-jwt-token"
-API="http://localhost:8002/api/v1"
-
-# List AI models
-curl -s "$API/ai/models" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-
-# Chat with AI
-curl -s -X POST "$API/ai/chat" \
+curl -X POST https://ams.14.jugaar.ai/api/v1/ai/chat \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"message":"What are our most active members?","context":"association_management"}' | python3 -m json.tool
+  -d '{"message": "How many active members do we have?"}'
 ```
 
-See [Testing: AI Engine](../testing/ai-engine.md) for complete test scripts.
+**Expected response (200):**
+```json
+{
+  "response": "You have 57 active members out of 78 total members...",
+  "session_id": "uuid",
+  "model_used": "meta-llama/llama-3.1-8b-instruct",
+  "sources": ["members_table", "member_stats"]
+}
+```
+
+### Example: Churn Prediction
+
+```bash
+curl -X POST https://ams.14.jugaar.ai/api/v1/ai/predict/churn/{member_id} \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Returns:** Risk score (0-1), contributing factors, recommended actions.
+
+### Example: Anomaly Detection
+
+```bash
+curl -X POST https://ams.14.jugaar.ai/api/v1/ai/predict/anomalies \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"module": "finances", "lookback_days": 30}'
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+## Related
+
+- [Testing: AI Engine](../testing/ai-engine)
+- [Members: Churn Prediction](./members)
+- [Analytics](./analytics)

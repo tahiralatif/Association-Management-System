@@ -3,156 +3,90 @@ sidebar_position: 4
 title: Login
 ---
 
-# Login Guide
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## How Login Works
+# Login
 
-### Step 1: Navigate to Login
+Access your AssocHub account.
 
-Visit `https://ams.14.jugaar.ai/login` or click **Sign In** on the landing page.
+## Demo Credentials
 
-### Step 2: Enter Credentials
-
-| Field | Description | Example |
-|---|---|---|
-| Email | Your registered email | `admin@assochub.com` |
-| Password | Your account password | `***` |
-| Tenant ID | Organization identifier | `default` |
-
-### Step 3: Sign In
-
-Click **Sign In**. The system will:
-1. Validate credentials against the database
-2. Generate a JWT access token (24-hour expiry)
-3. Fetch your user profile via `/auth/me`
-4. Redirect you to the Dashboard
-
-### Available Test Accounts
-
-| Email | Password | Tenant ID | Role |
+| Role | Email | Password | Tenant |
 |---|---|---|---|
-| `demo@assochub.com` | `***` | `default` | `member` |
-| `daniel.harris@example.com` | `***` | `demo-association` | `super_admin` |
+| **Admin** (full access) | `daniel.harris@example.com` | `Demo1234!` | `demo-association` |
+| **Member** (limited access) | `demo@gmail.com` | `Demo1234!` | `demo-association` |
 
-### Password Reset
+---
 
-If you forget your password, use the `/auth/forgot-password` endpoint:
+## How to Log In
 
-```bash
-curl -X POST http://localhost:8002/api/v1/auth/forgot-password \
-  -H "Content-Type: application/json" \
-  -d '{"email": "your@email.com"}'
-```
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
 
-### Change Password
+1. Go to **[https://ams.14.jugaar.ai/login](https://ams.14.jugaar.ai/login)**
+2. You'll see a login form
+3. **Look at the hint box** at the bottom of the form — it shows the demo credentials
+4. Enter the email, password, and tenant ID from the table above
+5. Click **Sign In**
+6. ✅ You're on the Dashboard
 
-Once logged in, change your password:
+:::tip
+Use the **Admin** credentials to see all features. The Member account has limited access.
+:::
 
-```bash
-curl -X POST http://localhost:8002/api/v1/auth/change-password \
-  -H "Authorization: Bearer {token}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "old_password": "CurrentPass123!",
-    "new_password": "NewSecure456!"
-  }'
-```
-
-## Testing Login
-
-### Test 1: Successful Login (Super Admin)
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -X POST http://localhost:8002/api/v1/auth/login \
+curl -X POST https://ams.14.jugaar.ai/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "daniel.harris@example.com",
-    "password": "***",
+    "password": "Demo1234!",
     "tenant_id": "demo-association"
   }'
 ```
 
-**Expected:** `200 OK`
+**Expected response (200):**
 ```json
 {
-  "access_token": "eyJ...",
-  "refresh_token": "eyJ...",
-  "token_type": "bearer"
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "token_type": "bearer",
+  "user": {
+    "id": "uuid",
+    "email": "daniel.harris@example.com",
+    "first_name": "Daniel",
+    "last_name": "Harris",
+    "roles": [{"role": "super_admin", "tenant_id": "demo-association"}]
+  }
 }
 ```
 
-### Test 2: Wrong Password
-
+Save the token:
 ```bash
-curl -X POST http://localhost:8002/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "daniel.harris@example.com",
-    "password": "WrongPassword1!",
-    "tenant_id": "demo-association"
-  }'
+export TOKEN="eyJhbGciOiJIUzI1NiIs..."
 ```
 
-**Expected:** `400 Bad Request` — `{"detail":"Invalid credentials"}`
+</TabItem>
+</Tabs>
 
-### Test 3: Wrong Tenant ID
+---
 
-```bash
-curl -X POST http://localhost:8002/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "daniel.harris@example.com",
-    "password": "***",
-    "tenant_id": "wrong-tenant"
-  }'
-```
+## Troubleshooting
 
-**Expected:** `400 Bad Request` — `{"detail":"Invalid credentials"}`
+| Problem | Solution |
+|---|---|
+| "Invalid email or password" | Check email, password (`Demo1234!`), and tenant (`demo-association`) |
+| "Email not verified" | Click "Resend verification email" on the login page |
+| "Internal error" | Password doesn't meet requirements — use uppercase + lowercase + special char + 8+ chars |
 
-### Test 4: Non-existent User
+See [Troubleshooting](./troubleshooting) for more help.
 
-```bash
-curl -X POST http://localhost:8002/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "nobody@example.com",
-    "password": "AnyPass123!",
-    "tenant_id": "default"
-  }'
-```
+---
 
-**Expected:** `400 Bad Request` — `{"detail":"Invalid credentials"}`
+## Related
 
-## Session Management
-
-- **Token Storage:** JWT stored in browser `localStorage`
-- **Token Expiry:** 24 hours
-- **Auto Logout:** On 401 response, user is redirected to `/login`
-- **Public Routes:** `/`, `/login`, `/register`, `/marketing` — accessible without auth
-
-## Automated Test Script
-
-```bash
-#!/bin/bash
-API="http://localhost:8002/api/v1"
-PASS=0; FAIL=0
-
-echo "=== Login Tests ==="
-
-# Test 1: Valid login
-R=$(curl -s -w "\n%{http_code}" -X POST "$API/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}')
-CODE=$(echo "$R" | tail -1)
-[ "$CODE" = "200" ] && echo "✅ Valid login" && ((PASS++)) || echo "❌ Valid login (HTTP $CODE)" && ((FAIL++))
-
-# Test 2: Invalid credentials
-R=$(curl -s -w "\n%{http_code}" -X POST "$API/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}')
-CODE=$(echo "$R" | tail -1)
-[ "$CODE" = "400" ] && echo "✅ Invalid credentials rejected" && ((PASS++)) || echo "❌ Invalid credentials (HTTP $CODE)" && ((FAIL++))
-
-echo ""
-echo "Results: $PASS passed, $FAIL failed"
-```
+- [Registration](./registration)
+- [Getting Started](./getting-started)
+- [Testing: Auth Flow](./testing/auth-flow)

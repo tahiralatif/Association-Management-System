@@ -139,9 +139,13 @@ export default function LoginPage() {
           </form>
 
           {/* Demo credentials hint */}
-          <div className="mt-5 p-3 bg-teal-50/60 border border-teal-100 rounded-lg">
+          <div className="mt-5 p-3 bg-teal-50/60 border border-teal-100 rounded-lg space-y-1.5">
+            <p className="text-xs text-teal-800 text-center font-semibold">Demo Credentials</p>
             <p className="text-xs text-teal-700 text-center">
-              <strong>Demo:</strong> demo@gmail.com / Demo1234! / demo-association
+              <strong>Admin:</strong> daniel.harris@example.com / Demo1234! / demo-association
+            </p>
+            <p className="text-xs text-teal-700 text-center">
+              <strong>User:</strong> demo@gmail.com / Demo1234! / demo-association
             </p>
           </div>
         </CardContent>

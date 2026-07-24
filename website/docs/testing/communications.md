@@ -1,126 +1,103 @@
 ---
 sidebar_position: 21
-title: Communications Testing
+title: Communications
 ---
 
-# Testing: Communications Module
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## Prerequisites
+# Testing: Communications
 
-```bash
-TOKEN=$(curl -s -X POST http://localhost:8002/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+Test email campaigns, announcements, and surveys.
 
-API="http://localhost:8002/api/v1"
-```
+## Demo Credentials
 
-## Test 1: List Campaigns
+| Role | Email | Password | Tenant |
+|---|---|---|---|
+| **Admin** | `daniel.harris@example.com` | `Demo1234!` | `demo-association` |
 
-```bash
-curl -s "$API/communications/campaigns" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
+---
 
-**Expected:** `HTTP 200` — 3 campaigns in the demo.
+## Test 1: Announcements
 
-## Test 2: Create Campaign
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
 
-```bash
-curl -s -X POST "$API/communications/campaigns" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Test Newsletter",
-    "subject": "Monthly Update",
-    "body": "<h1>Hello {{ member.first_name }}!</h1><p>Welcome to our newsletter.</p>",
-    "audience": "all_members",
-    "status": "draft"
-  }' | python3 -m json.tool
-```
+1. Click **Communications** in the sidebar
+2. Browse the announcements
+3. ✅ See 26 seeded announcements (some pinned)
 
-**Expected:** `HTTP 200/201` — Campaign created.
-
-## Test 3: Duplicate Campaign
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-CAMPAIGN_ID="campaign-uuid-here"
-curl -s -X POST "$API/communications/campaigns/$CAMPAIGN_ID/duplicate" \
-  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/communications/announcements \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` — Duplicated campaign.
+</TabItem>
+</Tabs>
 
-## Test 4: List Announcements
+## Test 2: Campaigns
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Check the campaigns section
+2. ✅ See email campaigns with sent/open/click stats
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s "$API/communications/announcements" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/communications/campaigns \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` — Announcements list.
+</TabItem>
+</Tabs>
 
-## Test 5: Create Announcement
+## Test 3: Surveys
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Check the surveys section
+2. ✅ See 4 seeded surveys (NPS, event feedback, member satisfaction)
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s -X POST "$API/communications/announcements" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Important Update",
-    "content": "System maintenance scheduled for this weekend.",
-    "priority": "high",
-    "pinned": true
-  }' | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/communications/surveys \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200/201` — Announcement created.
+</TabItem>
+</Tabs>
 
-## Test 6: List Surveys
+## Test 4: Email Templates
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Check the templates section
+2. ✅ See reusable email templates
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s "$API/communications/surveys" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/communications/templates \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` — Survey list.
+</TabItem>
+</Tabs>
 
-## Test 7: List Email Templates
+---
 
-```bash
-curl -s "$API/communications/templates" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
+## Related
 
-**Expected:** `HTTP 200` — Email template list.
-
-## Test 8: Send Logs
-
-```bash
-curl -s "$API/communications/send-logs" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
-
-**Expected:** `HTTP 200` — Send log history.
-
-## Automated Test Script
-
-```bash
-#!/bin/bash
-API="http://localhost:8002/api/v1"
-TOKEN=$(curl -s -X POST "$API/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
-PASS=0; FAIL=0
-
-echo "=== Communications Module Tests ==="
-for ep in \
-  "List Campaigns|GET|$API/communications/campaigns" \
-  "List Announcements|GET|$API/communications/announcements" \
-  "List Surveys|GET|$API/communications/surveys" \
-  "List Templates|GET|$API/communications/templates" \
-  "Send Logs|GET|$API/communications/send-logs"; do
-  IFS='|' read -r name method url <<< "$ep"
-  C=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" "$url" -H "Authorization: Bearer $TOKEN")
-  [ "$C" = "200" ] && echo "✅ $name" && ((PASS++)) || echo "❌ $name (HTTP $C)" && ((FAIL++))
-done
-echo ""
-echo "Communications Tests: $PASS passed, $FAIL failed"
-```
+- [Modules: Communications](../modules/communications)
+- [Testing: Members](./members)

@@ -3,65 +3,96 @@ sidebar_position: 10
 title: Elections
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Elections Module
 
-Full election lifecycle — nominations, ranked-choice voting, secret ballots, and real-time results.
+Run elections with ranked-choice voting, secret ballots, and real-time results.
 
-## Features
+## What Can You Do?
 
-- **Election Management:** Create elections with start/end dates
-- **Positions:** Define open positions with descriptions and requirements
-- **Nominations:** Self-nomination or nominate others, accept/decline workflow
-- **Voting:** Ranked-choice voting, secret ballots
-- **Quorum:** Configurable quorum requirements
-- **Results:** Real-time tabulation, publish results
-- **Voter Eligibility:** Automatic eligibility based on membership status
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
 
-## API Endpoints (15 endpoints)
+**Create elections** — Set up board elections, officer elections, or any vote.
+
+**Nominations** — Let members nominate themselves or others for positions.
+
+**Ranked-choice voting** — Voters rank candidates in order of preference. The winner is determined by instant-runoff.
+
+**Secret ballots** — Votes are anonymous. Nobody can see who voted for whom.
+
+**Real-time results** — Watch results update as votes come in. See round-by-round elimination.
+
+### Try it now:
+
+1. Click **Elections** in the sidebar
+2. Browse 16 seeded elections — some active, some completed, some upcoming
+3. Click on an election to see candidates and current results
+4. Check the election statistics
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+### API Endpoints (15)
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| `GET` | `/elections/` | List elections | Member |
-| `POST` | `/elections/` | Create election | Admin |
+| `GET` | `/elections/` | List elections | Staff+ |
+| `POST` | `/elections/` | Create election | Staff+ |
 | `GET` | `/elections/stats` | Election statistics | Staff+ |
-| `GET` | `/elections/{id}` | Get election details | Member |
-| `PUT` | `/elections/{id}` | Update election | Admin |
+| `GET` | `/elections/{id}` | Get election | Staff+ |
+| `PUT` | `/elections/{id}` | Update election | Staff+ |
 | `DELETE` | `/elections/{id}` | Delete election | Admin |
-| `POST` | `/elections/{id}/start-nominations` | Open nominations | Admin |
-| `POST` | `/elections/{id}/close-nominations` | Close nominations | Admin |
-| `GET` | `/elections/{id}/positions` | List positions | Member |
-| `POST` | `/elections/{id}/positions` | Create position | Admin |
-| `POST` | `/elections/{id}/nominate` | Submit nomination | Member |
-| `PUT` | `/elections/{id}/nominations/{nid}/accept` | Accept nomination | Staff+ |
-| `PUT` | `/elections/{id}/nominations/{nid}/decline` | Decline nomination | Staff+ |
+| `POST` | `/elections/{id}/nominate` | Nominate candidate | Member |
+| `GET` | `/elections/{id}/candidates` | List candidates | Staff+ |
 | `POST` | `/elections/{id}/vote` | Cast vote | Member |
-| `POST` | `/elections/{id}/close` | Close election | Admin |
+| `GET` | `/elections/{id}/results` | Get results | Staff+ |
+| `POST` | `/elections/{id}/publish` | Publish results | Admin |
+| `GET` | `/elections/{id}/ballots` | List ballots | Admin |
+| `GET` | `/elections/{id}/audit` | Audit trail | Admin |
+| `PUT` | `/elections/{id}/candidates/{cid}` | Update candidate | Staff+ |
+| `DELETE` | `/elections/{id}/candidates/{cid}` | Remove candidate | Staff+ |
 
-## Election Lifecycle
-
-```
-Draft → Nominations Open → Nominations Closed → Voting Open → Voting Closed → Results Published
-```
-
-## Voting Methods
-
-| Method | Description |
-|---|---|
-| **Ranked Choice** | Voters rank candidates in order of preference |
-| **Simple Majority** | One vote per position, most votes wins |
-| **Secret Ballot** | Votes are anonymized, no tracking of who voted for whom |
-
-## Testing
+### Example: Create an Election
 
 ```bash
-TOKEN="your-jwt-token"
-API="http://localhost:8002/api/v1"
-
-# List elections
-curl -s "$API/elections/" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-
-# Get election stats
-curl -s "$API/elections/stats" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -X POST https://ams.14.jugaar.ai/api/v1/elections/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Board President 2026",
+    "description": "Annual board president election",
+    "start_date": "2026-08-01T00:00:00",
+    "end_date": "2026-08-15T23:59:59",
+    "voting_method": "ranked_choice",
+    "positions": ["President"]
+  }'
 ```
 
-See [Testing: Elections](../testing/elections.md) for complete test scripts.
+### Example: Cast a Ranked-Choice Vote
+
+```bash
+curl -X POST https://ams.14.jugaar.ai/api/v1/elections/{election_id}/vote \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rankings": [
+      {"candidate_id": "uuid-1", "rank": 1},
+      {"candidate_id": "uuid-2", "rank": 2},
+      {"candidate_id": "uuid-3", "rank": 3}
+    ]
+  }'
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+## Related
+
+- [Testing: Elections](../testing/elections)
+- [Members](./members)
+- [Communications: Election Announcements](./communications)

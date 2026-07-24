@@ -1,119 +1,82 @@
 ---
 sidebar_position: 23
-title: Documents Testing
+title: Documents
 ---
 
-# Testing: Documents Module
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## Prerequisites
+# Testing: Documents
 
-```bash
-TOKEN=$(curl -s -X POST http://localhost:8002/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+Test document upload, categories, versioning, and sharing.
 
-API="http://localhost:8002/api/v1"
-```
+## Demo Credentials
+
+| Role | Email | Password | Tenant |
+|---|---|---|---|
+| **Admin** | `daniel.harris@example.com` | `Demo1234!` | `demo-association` |
+
+---
 
 ## Test 1: List Documents
 
-```bash
-curl -s "$API/documents/" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
 
-**Expected:** `HTTP 200` — 8 documents in the demo.
+1. Click **Documents** in the sidebar
+2. ✅ See 28 seeded documents (reports, templates, policies, minutes)
 
-## Test 2: Document Statistics
-
-```bash
-curl -s "$API/documents/stats" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
-
-**Expected:** `HTTP 200` — Document counts by category, size, etc.
-
-## Test 3: List Categories
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s "$API/documents/categories" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/documents/ \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` — Category list (bylaws, minutes, reports, etc.).
+</TabItem>
+</Tabs>
 
-## Test 4: Upload Document
+## Test 2: Categories
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Check document categories
+2. ✅ See organized categories (reports, templates, policies, etc.)
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-echo "Test document content" > /tmp/test-doc.txt
-curl -s -X POST "$API/documents/" \
-  -H "Authorization: Bearer $TOKEN" \
-  -F "file=@/tmp/test-doc.txt" \
-  -F "title=Test Document" \
-  -F "category=reports" \
-  -F "description=A test document" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/documents/categories \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200/201` — Document uploaded with ID.
+</TabItem>
+</Tabs>
 
-## Test 5: Add Comment
+## Test 3: Document Stats
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Check document statistics
+2. ✅ See total documents, by category, recent uploads
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-DOC_ID="document-uuid-here"
-curl -s -X POST "$API/documents/$DOC_ID/comments" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"content": "This is a test comment"}' | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/documents/stats \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200/201` — Comment added.
+</TabItem>
+</Tabs>
 
-## Test 6: List Comments
+---
 
-```bash
-curl -s "$API/documents/$DOC_ID/comments" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
+## Related
 
-**Expected:** `HTTP 200` — Comment list.
-
-## Test 7: Share Document
-
-```bash
-curl -s -X POST "$API/documents/$DOC_ID/share" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"member_id": "member-uuid", "permission": "read"}' | python3 -m json.tool
-```
-
-**Expected:** `HTTP 200` — Document shared.
-
-## Test 8: Delete Document (Cleanup)
-
-```bash
-curl -s -X DELETE "$API/documents/$DOC_ID" \
-  -H "Authorization: Bearer $TOKEN" -w "\nHTTP: %{http_code}"
-```
-
-**Expected:** `HTTP 200/204` — Document deleted.
-
-## Automated Test Script
-
-```bash
-#!/bin/bash
-API="http://localhost:8002/api/v1"
-TOKEN=$(curl -s -X POST "$API/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
-PASS=0; FAIL=0
-
-echo "=== Documents Module Tests ==="
-for ep in \
-  "List Documents|GET|$API/documents/" \
-  "Document Stats|GET|$API/documents/stats" \
-  "List Categories|GET|$API/documents/categories"; do
-  IFS='|' read -r name method url <<< "$ep"
-  C=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" "$url" -H "Authorization: Bearer $TOKEN")
-  [ "$C" = "200" ] && echo "✅ $name" && ((PASS++)) || echo "❌ $name (HTTP $C)" && ((FAIL++))
-done
-echo ""
-echo "Documents Tests: $PASS passed, $FAIL failed"
-```
+- [Modules: Documents](../modules/documents)

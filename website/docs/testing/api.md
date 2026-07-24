@@ -3,110 +3,142 @@ sidebar_position: 28
 title: API Testing
 ---
 
-# Testing: API Fundamentals
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## Base URL
+# Testing: API
 
-- **Local:** `http://localhost:8002/api/v1`
-- **Live:** `https://ams.14.jugaar.ai/api/v1`
+Test pagination, filtering, error handling, and authentication.
 
-## Authentication
+## Demo Credentials
 
-All protected endpoints require a JWT Bearer token:
+| Role | Email | Password | Tenant |
+|---|---|---|---|
+| **Admin** | `daniel.harris@example.com` | `Demo1234!` | `demo-association` |
+
+---
+
+## Test 1: Authentication
+
+<Tabs>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-# Login to get token
-TOKEN=$(curl -s -X POST http://localhost:8002/api/v1/auth/login \
+# Login
+curl -s -X POST https://ams.14.jugaar.ai/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+  -d '{"email":"daniel.harris@example.com","password":"Demo1234!","tenant_id":"demo-association"}'
 
-# Use token in requests
-curl -s http://localhost:8002/api/v1/members/ \
+# Get user info
+curl -s https://ams.14.jugaar.ai/api/v1/auth/me \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-## OpenAPI Spec
+</TabItem>
+</Tabs>
 
-Full interactive API docs are available at:
+## Test 2: Pagination
 
-```
-http://localhost:8002/docs      # Swagger UI
-http://localhost:8002/redoc     # ReDoc
-http://localhost:8002/openapi.json  # Raw spec
-```
-
-## Error Responses
-
-| Status | Meaning | Example |
-|---|---|---|
-| `400` | Bad Request | `{"detail":"Invalid credentials"}` |
-| `401` | Not Authenticated | `{"detail":"Not authenticated"}` |
-| `403` | Forbidden | `{"detail":"Required roles: super_admin"}` |
-| `404` | Not Found | `{"detail":"Resource not found"}` |
-| `409` | Conflict | `{"detail":"Email already registered"}` |
-| `422` | Validation Error | `{"detail":[{"msg":"field required",...}]}` |
-| `500` | Server Error | `{"detail":"Internal server error"}` |
-
-## Pagination
-
-Most list endpoints support pagination:
+<Tabs>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s "http://localhost:8002/api/v1/members/?skip=0&limit=10" \
+# First page
+curl -s "https://ams.14.jugaar.ai/api/v1/members/?page=1&per_page=10" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Second page
+curl -s "https://ams.14.jugaar.ai/api/v1/members/?page=2&per_page=10" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-Response:
-```json
-{
-  "total": 23,
-  "items": [...]
-}
-```
+</TabItem>
+</Tabs>
 
-## Filtering
+## Test 3: Error Handling
 
-Some endpoints support filtering:
+<Tabs>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-# Filter by status
-curl -s "http://localhost:8002/api/v1/members/?status=active" \
-  -H "Authorization: Bearer $TOKEN"
+# 401 — No token
+curl -s -o /dev/null -w "%{http_code}" https://ams.14.jugaar.ai/api/v1/members/
+# Expected: 401
 
-# Search
-curl -s "http://localhost:8002/api/v1/members/search?q=daniel" \
+# 404 — Not found
+curl -s -o /dev/null -w "%{http_code}" https://ams.14.jugaar.ai/api/v1/members/nonexistent \
   -H "Authorization: Bearer $TOKEN"
+# Expected: 404
+
+# 422 — Validation error
+curl -s -o /dev/null -w "%{http_code}" -X POST https://ams.14.jugaar.ai/api/v1/members/ \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{}'
+# Expected: 422
 ```
 
-## Health Check
+</TabItem>
+</Tabs>
+
+## Test 4: Trailing Slash
+
+<Tabs>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+:::warning
+All list endpoints require a trailing slash!
+:::
 
 ```bash
-curl -s http://localhost:8002/health | python3 -m json.tool
+# ✅ Correct — trailing slash
+curl -s -o /dev/null -w "%{http_code}" https://ams.14.jugaar.ai/api/v1/members/ \
+  -H "Authorization: Bearer $TOKEN"
+# Expected: 200
+
+# ❌ Wrong — no trailing slash (returns 307 redirect)
+curl -s -o /dev/null -w "%{http_code}" https://ams.14.jugaar.ai/api/v1/members \
+  -H "Authorization: Bearer $TOKEN"
+# Expected: 307
 ```
 
-**Expected:**
-```json
-{
-  "status": "healthy|degraded",
-  "version": "0.1.0",
-  "services": {
-    "database": {"status": "ok"},
-    "redis": {"status": "ok|error"},
-    "celery": {"status": "ok|error"}
-  }
-}
+</TabItem>
+</Tabs>
+
+## Test 5: Health Check
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Go to `https://ams.14.jugaar.ai/health`
+2. ✅ See JSON with service status
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+```bash
+curl -s https://ams.14.jugaar.ai/health | python3 -m json.tool
 ```
 
-## Rate Limiting
+</TabItem>
+</Tabs>
 
-The API implements rate limiting per IP. Exceeding limits returns:
-```
-HTTP 429 Too Many Requests
-```
+---
 
-## CORS
+## Expected HTTP Status Codes
 
-The API allows cross-origin requests from:
-- `http://localhost:3002` (frontend dev)
-- `https://ams.14.jugaar.ai` (production)
+| Code | Meaning |
+|---|---|
+| `200` | Success |
+| `201` | Created |
+| `401` | Not authenticated |
+| `403` | Forbidden (wrong role) |
+| `404` | Not found |
+| `422` | Validation error |
+| `307` | Redirect (missing trailing slash) |
+
+---
+
+## Related
+
+- [API Reference](../api-reference)
+- [Troubleshooting](../troubleshooting)

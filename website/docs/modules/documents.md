@@ -3,49 +3,76 @@ sidebar_position: 11
 title: Documents
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Documents Module
 
-Document management with versioning, sharing, and access control.
+Upload, organize, and control access to files and documents.
 
-## Features
+## What Can You Do?
 
-- **File Upload:** Upload PDFs, Word docs, images, spreadsheets
-- **Categories:** Organize by type (bylaws, minutes, reports, templates)
-- **Versioning:** Track document versions with changelog
-- **Sharing:** Share with members, groups, or publicly
-- **Comments:** Threaded comments on documents
-- **Access Control:** Role-based document visibility
-- **Activity Logs:** Track who viewed, downloaded, or modified
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
 
-## API Endpoints (13 endpoints)
+**Upload files** — Add documents with titles, descriptions, and categories.
+
+**Organize** — Put files into categories (reports, templates, policies, meeting minutes).
+
+**Version control** — Upload new versions of a document. Old versions are kept.
+
+**Sharing** — Control who can see each document.
+
+**Comments** — Add notes or feedback on documents.
+
+### Try it now:
+
+1. Click **Documents** in the sidebar
+2. Browse 28 seeded documents — reports, templates, policies, meeting minutes
+3. Click on a document to see its details and version history
+4. Check the document statistics
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+### API Endpoints (13)
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| `GET` | `/documents/` | List documents | Member |
+| `GET` | `/documents/` | List documents | Staff+ |
 | `POST` | `/documents/` | Upload document | Staff+ |
 | `GET` | `/documents/stats` | Document statistics | Staff+ |
-| `GET` | `/documents/{id}` | Get document details | Member |
-| `PUT` | `/documents/{id}` | Update document metadata | Staff+ |
+| `GET` | `/documents/{id}` | Get document | Staff+ |
+| `PUT` | `/documents/{id}` | Update document | Staff+ |
 | `DELETE` | `/documents/{id}` | Delete document | Admin |
-| `GET` | `/documents/{id}/versions` | List versions | Member |
 | `POST` | `/documents/{id}/versions` | Upload new version | Staff+ |
+| `GET` | `/documents/{id}/versions` | List versions | Staff+ |
 | `GET` | `/documents/categories` | List categories | Member |
 | `POST` | `/documents/categories` | Create category | Staff+ |
 | `POST` | `/documents/{id}/share` | Share document | Staff+ |
 | `POST` | `/documents/{id}/comments` | Add comment | Member |
 | `GET` | `/documents/{id}/comments` | List comments | Member |
 
-## Testing
+### Example: Upload a Document
 
 ```bash
-TOKEN="your-jwt-token"
-API="http://localhost:8002/api/v1"
-
-# List documents
-curl -s "$API/documents/" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-
-# Get document stats
-curl -s "$API/documents/stats" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -X POST https://ams.14.jugaar.ai/api/v1/documents/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Q2 Financial Report",
+    "description": "Quarterly financial summary",
+    "category": "reports",
+    "content": "Full report text here..."
+  }'
 ```
 
-See [Testing: Documents](../testing/documents.md) for complete test scripts.
+</TabItem>
+</Tabs>
+
+---
+
+## Related
+
+- [Testing: Documents](../testing/documents)
+- [Workflows: Document Automation](./workflows)

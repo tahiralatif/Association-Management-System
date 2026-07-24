@@ -1,139 +1,122 @@
 ---
 sidebar_position: 19
-title: Finances Testing
+title: Finances
 ---
 
-# Testing: Finances Module
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## Prerequisites
+# Testing: Finances
 
-```bash
-TOKEN=$(curl -s -X POST http://localhost:8002/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+Test invoices, expenses, budgets, and payment tracking.
 
-API="http://localhost:8002/api/v1"
-```
+## Demo Credentials
 
-## Test 1: List Invoices
+| Role | Email | Password | Tenant |
+|---|---|---|---|
+| **Admin** | `daniel.harris@example.com` | `Demo1234!` | `demo-association` |
 
-```bash
-curl -s "$API/finances/finances/invoices" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
+---
 
-**Expected:** `HTTP 200` — 3 invoices in the demo.
+## Test 1: Financial Dashboard
 
-## Test 2: Invoice Statistics
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
 
-```bash
-curl -s "$API/finances/finances/invoices/stats" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
+1. Log in as admin
+2. Click **Finances** in the sidebar
+3. ✅ See total revenue, pending invoices, expenses, budget status
 
-**Expected:** `HTTP 200` — Revenue, outstanding, paid counts.
-
-## Test 3: Create Invoice
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s -X POST "$API/finances/finances/invoices" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "member_id": "member-uuid-here",
-    "amount": 250.00,
-    "currency": "USD",
-    "description": "Annual membership dues",
-    "due_date": "2026-08-15",
-    "line_items": [
-      {"description": "Annual Dues", "quantity": 1, "unit_price": 200.00},
-      {"description": "Donation", "quantity": 1, "unit_price": 50.00}
-    ]
-  }' | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/finances/finances/dashboard \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
 ```
 
-**Expected:** `HTTP 200/201` — Created invoice with auto-numbered ID.
+**Expected: 200 OK** with revenue, expense, and budget summaries.
 
-## Test 4: List Budgets
+</TabItem>
+</Tabs>
+
+## Test 2: Invoices
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. In Finances, browse the invoices list
+2. ✅ See 13 seeded invoices with different amounts and statuses
+3. Click an invoice to see details
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s "$API/finances/finances/budgets" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+# List invoices
+curl -s https://ams.14.jugaar.ai/api/v1/finances/finances/invoices \
+  -H "Authorization: Bearer $TOKEN"
+
+# Invoice stats
+curl -s https://ams.14.jugaar.ai/api/v1/finances/finances/invoices/stats \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` — List of budgets.
+</TabItem>
+</Tabs>
 
-## Test 5: List Expenses
+## Test 3: Expenses
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Browse the expenses section
+2. ✅ See 31 seeded expenses (venue, catering, marketing, tech, travel)
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s "$API/finances/finances/expenses" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/finances/finances/expenses \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` — Expense list with approval status.
+</TabItem>
+</Tabs>
 
-## Test 6: List Dues Structures
+## Test 4: Budgets
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Check the budgets section
+2. ✅ See 17 budgets with progress bars (spent vs. allocated)
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s "$API/finances/finances/dues" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/finances/finances/budgets \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` — Dues structure list.
+</TabItem>
+</Tabs>
 
-## Test 7: Financial Reports
+---
 
-```bash
-curl -s "$API/finances/finances/reports" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
+## Expected Results
 
-**Expected:** `HTTP 200` — Revenue and expense reports.
+| Test | Easy | API |
+|---|---|---|
+| Dashboard | Revenue/expense cards | 200 + financial summary |
+| Invoices | Invoice list with statuses | 200 + items array |
+| Expenses | Expense list with categories | 200 + items array |
+| Budgets | Budget progress bars | 200 + items array |
 
-## Test 8: Revenue Summary
+---
 
-```bash
-curl -s "$API/finances/finances/reports/summary" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
+## Related
 
-**Expected:** `HTTP 200` — Revenue summary data.
-
-## Test 9: Payment History
-
-```bash
-curl -s "$API/finances/finances/payments/history" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
-
-**Expected:** `HTTP 200` — Payment history list.
-
-## Automated Test Script
-
-```bash
-#!/bin/bash
-API="http://localhost:8002/api/v1"
-TOKEN=$(curl -s -X POST "$API/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
-PASS=0; FAIL=0
-
-echo "=== Finances Module Tests ==="
-
-test_pass() { echo "✅ $1"; ((PASS++)); }
-test_fail() { echo "❌ $1 (HTTP $2)"; ((FAIL++)); }
-
-endpoints=(
-  "List Invoices|GET|$API/finances/finances/invoices"
-  "Invoice Stats|GET|$API/finances/finances/invoices/stats"
-  "List Expenses|GET|$API/finances/finances/expenses"
-  "List Budgets|GET|$API/finances/finances/budgets"
-  "List Dues|GET|$API/finances/finances/dues"
-  "Reports|GET|$API/finances/finances/reports"
-  "Revenue Summary|GET|$API/finances/finances/reports/summary"
-  "Payment History|GET|$API/finances/finances/payments/history"
-)
-
-for ep in "${endpoints[@]}"; do
-  IFS='|' read -r name method url <<< "$ep"
-  C=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" "$url" -H "Authorization: Bearer $TOKEN")
-  [ "$C" = "200" ] && test_pass "$name" || test_fail "$name" "$C"
-done
-
-echo ""
-echo "Finances Tests: $PASS passed, $FAIL failed"
-```
+- [Modules: Finances](../modules/finances)
+- [Integrations: Stripe](../modules/integrations)

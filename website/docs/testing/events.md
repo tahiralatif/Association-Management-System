@@ -1,133 +1,114 @@
 ---
 sidebar_position: 20
-title: Events Testing
+title: Events
 ---
 
-# Testing: Events Module
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## Prerequisites
+# Testing: Events
 
-```bash
-TOKEN=$(curl -s -X POST http://localhost:8002/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+Test event creation, registration, check-in, and feedback.
 
-API="http://localhost:8002/api/v1"
-```
+## Demo Credentials
+
+| Role | Email | Password | Tenant |
+|---|---|---|---|
+| **Admin** | `daniel.harris@example.com` | `Demo1234!` | `demo-association` |
+
+---
 
 ## Test 1: List Events
 
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Log in as admin
+2. Click **Events** in the sidebar
+3. ✅ See 17 seeded events (conferences, galas, workshops, hackathons)
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
 ```bash
-curl -s "$API/events/" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/events/ \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` — 17 events in the demo.
+</TabItem>
+</Tabs>
 
 ## Test 2: Event Statistics
 
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Look for stats in the Events module
+2. ✅ See upcoming events, total attendance, revenue from tickets
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
 ```bash
-curl -s "$API/events/stats" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+curl -s https://ams.14.jugaar.ai/api/v1/events/stats \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` — Event counts by status, upcoming, etc.
+</TabItem>
+</Tabs>
 
-## Test 3: Create Event
+## Test 3: Event Details
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Click on any event
+2. ✅ See title, date, location, capacity, attendees, sessions
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s -X POST "$API/events/" \
+# Get event ID from list, then:
+curl -s https://ams.14.jugaar.ai/api/v1/events/{event_id} \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+</TabItem>
+</Tabs>
+
+## Test 4: Create Event
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Click "Create Event" button
+2. Fill in title, date, location, capacity
+3. ✅ Event appears in the list
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+```bash
+curl -X POST https://ams.14.jugaar.ai/api/v1/events/ \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Test Workshop",
+    "title": "Test Workshop",
     "description": "A test event",
-    "start_date": "2026-09-01T10:00:00Z",
-    "end_date": "2026-09-01T16:00:00Z",
-    "location": "Main Hall",
-    "max_attendees": 50,
-    "status": "draft"
-  }' | python3 -m json.tool
+    "event_date": "2026-08-15T10:00:00",
+    "location": "Online",
+    "capacity": 50,
+    "event_status": "upcoming"
+  }'
 ```
 
-**Expected:** `HTTP 200/201` — Created event with UUID.
+</TabItem>
+</Tabs>
 
-## Test 4: Publish Event
+---
 
-```bash
-EVENT_ID="event-uuid-here"
-curl -s -X POST "$API/events/$EVENT_ID/publish" \
-  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-```
+## Related
 
-**Expected:** `HTTP 200` — Status changed to `published`.
-
-## Test 5: Create Ticket Type
-
-```bash
-curl -s -X POST "$API/events/$EVENT_ID/tickets" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Early Bird",
-    "price": 25.00,
-    "quantity": 20,
-    "sale_start": "2026-08-01T00:00:00Z",
-    "sale_end": "2026-08-31T23:59:59Z"
-  }' | python3 -m json.tool
-```
-
-**Expected:** `HTTP 200/201` — Ticket type created.
-
-## Test 6: Create Session
-
-```bash
-curl -s -X POST "$API/events/$EVENT_ID/sessions" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Introduction to AMS",
-    "description": "Overview session",
-    "start_time": "2026-09-01T10:00:00Z",
-    "end_time": "2026-09-01T11:00:00Z"
-  }' | python3 -m json.tool
-```
-
-**Expected:** `HTTP 200/201` — Session created.
-
-## Test 7: Cancel Event
-
-```bash
-curl -s -X DELETE "$API/events/$EVENT_ID" \
-  -H "Authorization: Bearer $TOKEN" -w "\nHTTP: %{http_code}"
-```
-
-**Expected:** `HTTP 200/204` — Event cancelled/deleted.
-
-## Automated Test Script
-
-```bash
-#!/bin/bash
-API="http://localhost:8002/api/v1"
-TOKEN=$(curl -s -X POST "$API/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
-PASS=0; FAIL=0
-
-echo "=== Events Module Tests ==="
-for ep in "List Events|GET|$API/events/" "Event Stats|GET|$API/events/stats"; do
-  IFS='|' read -r name method url <<< "$ep"
-  C=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" "$url" -H "Authorization: Bearer $TOKEN")
-  [ "$C" = "200" ] && echo "✅ $name" && ((PASS++)) || echo "❌ $name (HTTP $C)" && ((FAIL++))
-done
-
-# Create
-EID=$(curl -s -X POST "$API/events/" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d "{\"name\":\"Test Event $(date +%s)\",\"description\":\"test\",\"start_date\":\"2026-09-01T10:00:00Z\",\"end_date\":\"2026-09-01T16:00:00Z\"}" \
-  | python3 -c "import sys,json;print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
-[ -n "$EID" ] && echo "✅ Create event" && ((PASS++)) || echo "❌ Create event" && ((FAIL++))
-
-[ -n "$EID" ] && curl -s -X DELETE "$API/events/$EID" -H "Authorization: Bearer $TOKEN" > /dev/null
-echo ""
-echo "Events Tests: $PASS passed, $FAIL failed"
-```
+- [Modules: Events](../modules/events)
+- [Testing: Communications](./communications)

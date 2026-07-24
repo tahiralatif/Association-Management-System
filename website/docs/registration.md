@@ -3,142 +3,129 @@ sidebar_position: 3
 title: Registration
 ---
 
-# Registration Guide
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## How Registration Works
+# Registration
 
-### Step 1: Navigate to Register
+Create a new AssocHub account.
 
-Visit `https://ams.14.jugaar.ai/register` or click **Get Started** on the landing page.
+## Demo Credentials (Existing Accounts)
 
-### Step 2: Fill the Form
+Don't want to register? Use these instead:
 
-| Field | Required | Description |
-|---|---|---|
-| First Name | ✅ | Your first name |
-| Last Name | ✅ | Your last name |
-| Email | ✅ | Used as your login identifier |
-| Tenant ID | ✅ | Organization identifier (use `default` for the demo) |
-| Password | ✅ | Must be 8+ chars with uppercase, lowercase, digit, special char |
-| Confirm Password | ✅ | Must match password |
+| Role | Email | Password | Tenant |
+|---|---|---|---|
+| **Admin** | `daniel.harris@example.com` | `Demo1234!` | `demo-association` |
+| **Member** | `demo@gmail.com` | `Demo1234!` | `demo-association` |
 
-### Step 3: Submit
+---
 
-Click **Create Account**. The system will:
-1. Validate all fields
-2. Check email uniqueness
-3. Hash your password with bcrypt
-4. Create your user record
-5. Generate a JWT access token
-6. Fetch your user profile via `/auth/me`
-7. Redirect you to the Dashboard
+## How to Register
 
-### Password Requirements
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
 
-```
-✅ At least 8 characters
-✅ At least one uppercase letter (A-Z)
-✅ At least one lowercase letter (a-z)
-✅ At least one digit (0-9)
-✅ At least one special character (!@#$%^&*)
-❌ No common passwords (password1!, admin123!, etc.)
-```
+1. Go to **[https://ams.14.jugaar.ai](https://ams.14.jugaar.ai)**
+2. Click **Get Started** (or go to `/register`)
+3. Fill in the form:
 
-### After Registration
+| Field | What to Enter |
+|---|---|
+| First Name | Your first name |
+| Last Name | Your last name |
+| Email | Your email address |
+| Tenant ID | `demo-association` |
+| Password | Must be 8+ chars, uppercase, lowercase, special character |
+| Confirm Password | Same password |
 
-You'll land on the **Dashboard** with:
-- Your name displayed in the sidebar
-- `member` role assigned
-- Access to self-service features
+4. Click **Create Account**
+5. ✅ You'll see "Check Your Email" — check your inbox for a verification link
+6. Click the verification link in the email
+7. Go to the login page and sign in
 
-## Testing Registration
+:::tip
+Password example: `MySecure123!` (uppercase M, lowercase y, special char !)
+:::
 
-### Test 1: Successful Registration
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
 curl -X POST https://ams.14.jugaar.ai/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "test-user@example.com",
-    "password": "TestPass123!",
     "first_name": "Test",
     "last_name": "User",
-    "tenant_id": "default"
+    "email": "testuser@example.com",
+    "tenant_id": "demo-association",
+    "password": "MySecure123!",
+    "confirm_password": "MySecure123!"
   }'
 ```
 
-**Expected:** `200 OK` with `access_token`, `refresh_token`, `token_type`
-
-### Test 2: Duplicate Email
-
-```bash
-# Register the same email again
-curl -X POST https://ams.14.jugaar.ai/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test-user@example.com",
-    "password": "TestPass123!",
-    "first_name": "Test",
-    "last_name": "User",
-    "tenant_id": "default"
-  }'
+**Expected (201):**
+```json
+{
+  "message": "Registration successful. Please check your email to verify your account.",
+  "user_id": "uuid-here"
+}
 ```
 
-**Expected:** `400 Bad Request` — "Email already registered"
+### Email Verification
 
-### Test 3: Weak Password
+After registration, you'll receive a verification email. The flow:
 
-```bash
-curl -X POST https://ams.14.jugaar.ai/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "weak@example.com",
-    "password": "123",
-    "first_name": "Weak",
-    "last_name": "Pass",
-    "tenant_id": "default"
-  }'
-```
-
-**Expected:** `400 Bad Request` — Password validation error
-
-### Test 4: Missing Fields
+1. Register → user created with `email_verified=false`
+2. Check email → click verification link
+3. `/verify-email?token=***` → sets `email_verified=true`
+4. Now you can log in
 
 ```bash
-curl -X POST https://ams.14.jugaar.ai/api/v1/auth/register \
+# Verify email (use token from the email link)
+curl -X POST https://ams.14.jugaar.ai/api/v1/auth/verify-email \
   -H "Content-Type: application/json" \
-  -d '{"email": "partial@example.com"}'
+  -d '{"token": "TOKEN_FROM_EMAIL"}'
 ```
-
-**Expected:** `422 Validation Error` — Missing required fields
-
-## Automated Test Script
 
 ```bash
-#!/bin/bash
-echo "=== Registration Tests ==="
-
-# Test 1: Valid registration
-RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-  http://localhost:8002/api/v1/auth/register \
+# Resend verification if needed
+curl -X POST https://ams.14.jugaar.ai/api/v1/auth/resend-verification \
   -H "Content-Type: application/json" \
-  -d '{"email":"test-'$(date +%s)'@example.com","password":"TestPass123!","first_name":"Test","last_name":"User","tenant_id":"default"}')
-
-echo "Test 1 - Valid registration: $([ "$RESULT" = "200" ] && echo "PASS ✅" || echo "FAIL ❌ (HTTP $RESULT)")"
-
-# Test 2: Duplicate email
-RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-  http://localhost:8002/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@assochub.com","password":"TestPass123!","first_name":"Dup","last_name":"User","tenant_id":"default"}')
-
-echo "Test 2 - Duplicate email: $([ "$RESULT" = "400" ] || [ "$RESULT" = "409" ] && echo "PASS ✅" || echo "FAIL ❌ (HTTP $RESULT)")"
-
-# Test 3: Weak password
-RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-  http://localhost:8002/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"weak-'$(date +%s)'@example.com","password":"123","first_name":"Weak","last_name":"Pass","tenant_id":"default"}')
-
-echo "Test 3 - Weak password: $([ "$RESULT" = "400" ] || [ "$RESULT" = "422" ] && echo "PASS ✅" || echo "FAIL ❌ (HTTP $RESULT)")"
+  -d '{"email": "testuser@example.com", "tenant_id": "demo-association"}'
 ```
+
+</TabItem>
+</Tabs>
+
+---
+
+## Password Requirements
+
+| Requirement | Example |
+|---|---|
+| At least 8 characters | `MySecure123!` ✅ |
+| At least one uppercase | `M` ✅ |
+| At least one lowercase | `y` ✅ |
+| At least one special character | `!` ✅ |
+
+---
+
+## Account Types
+
+New accounts get the `member` role by default. Admins can promote you to `staff` or `tenant_admin`.
+
+| Role | Access Level |
+|---|---|
+| `member` | Profile, limited modules |
+| `staff` | All modules (read/write) |
+| `tenant_admin` | Staff + admin settings |
+| `super_admin` | Full system access |
+
+---
+
+## Related
+
+- [Login](./login)
+- [Getting Started](./getting-started)
+- [Testing: Auth Flow](./testing/auth-flow)

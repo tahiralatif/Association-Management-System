@@ -1,213 +1,267 @@
 ---
 sidebar_position: 17
-title: Auth Flow Testing
+title: Auth Flow
 ---
 
-# Testing: Authentication Flow
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## Complete Auth Test Suite
+# Testing: Authentication
 
-### Test 1: Register New User
+Test the full auth flow: register, verify email, login, logout.
+
+## Demo Credentials
+
+| Role | Email | Password | Tenant |
+|---|---|---|---|
+| **Admin** | `daniel.harris@example.com` | `Demo1234!` | `demo-association` |
+| **Member** | `demo@gmail.com` | `Demo1234!` | `demo-association` |
+
+---
+
+## Test 1: Login
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Go to **[https://ams.14.jugaar.ai/login](https://ams.14.jugaar.ai/login)**
+2. Enter `daniel.harris@example.com` as email
+3. Enter `Demo1234!` as password
+4. Enter `demo-association` as tenant
+5. Click **Sign In**
+6. ✅ You should see the Dashboard
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s -w "\nHTTP_STATUS: %{http_code}" \
-  -X POST http://localhost:8002/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test-'$(date +%s)'@example.com",
-    "password": "***",
-    "first_name": "Test",
-    "last_name": "User",
-    "tenant_id": "default"
-  }'
-```
-
-**Expected:** `HTTP 200` with `access_token`, `refresh_token`, `token_type`
-
-### Test 2: Login (Super Admin)
-
-```bash
-curl -s -w "\nHTTP_STATUS: %{http_code}" \
-  -X POST http://localhost:8002/api/v1/auth/login \
+curl -X POST https://ams.14.jugaar.ai/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "daniel.harris@example.com",
-    "password": "***",
+    "password": "Demo1234!",
     "tenant_id": "demo-association"
   }'
 ```
 
-**Expected:** `HTTP 200` with `access_token`
+**Expected: 200 OK** with `access_token` and `user` object.
 
-### Test 3: Get Current User
+</TabItem>
+</Tabs>
+
+---
+
+## Test 2: Register (New User)
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Click **Get Started** on the landing page
+2. Fill in:
+   - First Name: `Test`
+   - Last Name: `User`
+   - Email: `testuser@example.com`
+   - Tenant ID: `demo-association`
+   - Password: `MySecure123!`
+   - Confirm Password: `MySecure123!`
+3. Click **Create Account**
+4. ✅ You should see "Check Your Email" screen
+5. Check your inbox for a verification email
+6. Click the verification link
+7. ✅ Email verified — go to login
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s http://localhost:8002/api/v1/auth/me \
+# Register
+curl -X POST https://ams.14.jugaar.ai/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "first_name": "Test",
+    "last_name": "User",
+    "email": "testuser@example.com",
+    "tenant_id": "demo-association",
+    "password": "MySecure123!",
+    "confirm_password": "MySecure123!"
+  }'
+```
+
+**Expected: 201 Created**
+
+```bash
+# Verify email (use token from email)
+curl -X POST https://ams.14.jugaar.ai/api/v1/auth/verify-email \
+  -H "Content-Type: application/json" \
+  -d '{"token": "TOKEN_FROM_EMAIL"}'
+```
+
+**Expected: 200 OK**
+
+</TabItem>
+</Tabs>
+
+---
+
+## Test 3: Get Current User
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+After login, your name and role appear in the top bar. No action needed — this is automatic.
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+```bash
+curl -s https://ams.14.jugaar.ai/api/v1/auth/me \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**Expected:** `HTTP 200` with user profile:
-```json
-{
-  "email": "daniel.harris@example.com",
-  "roles": ["super_admin"],
-  "tenant_id": "demo-association"
-}
-```
+**Expected: 200 OK** with user profile including roles.
 
-### Test 4: Invalid Login (Wrong Password)
+</TabItem>
+</Tabs>
+
+---
+
+## Test 4: Email Verification Errors
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Try to login with an **unverified** account
+2. ✅ You should see an error: "Please verify your email before logging in"
+3. ✅ A "Resend verification email" button appears
+4. Click it to resend
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
 
 ```bash
-curl -s -w "\nHTTP_STATUS: %{http_code}" \
-  -X POST http://localhost:8002/api/v1/auth/login \
+# Try to login before verification (should fail)
+curl -s -X POST https://ams.14.jugaar.ai/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "daniel.harris@example.com",
-    "password": "WrongPass123!",
+    "email": "unverified@example.com",
+    "password": "SomePassword123!",
     "tenant_id": "demo-association"
   }'
 ```
 
-**Expected:** `HTTP 400` — `{"detail":"Invalid credentials"}`
-
-### Test 5: Duplicate Registration
+**Expected: 403 Forbidden** with message about email verification.
 
 ```bash
-curl -s -w "\nHTTP_STATUS: %{http_code}" \
-  -X POST http://localhost:8002/api/v1/auth/register \
+# Resend verification
+curl -X POST https://ams.14.jugaar.ai/api/v1/auth/resend-verification \
+  -H "Content-Type: application/json" \
+  -d '{"email": "unverified@example.com", "tenant_id": "demo-association"}'
+```
+
+**Expected: 200 OK** (generic message to prevent enumeration)
+
+</TabItem>
+</Tabs>
+
+---
+
+## Test 5: Logout
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Click **Logout** in the sidebar
+2. ✅ You're back on the landing page
+3. ✅ The navbar shows "Sign In" instead of "Dashboard"
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+No server-side logout. Simply discard the token:
+```bash
+unset TOKEN
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+## Test 6: Protected Routes
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Log out
+2. Try to go directly to `https://ams.14.jugaar.ai/dashboard`
+3. ✅ You should be redirected to the login page
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+```bash
+# Try to access protected endpoint without token
+curl -s -o /dev/null -w "%{http_code}" https://ams.14.jugaar.ai/api/v1/members/
+```
+
+**Expected: 401 Unauthorized**
+
+</TabItem>
+</Tabs>
+
+---
+
+## Test 7: Password Validation
+
+<Tabs>
+<TabItem value="easy" label="🟢 Easy — Click Around">
+
+1. Go to Register
+2. Try a weak password like `123`
+3. ✅ You should see a clear error message about password requirements
+
+</TabItem>
+<TabItem value="hard" label="🔵 Advanced — API / Code">
+
+```bash
+# Try weak password
+curl -s -X POST https://ams.14.jugaar.ai/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "demo@assochub.com",
-    "password": "***",
-    "first_name": "Dup",
+    "first_name": "Test",
     "last_name": "User",
-    "tenant_id": "default"
+    "email": "weak@example.com",
+    "tenant_id": "demo-association",
+    "password": "123",
+    "confirm_password": "123"
   }'
 ```
 
-**Expected:** `HTTP 400` or `HTTP 409` — Email already registered
+**Expected: 422 Unprocessable Entity** with validation error details.
 
-### Test 6: Weak Password
+Password requirements: uppercase, lowercase, special character, 8+ characters.
 
-```bash
-curl -s -w "\nHTTP_STATUS: %{http_code}" \
-  -X POST http://localhost:8002/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "weak-'$(date +%s)'@example.com",
-    "password": "***",
-    "first_name": "Weak",
-    "last_name": "Pass",
-    "tenant_id": "default"
-  }'
-```
+</TabItem>
+</Tabs>
 
-**Expected:** `HTTP 400` — Password validation error
+---
 
-### Test 7: Change Password
+## Summary
 
-```bash
-# First, login and get fresh token
-curl -s -w "\nHTTP_STATUS: %{http_code}" \
-  -X POST http://localhost:8002/api/v1/auth/change-password \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "old_password": "***",
-    "new_password": "***"
-  }'
-```
+| Test | Easy Result | API Result |
+|---|---|---|
+| Login | Dashboard appears | 200 + token |
+| Register | "Check Your Email" screen | 201 + user_id |
+| Get User | Name in top bar | 200 + profile |
+| Verify Errors | Error + resend button | 403 |
+| Logout | Back to landing page | N/A |
+| Protected Routes | Redirect to login | 401 |
+| Password Validation | Clear error message | 422 |
 
-**Expected:** `HTTP 200` — Password changed successfully
+---
 
-### Test 8: Forgot Password
+## Related
 
-```bash
-curl -s -w "\nHTTP_STATUS: %{http_code}" \
-  -X POST http://localhost:8002/api/v1/auth/forgot-password \
-  -H "Content-Type: application/json" \
-  -d '{"email": "demo@assochub.com"}'
-```
-
-**Expected:** `HTTP 200` — Password reset email sent
-
-### Test 9: Access Protected Route Without Token
-
-```bash
-curl -s -w "\nHTTP_STATUS: %{http_code}" \
-  http://localhost:8002/api/v1/members/
-```
-
-**Expected:** `HTTP 401` — `{"detail":"Not authenticated"}`
-
-### Test 10: Access Admin Route with Member Role
-
-```bash
-# Login as demo user (member role)
-MEMBER_TOKEN=$(curl -s -X POST http://localhost:8002/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"demo@assochub.com","password":"***","tenant_id":"default"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
-
-curl -s -w "\nHTTP_STATUS: %{http_code}" \
-  "http://localhost:8002/api/v1/members/stats" \
-  -H "Authorization: Bearer $MEMBER_TOKEN"
-```
-
-**Expected:** `HTTP 403` — `{"detail":"Required roles: super_admin, tenant_admin, staff"}`
-
-## Browser Flow Test
-
-```
-1. Open https://ams.14.jugaar.ai          → Landing page loads
-2. Click "Get Started"                     → /register loads
-3. Fill form and submit                    → Redirects to /dashboard
-4. Click "Logout"                          → Redirects to /login
-5. Enter credentials                       → Redirects to /dashboard
-6. Close browser, open again               → / redirects to /login
-```
-
-## Automated Test Script
-
-```bash
-#!/bin/bash
-API="http://localhost:8002/api/v1"
-PASS=0; FAIL=0
-
-echo "=== Auth Flow Tests ==="
-
-# Register
-R=$(curl -s -w "|%{http_code}" -X POST "$API/auth/register" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"auto-test-$(date +%s)@example.com\",\"password\":\"***\",\"first_name\":\"Auto\",\"last_name\":\"Test\",\"tenant_id\":\"default\"}")
-CODE=$(echo "$R" | cut -d'|' -f2)
-[ "$CODE" = "200" ] && echo "✅ Register" && ((PASS++)) || echo "❌ Register (HTTP $CODE)" && ((FAIL++))
-
-# Login as super_admin
-R=$(curl -s -w "|%{http_code}" -X POST "$API/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}')
-CODE=$(echo "$R" | cut -d'|' -f2)
-TOKEN=$(echo "$R" | cut -d'|' -f1 | python3 -c "import sys,json;print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)
-[ "$CODE" = "200" ] && echo "✅ Login" && ((PASS++)) || echo "❌ Login (HTTP $CODE)" && ((FAIL++))
-
-# Auth/me
-R=$(curl -s -w "|%{http_code}" "$API/auth/me" -H "Authorization: Bearer $TOKEN")
-CODE=$(echo "$R" | cut -d'|' -f2)
-[ "$CODE" = "200" ] && echo "✅ Auth/me" && ((PASS++)) || echo "❌ Auth/me (HTTP $CODE)" && ((FAIL++))
-
-# No token
-R=$(curl -s -w "|%{http_code}" "$API/members/")
-CODE=$(echo "$R" | cut -d'|' -f2)
-[ "$CODE" = "401" ] && echo "✅ No token → 401" && ((PASS++)) || echo "❌ No token (HTTP $CODE)" && ((FAIL++))
-
-# Wrong password
-R=$(curl -s -w "|%{http_code}" -X POST "$API/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"daniel.harris@example.com","password":"***","tenant_id":"demo-association"}')
-CODE=$(echo "$R" | cut -d'|' -f2)
-[ "$CODE" = "400" ] && echo "✅ Wrong password → 400" && ((PASS++)) || echo "❌ Wrong password (HTTP $CODE)" && ((FAIL++))
-
-echo ""
-echo "Auth Tests: $PASS passed, $FAIL failed"
-```
+- [Getting Started](../getting-started)
+- [Testing: Members](./members)
+- [Troubleshooting](../troubleshooting)
