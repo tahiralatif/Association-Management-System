@@ -176,8 +176,8 @@ function Navbar() {
           <span className="font-semibold text-[15px] tracking-tight" style={{ color: C.text }}>AssocHub</span>
         </Link>
         <nav className="hidden md:flex items-center gap-8">
-          {["Features", "Platform", "Modules"].map((item) => (
-            <a key={item} href={`#${item.toLowerCase()}`} className="text-[13px] font-medium transition-colors duration-300" style={{ color: C.textSecondary }}>
+          {["Features", "Why AssocHub", "Platform", "Modules"].map((item) => (
+            <a key={item} href={item === "Why AssocHub" ? "/why" : `#${item.toLowerCase()}`} className="text-[13px] font-medium transition-colors duration-300" style={{ color: C.textSecondary }}>
               {item}
             </a>
           ))}
@@ -409,14 +409,15 @@ export default function HomePage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="rounded-2xl p-10 md:p-14"
+            className="rounded-3xl p-10 md:p-14 relative overflow-hidden"
             style={{ backgroundColor: C.greenDark, boxShadow: "0 20px 60px rgba(6,78,59,0.15)" }}
           >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+            <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle at 30% 50%, ${C.tealLight}, transparent 60%)` }} />
+            <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-10">
               <Counter end={57} label="Active Members" suffix="+" />
               <Counter end={15} label="Events Hosted" />
-              <Counter end={200} label="API Endpoints" />
-              <Counter end={14} label="Modules" />
+              <Counter end={199} label="API Endpoints" suffix="+" />
+              <Counter end={12} label="Modules" />
             </div>
           </motion.div>
         </div>
@@ -468,6 +469,48 @@ export default function HomePage() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ─── Why AssocHub Teaser ──────────────────────────── */}
+      <section className="relative py-20 px-6" style={{ backgroundColor: C.bg }}>
+        <div className="max-w-5xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="rounded-3xl p-10 md:p-16 text-center relative overflow-hidden"
+            style={{ background: `linear-gradient(135deg, ${C.greenDark} 0%, #0f4a3a 50%, ${C.teal} 100%)`, color: "#fff", boxShadow: "0 24px 60px rgba(6,78,59,0.2)" }}
+          >
+            <div className="absolute inset-0 opacity-5" style={{ background: `radial-gradient(circle at 70% 30%, ${C.tealLight}, transparent 50%)` }} />
+            <div className="relative z-10">
+              <span className="text-[11px] font-semibold tracking-[0.2em] uppercase mb-4 block opacity-70">Why AssocHub</span>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-5">Not Just Another AMS</h2>
+              <p className="text-lg max-w-2xl mx-auto mb-10 opacity-80 leading-relaxed">
+                AI built into every module · No per-contact pricing · Elections · Workflows · Open source · Self-hosted.
+                <br />Compare us feature-by-feature against Wild Apricot, MemberClicks, and CiviCRM.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Link
+                  href="/why"
+                  className="font-semibold px-8 py-3.5 rounded-xl text-[15px] transition-all hover:-translate-y-0.5"
+                  style={{ backgroundColor: "#fff", color: C.greenDark, boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }}
+                >
+                  See the Full Comparison →
+                </Link>
+                <a
+                  href="https://github.com/tahiralatif/Association-Management-System/blob/main/docs/COMPARISON.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium px-8 py-3.5 rounded-xl text-[15px] transition-all"
+                  style={{ color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }}
+                >
+                  📄 Read the Full Report
+                </a>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 

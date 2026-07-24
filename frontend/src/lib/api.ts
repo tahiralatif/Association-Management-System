@@ -771,7 +771,7 @@ export async function apiFetch<T = unknown>(
     // Only redirect if not already on a public path
     if (typeof window !== "undefined") {
       const currentPath = window.location.pathname;
-      const publicPaths = ["/", "/login", "/register", "/verify-email"];
+      const publicPaths = ["/", "/login", "/register", "/verify-email", "/why"];
       if (!publicPaths.includes(currentPath)) {
         window.location.href = "/login";
       }
