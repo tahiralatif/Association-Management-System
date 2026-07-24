@@ -1,4 +1,4 @@
-"""Lightweight LLM client — wraps the OpenAI SDK for Groq (OpenAI-compatible)."""
+"""Lightweight LLM client — wraps the OpenAI SDK for OpenRouter/Groq (OpenAI-compatible)."""
 
 from __future__ import annotations
 
@@ -13,19 +13,22 @@ _client = None
 
 # Fallback models — tried in order if primary hits rate limits
 FALLBACK_MODELS = [
-    "llama-3.1-8b-instant",
-    "gemma2-9b-it",
+    "meta-llama/llama-3.1-8b-instruct",
+    "google/gemma-4-31b-it:free",
     "llama-3.1-8b-instant",
 ]
 
 
 def _get_client():
-    """Lazy-init OpenAI client pointed at Groq."""
+    """Lazy-init OpenAI client. Primary: OpenRouter. Fallback: Groq."""
     global _client
     if _client is not None:
         return _client
 
-    api_key = settings.GROQ_API_KEY or settings.LLM_API_KEY
+    # Try OpenRouter first
+    api_key = settings.LLM_API_KEY or settings.GROQ_API_KEY
+    base_url = getattr(settings, "LLM_BASE_URL", None) or settings.GROQ_BASE_URL
+
     if not api_key:
         return None
 
@@ -33,8 +36,9 @@ def _get_client():
         from openai import OpenAI
         _client = OpenAI(
             api_key=api_key,
-            base_url=settings.GROQ_BASE_URL,
+            base_url=base_url,
         )
+        log.info("LLM client initialized: provider=%s model=%s", settings.LLM_PROVIDER, settings.LLM_MODEL)
         return _client
     except Exception:
         log.exception("Failed to init LLM client")
@@ -55,19 +59,23 @@ def chat(
 ) -> str | None:
     """Send a chat completion request. Returns the reply text or None on failure.
     
-    Automatically falls back to lighter models on rate limit errors.
+    Automatically falls back to other models on rate limit errors.
     """
     client = _get_client()
     if client is None:
         return None
 
-    primary_model = model or settings.GROQ_MODEL or settings.LLM_MODEL
+    primary_model = model or settings.LLM_MODEL or settings.GROQ_MODEL
     
-    # Build list of models to try
+    # Build list of models to try: primary first, then fallbacks
     models_to_try = [primary_model]
     for fb in FALLBACK_MODELS:
         if fb != primary_model:
             models_to_try.append(fb)
+    # Also try Groq model as last resort
+    groq_model = settings.GROQ_MODEL
+    if groq_model and groq_model not in models_to_try:
+        models_to_try.append(groq_model)
 
     for attempt_model in models_to_try:
         try:
@@ -85,11 +93,11 @@ def chat(
             if "rate_limit" in error_str or "429" in error_str:
                 log.warning("LLM rate limit on %s, trying fallback...", attempt_model)
                 continue
-            # Non-rate-limit error — don't retry
-            log.exception("LLM chat call failed (model=%s)", attempt_model)
-            return None
+            # Non-rate-limit error — log and try next
+            log.warning("LLM error on %s: %s", attempt_model, error_str[:200])
+            continue
 
-    log.error("All LLM models exhausted (rate limited)")
+    log.error("All LLM models exhausted")
     return None
 
 

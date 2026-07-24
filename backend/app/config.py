@@ -36,12 +36,13 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: str = ""
 
     # LLM / AI (Groq — OpenAI-compatible)
-    LLM_PROVIDER: str = "groq"  # groq, openai, local
+    LLM_PROVIDER: str = "openrouter"  # openrouter, groq, openai, local
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
-    LLM_API_KEY: str = ""  # fallback: set this to use Groq too
-    LLM_MODEL: str = "llama-3.3-70b-versatile"
+    LLM_API_KEY: str = ""
+    LLM_MODEL: str = "meta-llama/llama-3.1-8b-instruct"
+    LLM_BASE_URL: str = "https://openrouter.ai/api/v1"
 
     # Embeddings (Groq does NOT support embeddings — use hash fallback)
     EMBEDDING_MODEL: str = "hash-fallback"
