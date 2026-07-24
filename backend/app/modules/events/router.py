@@ -98,6 +98,15 @@ async def create_event(
     db: AsyncSession = Depends(get_db),
 ):
     event = await crud.create_event(db, user.tenant_id, user.sub, data.model_dump())
+
+    # Fire integration event
+    from app.core.events import emit_event_event
+    await emit_event_event(db, user.tenant_id, "create", {
+        "event_id": str(event.id),
+        "title": event.title,
+        "date": str(event.event_date) if event.event_date else None,
+    })
+
     return EventResponse(**{c.key: getattr(event, c.key) for c in event.__table__.columns})
 
 

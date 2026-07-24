@@ -38,9 +38,10 @@ async def get_integration_by_type(
         select(Integration).where(
             Integration.tenant_id == tenant_id,
             Integration.integration_type == integration_type,
-        )
+        ).order_by(Integration.created_at.asc())
     )
-    return result.scalar_one_or_none()
+    # Use .first() not .scalar_one_or_none() — multiple integrations of same type can exist
+    return result.scalars().first()
 
 
 async def create_integration(db: AsyncSession, tenant_id: str, data: dict) -> Integration:
@@ -130,6 +131,9 @@ async def delete_webhook(db: AsyncSession, webhook_id: str, tenant_id: str) -> b
     webhook = await get_webhook(db, webhook_id, tenant_id)
     if not webhook:
         return False
+    # Delete associated logs first (cascade)
+    from sqlalchemy import delete as sa_delete
+    await db.execute(sa_delete(WebhookLog).where(WebhookLog.webhook_id == webhook_id))
     await db.delete(webhook)
     await db.flush()
     return True

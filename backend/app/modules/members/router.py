@@ -352,6 +352,15 @@ async def create_member(
 
     await crud.create_member_profile(db, user.tenant_id, new_user.id)
 
+    # Fire integration event
+    from app.core.events import emit_member_event
+    await emit_member_event(db, user.tenant_id, "create", {
+        "member_id": str(new_user.id),
+        "email": new_user.email,
+        "name": f"{new_user.first_name} {new_user.last_name}",
+    })
+    await db.commit()
+
     return UserResponse.model_validate(new_user)
 
 

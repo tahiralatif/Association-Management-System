@@ -177,7 +177,7 @@ async def list_events(
     return [IntegrationEventResponse.model_validate(e) for e in events]
 
 
-@router.post("/events", response_model=IntegrationEventResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/events", status_code=status.HTTP_201_CREATED)
 async def emit_event(
     data: SendWebhookRequest,
     user: TokenPayload = Depends(require_staff),
@@ -187,10 +187,7 @@ async def emit_event(
     result = await IntegrationRouter.route_event(
         db, user.tenant_id, data.event_type, data.payload, source_module="api"
     )
-    events = await crud.list_events(db, user.tenant_id, limit=1)
-    if events:
-        return IntegrationEventResponse.model_validate(events[0])
-    raise HTTPException(status_code=500, detail="Event creation failed")
+    return {"event_id": result["event_id"], "webhooks_dispatched": result["webhooks_dispatched"], "status": "dispatched"}
 
 
 # ── Individual integration by ID (AFTER all specific routes) ─

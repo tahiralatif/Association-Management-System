@@ -189,6 +189,15 @@ async def create_invoice(
     except Exception:
         pass  # Don't fail invoice creation if email fails
 
+    # Fire integration event
+    from app.core.events import emit_finance_event
+    await emit_finance_event(db, user.tenant_id, "create_invoice", {
+        "invoice_id": str(invoice.id),
+        "invoice_number": invoice.invoice_number,
+        "total": float(invoice.total),
+        "member_id": str(member_id) if member_id else None,
+    })
+
     return InvoiceResponse(**{c.key: getattr(invoice, c.key) for c in invoice.__table__.columns})
 
 

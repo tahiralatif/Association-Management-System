@@ -167,7 +167,7 @@ class WebhookService:
 
         for attempt in range(1, webhook.retry_count + 1):
             try:
-                async with httpx.AsyncClient(timeout=15.0) as client:
+                async with httpx.AsyncClient(timeout=5.0) as client:
                     resp = await client.post(webhook.url, content=body, headers=headers)
                     status_code = resp.status_code
                     response_text = resp.text[:2000]
@@ -252,39 +252,48 @@ class IntegrationRouter:
     async def route_event(db, tenant_id: str, event_type: str, payload: dict, source_module: str) -> dict:
         """Route an internal event to integration handlers.
 
-        This is the main entry point for event-driven integrations.
+        Webhooks are dispatched in the background so they don't block the API.
         """
         # Record the event
         event = await crud.create_integration_event(db, tenant_id, event_type, source_module, payload)
+        await db.commit()  # Commit so event is visible to background tasks
 
-        # Dispatch to active webhooks
+        # Find matching webhooks (fire-and-forget in background)
         webhooks = await crud.get_active_webhooks_for_event(db, tenant_id, event_type)
-        results = []
 
+        import asyncio
         for webhook in webhooks:
-            try:
-                result = await WebhookService.send_webhook(db, webhook, event_type, payload)
-                results.append({"webhook_id": webhook.id, "name": webhook.name, **result})
-            except Exception as e:
-                results.append({"webhook_id": webhook.id, "name": webhook.name, "success": False, "error": str(e)})
+            # Dispatch each webhook as a background task — never block the API
+            asyncio.create_task(
+                IntegrationRouter._deliver_webhook(webhook, event_type, payload, tenant_id, event.id)
+            )
 
         # Route to specific integration handlers
-        stripe_integration = await crud.get_integration_by_type(db, tenant_id, "stripe")
-        if stripe_integration and stripe_integration.status.value == "active":
-            # Stripe-specific handling would go here
+        try:
+            slack_integration = await crud.get_integration_by_type(db, tenant_id, "slack")
+            if slack_integration and slack_integration.status.value == "active":
+                asyncio.create_task(
+                    IntegrationRouter._notify_slack(slack_integration, event_type, payload)
+                )
+        except Exception:
             pass
-
-        slack_integration = await crud.get_integration_by_type(db, tenant_id, "slack")
-        if slack_integration and slack_integration.status.value == "active":
-            await IntegrationRouter._notify_slack(slack_integration, event_type, payload)
-
-        await crud.mark_event_processed(db, event.id)
 
         return {
             "event_id": event.id,
-            "webhooks_dispatched": len(results),
-            "results": results,
+            "webhooks_dispatched": len(webhooks),
+            "results": [],  # Background — results not available synchronously
         }
+
+    @staticmethod
+    async def _deliver_webhook(webhook, event_type: str, payload: dict, tenant_id: str, event_id: str):
+        """Deliver a single webhook in the background."""
+        try:
+            from app.core.database import async_session_factory
+            async with async_session_factory() as db:
+                await WebhookService.send_webhook(db, webhook, event_type, payload)
+                await db.commit()
+        except Exception as e:
+            logger.error(f"Webhook delivery failed for {webhook.id}: {e}")
 
     @staticmethod
     async def _notify_slack(integration, event_type: str, payload: dict):
@@ -308,7 +317,7 @@ class IntegrationRouter:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=5.0) as client:
                 await client.post(webhook_url, json=message)
         except Exception as e:
             logger.error(f"Slack notification failed: {e}")
