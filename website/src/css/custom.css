@@ -1,0 +1,59 @@
+/**
+ * AssocHub Documentation Theme
+ * Teal primary color matching the AssocHub brand
+ */
+
+:root {
+  --ifm-color-primary: #0d9488;
+  --ifm-color-primary-dark: #0b8579;
+  --ifm-color-primary-darker: #0a7d72;
+  --ifm-color-primary-darkest: #086760;
+  --ifm-color-primary-light: #14b8a6;
+  --ifm-color-primary-lighter: #2dd4bf;
+  --ifm-color-primary-lightest: #5eead4;
+  --ifm-link-color: #0d9488;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(13, 148, 136, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #14b8a6;
+  --ifm-color-primary-dark: #0d9488;
+  --ifm-color-primary-darker: #0b8579;
+  --ifm-color-primary-darkest: #086760;
+  --ifm-color-primary-light: #2dd4bf;
+  --ifm-color-primary-lighter: #5eead4;
+  --ifm-color-primary-lightest: #99f6e4;
+}
+
+/* Table styling */
+table {
+  display: table;
+  width: 100%;
+}
+
+table th {
+  background-color: var(--ifm-color-primary);
+  color: white;
+  font-weight: 600;
+}
+
+[data-theme='dark'] table th {
+  background-color: rgba(13, 148, 136, 0.3);
+}
+
+/* Admonition styling */
+.alert {
+  border-radius: 8px;
+}
+
+/* Code blocks */
+pre {
+  border-radius: 8px;
+}
+
+/* Card-like styling for module pages */
+.markdown h3 {
+  border-left: 3px solid var(--ifm-color-primary);
+  padding-left: 12px;
+}
