@@ -139,11 +139,11 @@ export default function AnalyticsPage() {
   const loadAll = useCallback(async () => {
     try {
       const [o, m, e, f, inv] = await Promise.allSettled([
-        apiFetch<AnalyticsOverview>("/analytics/overview"),
-        apiFetch<MemberStats>("/members/stats"),
-        apiFetch<EventStats>("/events/stats"),
-        apiFetch<FinanceDashboard>("/finances/finances/dashboard"),
-        apiFetch("/finances/finances/invoices/stats"),
+        apiFetch<AnalyticsOverview>("/api/v1/analytics/overview"),
+        apiFetch<MemberStats>("/api/v1/members/stats"),
+        apiFetch<EventStats>("/api/v1/events/stats"),
+        apiFetch<FinanceDashboard>("/api/v1/finances/finances/dashboard"),
+        apiFetch("/api/v1/finances/finances/invoices/stats"),
       ]);
       if (o.status === "fulfilled") setOverview(o.value);
       if (m.status === "fulfilled") setMemberStats(m.value);
@@ -156,8 +156,8 @@ export default function AnalyticsPage() {
   const loadDashboards = useCallback(() => {
     setDashLoading(true);
     Promise.allSettled([
-      apiFetch("/analytics/dashboards"),
-      apiFetch("/analytics/widgets"),
+      apiFetch("/api/v1/analytics/dashboards"),
+      apiFetch("/api/v1/analytics/widgets"),
     ]).then(([d, w]) => {
       if (d.status === "fulfilled") { const v = d.value as any; setDashboards(Array.isArray(v) ? v : v.items || []); }
       if (w.status === "fulfilled") { const v = w.value as any; setWidgets(Array.isArray(v) ? v : v.items || []); }
@@ -166,17 +166,17 @@ export default function AnalyticsPage() {
 
   const loadInsights = useCallback(() => {
     setInsightsLoading(true);
-    apiFetch("/analytics/insights").then((d: any) => setInsights(Array.isArray(d) ? d : d.items || [])).catch(() => setInsights([])).finally(() => setInsightsLoading(false));
+    apiFetch("/api/v1/analytics/insights").then((d: any) => setInsights(Array.isArray(d) ? d : d.items || [])).catch(() => setInsights([])).finally(() => setInsightsLoading(false));
   }, []);
 
   const loadReports = useCallback(() => {
     setReportsLoading(true);
-    apiFetch("/analytics/reports").then((d: any) => setReports(Array.isArray(d) ? d : d.items || [])).catch(() => setReports([])).finally(() => setReportsLoading(false));
+    apiFetch("/api/v1/analytics/reports").then((d: any) => setReports(Array.isArray(d) ? d : d.items || [])).catch(() => setReports([])).finally(() => setReportsLoading(false));
   }, []);
 
   const loadExports = useCallback(() => {
     setExportsLoading(true);
-    apiFetch("/analytics/exports").then((d: any) => setExports(Array.isArray(d) ? d : d.items || [])).catch(() => setExports([])).finally(() => setExportsLoading(false));
+    apiFetch("/api/v1/analytics/exports").then((d: any) => setExports(Array.isArray(d) ? d : d.items || [])).catch(() => setExports([])).finally(() => setExportsLoading(false));
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
@@ -524,7 +524,7 @@ export default function AnalyticsPage() {
                       </div>
                       {!ins.is_read && (
                         <button onClick={async () => {
-                          try { await apiFetch(`/analytics/insights/${ins.id}/read`, { method: "POST" }); setInsights((prev) => prev.map((i) => i.id === ins.id ? { ...i, is_read: true } : i)); }
+                          try { await apiFetch(`/api/v1/analytics/insights/${ins.id}/read`, { method: "POST" }); setInsights((prev) => prev.map((i) => i.id === ins.id ? { ...i, is_read: true } : i)); }
                           catch {} 
                         }} className="text-xs text-muted hover:text-teal shrink-0">Mark read</button>
                       )}
@@ -560,7 +560,7 @@ export default function AnalyticsPage() {
                       <div className="flex items-center gap-2">
                         <button onClick={async () => {
                           setRunReportId(r.id); setRunningReport(true);
-                          try { await apiFetch(`/analytics/reports/${r.id}/run`, { method: "POST" }); toast.success("Report generated"); }
+                          try { await apiFetch(`/api/v1/analytics/reports/${r.id}/run`, { method: "POST" }); toast.success("Report generated"); }
                           catch { toast.error("Failed to run report"); }
                           finally { setRunReportId(null); setRunningReport(false); }
                         }} disabled={runningReport && runReportId === r.id} className="px-3 py-1.5 bg-teal text-white rounded-lg text-xs font-medium hover:bg-teal-light disabled:opacity-50 flex items-center gap-1">
@@ -627,7 +627,7 @@ export default function AnalyticsPage() {
             <button onClick={() => setShowDashModal(false)} className="px-4 py-2 border border-border rounded-xl text-sm">Cancel</button>
             <button onClick={async () => {
               setCreatingDash(true);
-              try { await apiFetch("/analytics/dashboards", { method: "POST", body: JSON.stringify(dashForm) }); toast.success("Dashboard created"); setShowDashModal(false); setDashForm({ name: "", description: "" }); loadDashboards(); }
+              try { await apiFetch("/api/v1/analytics/dashboards", { method: "POST", body: JSON.stringify(dashForm) }); toast.success("Dashboard created"); setShowDashModal(false); setDashForm({ name: "", description: "" }); loadDashboards(); }
               catch (e: any) { toast.error(e.message); }
               finally { setCreatingDash(false); }
             }} disabled={creatingDash} className="px-4 py-2 bg-teal text-white rounded-xl text-sm font-medium disabled:opacity-50">
@@ -646,7 +646,7 @@ export default function AnalyticsPage() {
             <button onClick={() => setShowReportModal(false)} className="px-4 py-2 border border-border rounded-xl text-sm">Cancel</button>
             <button onClick={async () => {
               setCreatingReport(true);
-              try { await apiFetch("/analytics/reports", { method: "POST", body: JSON.stringify(reportForm) }); toast.success("Report created"); setShowReportModal(false); loadReports(); }
+              try { await apiFetch("/api/v1/analytics/reports", { method: "POST", body: JSON.stringify(reportForm) }); toast.success("Report created"); setShowReportModal(false); loadReports(); }
               catch (e: any) { toast.error(e.message); }
               finally { setCreatingReport(false); }
             }} disabled={creatingReport} className="px-4 py-2 bg-teal text-white rounded-xl text-sm font-medium disabled:opacity-50">
@@ -665,7 +665,7 @@ export default function AnalyticsPage() {
             <button onClick={() => setShowExportModal(false)} className="px-4 py-2 border border-border rounded-xl text-sm">Cancel</button>
             <button onClick={async () => {
               setCreatingExport(true);
-              try { await apiFetch("/analytics/exports", { method: "POST", body: JSON.stringify(exportForm) }); toast.success("Export started"); setShowExportModal(false); loadExports(); }
+              try { await apiFetch("/api/v1/analytics/exports", { method: "POST", body: JSON.stringify(exportForm) }); toast.success("Export started"); setShowExportModal(false); loadExports(); }
               catch (e: any) { toast.error(e.message); }
               finally { setCreatingExport(false); }
             }} disabled={creatingExport} className="px-4 py-2 bg-teal text-white rounded-xl text-sm font-medium disabled:opacity-50">
@@ -677,14 +677,14 @@ export default function AnalyticsPage() {
 
       <ConfirmDialog open={!!deleteDashId} onOpenChange={(v) => { if (!v) setDeleteDashId(null); }} title="Delete Dashboard" description="This will permanently remove this dashboard." confirmText="Delete" variant="destructive" loading={deletingDash} onConfirm={async () => {
         if (!deleteDashId) return; setDeletingDash(true);
-        try { await apiFetch(`/analytics/dashboards/${deleteDashId}`, { method: "DELETE" }); setDashboards((prev) => prev.filter((d) => d.id !== deleteDashId)); setDeleteDashId(null); toast.success("Dashboard deleted"); }
+        try { await apiFetch(`/api/v1/analytics/dashboards/${deleteDashId}`, { method: "DELETE" }); setDashboards((prev) => prev.filter((d) => d.id !== deleteDashId)); setDeleteDashId(null); toast.success("Dashboard deleted"); }
         catch (e: any) { toast.error(e.message); }
         finally { setDeletingDash(false); }
       }} />
 
       <ConfirmDialog open={!!deleteReportId} onOpenChange={(v) => { if (!v) setDeleteReportId(null); }} title="Delete Report" description="This will permanently remove this report." confirmText="Delete" variant="destructive" loading={false} onConfirm={async () => {
         if (!deleteReportId) return;
-        try { await apiFetch(`/analytics/reports/${deleteReportId}`, { method: "DELETE" }); setReports((prev) => prev.filter((r) => r.id !== deleteReportId)); setDeleteReportId(null); toast.success("Report deleted"); }
+        try { await apiFetch(`/api/v1/analytics/reports/${deleteReportId}`, { method: "DELETE" }); setReports((prev) => prev.filter((r) => r.id !== deleteReportId)); setDeleteReportId(null); toast.success("Report deleted"); }
         catch (e: any) { toast.error(e.message); }
       }} />
     </div>

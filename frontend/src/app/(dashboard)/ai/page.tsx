@@ -150,17 +150,17 @@ export default function AIPage() {
   // ── Loaders ──
   const loadHealth = useCallback(() => {
     setHealthLoading(true);
-    apiFetch<Record<string, any>>("/ai/health").then(setHealth).catch(() => {}).finally(() => { setHealthLoading(false); setLoading(false); });
+    apiFetch<Record<string, any>>("/api/v1/ai/health").then(setHealth).catch(() => {}).finally(() => { setHealthLoading(false); setLoading(false); });
   }, []);
 
   const loadInsights = useCallback(() => {
     setInsightsLoading(true);
-    apiFetch("/ai/insights").then((d: any) => { setInsights(Array.isArray(d) ? d : d.items || []); }).catch(() => setInsights([])).finally(() => setInsightsLoading(false));
+    apiFetch("/api/v1/ai/insights").then((d: any) => { setInsights(Array.isArray(d) ? d : d.items || []); }).catch(() => setInsights([])).finally(() => setInsightsLoading(false));
   }, []);
 
   const loadModels = useCallback(() => {
     setModelsLoading(true);
-    apiFetch("/ai/models").then((d: any) => { setModels(Array.isArray(d) ? d : d.items || []); }).catch(() => setModels([])).finally(() => setModelsLoading(false));
+    apiFetch("/api/v1/ai/models").then((d: any) => { setModels(Array.isArray(d) ? d : d.items || []); }).catch(() => setModels([])).finally(() => setModelsLoading(false));
   }, []);
 
   useEffect(() => { loadHealth(); }, [loadHealth]);
@@ -175,7 +175,7 @@ export default function AIPage() {
     setInput("");
     setChatBusy(true);
     try {
-      const r = await apiFetch("/ai/chat", { method: "POST", body: JSON.stringify({ message: msg, session_id: sid || undefined, history: msgs.slice(-10) }) }) as any;
+      const r = await apiFetch("/api/v1/ai/chat", { method: "POST", body: JSON.stringify({ message: msg, session_id: sid || undefined, history: msgs.slice(-10) }) }) as any;
       if (r.session_id && !sid) setSid(r.session_id);
       setMsgs((p) => [...p, { role: "assistant", content: r.reply || r.response || r.message || "I couldn't process that. Please try again." }]);
     } catch (e: any) {
@@ -197,7 +197,7 @@ export default function AIPage() {
     if (!q.trim()) return;
     setSearchBusy(true); setResults([]);
     try {
-      const r = await apiFetch("/ai/embeddings/search", { method: "POST", body: JSON.stringify({ query: q.trim(), limit: 10 }) }) as any;
+      const r = await apiFetch("/api/v1/ai/embeddings/search", { method: "POST", body: JSON.stringify({ query: q.trim(), limit: 10 }) }) as any;
       setResults(r.results || []);
     } catch { toast.error("Search failed"); }
     finally { setSearchBusy(false); }
@@ -208,7 +208,7 @@ export default function AIPage() {
     if (!modelForm.name.trim() || !modelForm.version.trim()) return;
     setModelCreating(true);
     try {
-      await apiFetch("/ai/models", { method: "POST", body: JSON.stringify(modelForm) });
+      await apiFetch("/api/v1/ai/models", { method: "POST", body: JSON.stringify(modelForm) });
       toast.success("Model registered"); setShowModelModal(false);
       setModelForm({ name: "", version: "", model_type: "churn_prediction", description: "" }); loadModels();
     } catch (e: any) { toast.error(e.message); }
@@ -217,7 +217,7 @@ export default function AIPage() {
 
   async function toggleModel(m: AIModel) {
     try {
-      await apiFetch(`/ai/models/${m.id}`, { method: "PATCH", body: JSON.stringify({ is_active: !m.is_active }) });
+      await apiFetch(`/api/v1/ai/models/${m.id}`, { method: "PATCH", body: JSON.stringify({ is_active: !m.is_active }) });
       setModels((p) => p.map((x) => x.id === m.id ? { ...x, is_active: !x.is_active } : x));
       toast.success(`Model ${m.is_active ? "deactivated" : "activated"}`);
     } catch (e: any) { toast.error(e.message); }
@@ -226,7 +226,7 @@ export default function AIPage() {
   async function deleteModel() {
     if (!deleteModelId) return;
     setDeletingModel(true);
-    try { await apiFetch(`/ai/models/${deleteModelId}`, { method: "DELETE" }); setModels((p) => p.filter((x) => x.id !== deleteModelId)); setDeleteModelId(null); toast.success("Deleted"); }
+    try { await apiFetch(`/api/v1/ai/models/${deleteModelId}`, { method: "DELETE" }); setModels((p) => p.filter((x) => x.id !== deleteModelId)); setDeleteModelId(null); toast.success("Deleted"); }
     catch (e: any) { toast.error(e.message); }
     finally { setDeletingModel(false); }
   }
@@ -235,7 +235,7 @@ export default function AIPage() {
   async function predictChurn() {
     if (!churnId.trim()) return;
     setChurnBusy(true); setChurnRes(null);
-    try { const r = await apiFetch(`/ai/predict/churn/${churnId.trim()}`); setChurnRes(r); toast.success("Prediction complete"); }
+    try { const r = await apiFetch(`/api/v1/ai/predict/churn/${churnId.trim()}`); setChurnRes(r); toast.success("Prediction complete"); }
     catch { toast.error("Failed"); }
     finally { setChurnBusy(false); }
   }
@@ -245,7 +245,7 @@ export default function AIPage() {
     let tx;
     try { tx = JSON.parse(anomalyInput); if (!Array.isArray(tx)) throw new Error(); } catch { toast.warning("Invalid JSON"); return; }
     setAnomalyBusy(true); setAnomalyRes(null);
-    try { const r = await apiFetch("/ai/predict/anomalies", { method: "POST", body: JSON.stringify({ transactions: tx }) }); setAnomalyRes(r); toast.success("Done"); }
+    try { const r = await apiFetch("/api/v1/ai/predict/anomalies", { method: "POST", body: JSON.stringify({ transactions: tx }) }); setAnomalyRes(r); toast.success("Done"); }
     catch { toast.error("Failed"); }
     finally { setAnomalyBusy(false); }
   }
@@ -256,7 +256,7 @@ export default function AIPage() {
     try { ctx = JSON.parse(genCtx); } catch { toast.warning("Invalid JSON"); return; }
     setGenBusy(true); setGenResult(null);
     try {
-      const r = await apiFetch("/ai/generate/document", { method: "POST", body: JSON.stringify({ doc_type: genType, context: ctx }) }) as any;
+      const r = await apiFetch("/api/v1/ai/generate/document", { method: "POST", body: JSON.stringify({ doc_type: genType, context: ctx }) }) as any;
       setGenResult(r.content || r.document || r.text || r.output || JSON.stringify(r, null, 2));
       toast.success("Generated!");
     } catch { toast.error("Failed"); }
