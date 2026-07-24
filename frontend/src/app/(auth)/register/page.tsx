@@ -125,6 +125,9 @@ export default function RegisterPage() {
                 required
                 minLength={8}
               />
+              <p className="text-xs text-slate-400">
+                Min 8 chars. Must include uppercase, lowercase, digit, and special character (e.g. Demo1234!)
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>

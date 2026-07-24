@@ -1,9 +1,10 @@
 """Auth routes — login, register, refresh, me, password management."""
 
 import uuid
+import logging
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -97,7 +98,7 @@ class UserResponse(BaseModel):
 
 @router.post("/register", response_model=TokenPair, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-async def register(req: RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def register(req: RegisterRequest, request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """Register a new user (self-service member registration)."""
     from app.modules.members.models import User
 
@@ -136,12 +137,53 @@ async def register(req: RegisterRequest, request: Request, db: AsyncSession = De
     ip = request.client.host if request.client else None
     await log_auth_event(db, req.tenant_id, user.id, "register", {"email": req.email}, ip)
 
+    # Send welcome email in background
+    async def _send_welcome():
+        try:
+            from app.core.email.service import send_email
+            from app.core.database import async_session_factory
+            async with async_session_factory() as email_db:
+                await send_email(
+                    to=req.email,
+                    subject=f"Welcome to AssocHub, {req.first_name}!",
+                    html_body=f"""
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #0891b2;">Welcome to AssocHub, {req.first_name}!</h2>
+                        <p>Your account has been created successfully. Here's what you can do now:</p>
+                        <ul>
+                            <li>Manage your membership profile</li>
+                            <li>Register for events</li>
+                            <li>Track your payments and invoices</li>
+                            <li>Participate in elections and polls</li>
+                        </ul>
+                        <p><strong>Your account details:</strong></p>
+                        <ul>
+                            <li>Email: {req.email}</li>
+                            <li>Tenant: {req.tenant_id}</li>
+                            <li>Role: Member</li>
+                        </ul>
+                        <p>If you have any questions, reply to this email or contact your association admin.</p>
+                        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+                        <p style="color: #94a3b8; font-size: 12px;">AssocHub — Open Source Association Management</p>
+                    </div>
+                    """,
+                    tenant_id=req.tenant_id,
+                    db=email_db,
+                    max_retries=1,
+                )
+                await email_db.commit()
+                logging.getLogger(__name__).info(f"Welcome email sent to {req.email}")
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Failed to send welcome email to {req.email}: {e}")
+
+    background_tasks.add_task(_send_welcome)
+
     return TokenPair(access_token=access, refresh_token=refresh)
 
 
 @router.post("/login", response_model=TokenPair)
 @limiter.limit("10/minute")
-async def login(req: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def login(req: LoginRequest, request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """Login with email and password."""
     from app.modules.members.models import User
 
@@ -164,6 +206,44 @@ async def login(req: LoginRequest, request: Request, db: AsyncSession = Depends(
 
     ip = request.client.host if request.client else None
     await log_auth_event(db, req.tenant_id, user.id, "login", {}, ip)
+
+    # Send login notification in background
+    async def _send_login_notification():
+        try:
+            from app.core.email.service import send_email
+            from app.core.database import async_session_factory
+            now_str = datetime.now(timezone.utc).strftime("%B %d, %Y at %H:%M UTC")
+            async with async_session_factory() as email_db:
+                await send_email(
+                    to=req.email,
+                    subject="New login to your AssocHub account",
+                    html_body=f"""
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #0891b2;">New Login Detected</h2>
+                        <p>Hello {user.first_name},</p>
+                        <p>We noticed a new login to your AssocHub account.</p>
+                        <p><strong>Login details:</strong></p>
+                        <ul>
+                            <li>Time: {now_str}</li>
+                            <li>Email: {req.email}</li>
+                            <li>Tenant: {req.tenant_id}</li>
+                        </ul>
+                        <p>If this was you, no action is needed.</p>
+                        <p style="color: #dc2626;">If you did NOT log in, please change your password immediately and contact your admin.</p>
+                        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+                        <p style="color: #94a3b8; font-size: 12px;">AssocHub — Open Source Association Management</p>
+                    </div>
+                    """,
+                    tenant_id=req.tenant_id,
+                    db=email_db,
+                    max_retries=1,
+                )
+                await email_db.commit()
+                logging.getLogger(__name__).info(f"Login notification sent to {req.email}")
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Failed to send login notification to {req.email}: {e}")
+
+    background_tasks.add_task(_send_login_notification)
 
     return TokenPair(access_token=access, refresh_token=refresh)
 

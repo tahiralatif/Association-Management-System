@@ -50,6 +50,22 @@ def register_exception_handlers(app: FastAPI):
 
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception):
+        # PasswordValidationError from password strength checker
+        from app.core.password import PasswordValidationError
+        if isinstance(exc, PasswordValidationError):
+            return JSONResponse(
+                status_code=422,
+                content={"detail": exc.message},
+            )
+
+        # HTTPException from FastAPI/Starlette
+        from fastapi import HTTPException
+        if isinstance(exc, HTTPException):
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": str(exc.detail)},
+            )
+
         # Generate a unique error ID for tracing — never expose internals to clients
         error_id = str(uuid.uuid4())[:8]
         request_id = getattr(request.state, "request_id", None)

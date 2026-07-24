@@ -57,6 +57,12 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
+            <div className="p-3 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-600">
+              <p className="font-medium text-slate-800 mb-1">🔐 Demo Credentials</p>
+              <p><strong>Email:</strong> daniel.harris@example.com</p>
+              <p><strong>Password:</strong> Demo1234!</p>
+              <p><strong>Tenant:</strong> demo-association</p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="tenant_id">Tenant ID</Label>
               <Input
