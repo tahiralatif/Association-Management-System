@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AssocHub — The AI-Powered Association Management Platform</title>
+<meta name="description" content="Open source, self-hosted AMS with built-in AI assistant, workflow automation, elections, and zero per-contact pricing. Replace Wild Apricot, MemberClicks, or CiviCRM today.">
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --primary-light: #dbeafe;
+    --accent: #10b981;
+    --accent-dark: #059669;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-alt: #f1f5f9;
+    --text: #0f172a;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --radius: 12px;
+    --radius-lg: 20px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+    --shadow: 0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -2px rgba(0,0,0,.05);
+    --shadow-lg: 0 20px 25px -5px rgba(0,0,0,.08), 0 8px 10px -6px rgba(0,0,0,.04);
+    --shadow-xl: 0 25px 50px -12px rgba(0,0,0,.15);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: var(--text); background: var(--bg); line-height: 1.6; }
+  
+  /* ── Nav ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(255,255,255,.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border);
+  }
+  .nav-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { font-size: 22px; font-weight: 800; color: var(--primary); text-decoration: none; letter-spacing: -0.5px; }
+  .nav-logo span { color: var(--accent); }
+  .nav-links { display: flex; gap: 32px; align-items: center; }
+  .nav-links a { color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 500; transition: color .2s; }
+  .nav-links a:hover { color: var(--primary); }
+  .nav-cta { background: var(--primary); color: #fff !important; padding: 8px 20px; border-radius: 8px; font-weight: 600 !important; }
+  .nav-cta:hover { background: var(--primary-dark) !important; }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 160px 24px 100px; text-align: center;
+    background: linear-gradient(135deg, var(--primary-light) 0%, #f0fdf4 50%, #fef9c3 100%);
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; top: -200px; right: -200px; width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(37,99,235,.08) 0%, transparent 70%);
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 100px;
+    padding: 6px 16px; font-size: 13px; font-weight: 600; color: var(--accent-dark);
+    margin-bottom: 24px; box-shadow: var(--shadow-sm);
+  }
+  .hero h1 {
+    font-size: clamp(40px, 6vw, 72px); font-weight: 800; line-height: 1.08;
+    letter-spacing: -1.5px; margin-bottom: 20px; max-width: 900px; margin-left: auto; margin-right: auto;
+  }
+  .hero h1 .gradient {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero p {
+    font-size: 20px; color: var(--text-secondary); max-width: 600px; margin: 0 auto 40px; line-height: 1.6;
+  }
+  .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; border-radius: 10px;
+    font-size: 16px; font-weight: 600; text-decoration: none; transition: all .2s; cursor: pointer; border: none;
+  }
+  .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 14px rgba(37,99,235,.3); }
+  .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37,99,235,.4); }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--surface-alt); border-color: #cbd5e1; }
+
+  /* ── Logos ── */
+  .logos-section { padding: 60px 24px; text-align: center; border-bottom: 1px solid var(--border); }
+  .logos-section p { color: var(--text-secondary); font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 24px; }
+  .logos-grid { display: flex; gap: 40px; justify-content: center; align-items: center; flex-wrap: wrap; opacity: .5; font-size: 18px; font-weight: 700; color: var(--text-secondary); }
+
+  /* ── Section ── */
+  section { padding: 100px 24px; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  .section-header { text-align: center; margin-bottom: 64px; }
+  .section-header .tag { font-size: 13px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; }
+  .section-header h2 { font-size: clamp(32px, 4vw, 48px); font-weight: 800; letter-spacing: -1px; margin-bottom: 16px; }
+  .section-header p { font-size: 18px; color: var(--text-secondary); max-width: 600px; margin: 0 auto; }
+
+  /* ── Features Grid ── */
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; }
+  .feature-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 32px; transition: all .3s;
+  }
+  .feature-card:hover { border-color: var(--primary); box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+  .feature-icon {
+    width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 24px; margin-bottom: 16px;
+  }
+  .feature-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .feature-card p { font-size: 15px; color: var(--text-secondary); line-height: 1.6; }
+  .fi-blue { background: var(--primary-light); }
+  .fi-green { background: #d1fae5; }
+  .fi-purple { background: #ede9fe; }
+  .fi-orange { background: #ffedd5; }
+  .fi-pink { background: #fce7f3; }
+  .fi-teal { background: #ccfbf1; }
+
+  /* ── AI Section ── */
+  .ai-section { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #fff; }
+  .ai-section .section-header h2 { color: #fff; }
+  .ai-section .section-header p { color: #94a3b8; }
+  .ai-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+  .ai-card {
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: var(--radius);
+    padding: 28px; transition: all .3s;
+  }
+  .ai-card:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
+  .ai-card .icon { font-size: 32px; margin-bottom: 12px; }
+  .ai-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .ai-card p { font-size: 14px; color: #94a3b8; line-height: 1.5; }
+
+  /* ── Comparison Table ── */
+  .comparison-section { background: var(--surface-alt); }
+  .comparison-table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg); }
+  .comparison-table thead { background: #f1f5f9; }
+  .comparison-table th { padding: 16px 20px; text-align: left; font-size: 14px; font-weight: 700; color: var(--text); border-bottom: 2px solid var(--border); }
+  .comparison-table th:first-child { border-radius: var(--radius-lg) 0 0 0; }
+  .comparison-table th:last-child { border-radius: 0 var(--radius-lg) 0 0; }
+  .comparison-table th.highlight { background: var(--primary); color: #fff; }
+  .comparison-table td { padding: 14px 20px; font-size: 14px; border-bottom: 1px solid var(--border); }
+  .comparison-table tr:last-child td { border-bottom: none; }
+  .comparison-table tr:hover td { background: #f8fafc; }
+  .comparison-table td:first-child { font-weight: 600; color: var(--text); }
+  .comparison-table td.highlight { background: var(--primary-light); }
+  .check { color: var(--accent); font-weight: 700; }
+  .cross { color: #cbd5e1; }
+  .partial { color: var(--warning); font-weight: 600; }
+  .table-scroll { overflow-x: auto; }
+
+  /* ── Stats ── */
+  .stats-section { background: var(--primary); color: #fff; padding: 80px 24px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; max-width: 900px; margin: 0 auto; text-align: center; }
+  .stat-number { font-size: 48px; font-weight: 800; letter-spacing: -1px; }
+  .stat-label { font-size: 15px; color: rgba(255,255,255,.75); margin-top: 4px; }
+
+  /* ── Pricing ── */
+  .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; max-width: 900px; margin: 0 auto; }
+  .price-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 40px 32px; text-align: center; position: relative; transition: all .3s;
+  }
+  .price-card.featured { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-light); }
+  .price-card.featured::before { content: 'MOST POPULAR'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 1px; padding: 4px 16px; border-radius: 100px; }
+  .price-card h3 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .price-card .price { font-size: 48px; font-weight: 800; color: var(--primary); margin: 16px 0; }
+  .price-card .price span { font-size: 16px; font-weight: 500; color: var(--text-secondary); }
+  .price-card .desc { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
+  .price-features { list-style: none; text-align: left; margin-bottom: 32px; }
+  .price-features li { padding: 8px 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .price-features li::before { content: '✓'; color: var(--accent); font-weight: 700; }
+  .price-card .btn { width: 100%; justify-content: center; }
+
+  /* ── Modules ── */
+  .modules-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+  .module-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px 16px; text-align: center; transition: all .3s;
+  }
+  .module-card:hover { border-color: var(--primary); box-shadow: var(--shadow); transform: translateY(-2px); }
+  .module-card .icon { font-size: 32px; margin-bottom: 8px; }
+  .module-card h4 { font-size: 14px; font-weight: 700; }
+  .module-card p { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* ── Testimonial ── */
+  .testimonial-section { background: var(--surface-alt); }
+  .testimonial-card {
+    max-width: 700px; margin: 0 auto; background: var(--surface); border-radius: var(--radius-lg);
+    padding: 48px; box-shadow: var(--shadow); text-align: center;
+  }
+  .testimonial-card blockquote { font-size: 20px; font-style: italic; color: var(--text); line-height: 1.6; margin-bottom: 24px; }
+  .testimonial-card .author { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+
+  /* ── CTA ── */
+  .cta-section {
+    padding: 100px 24px; text-align: center;
+    background: linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%);
+    color: #fff;
+  }
+  .cta-section h2 { font-size: clamp(32px, 4vw, 48px); font-weight: 800; margin-bottom: 16px; letter-spacing: -1px; }
+  .cta-section p { font-size: 18px; color: rgba(255,255,255,.8); max-width: 500px; margin: 0 auto 40px; }
+  .cta-section .btn-primary { background: #fff; color: var(--primary); }
+  .cta-section .btn-primary:hover { background: #f0f0f0; }
+  .cta-section .btn-secondary { border-color: rgba(255,255,255,.3); color: #fff; }
+  .cta-section .btn-secondary:hover { background: rgba(255,255,255,.1); }
+
+  /* ── Footer ── */
+  footer { padding: 48px 24px; border-top: 1px solid var(--border); text-align: center; color: var(--text-secondary); font-size: 14px; }
+  footer a { color: var(--primary); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .hero { padding: 120px 24px 60px; }
+    section { padding: 60px 24px; }
+    .features-grid { grid-template-columns: 1fr; }
+    .comparison-table { font-size: 13px; }
+    .comparison-table th, .comparison-table td { padding: 10px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">Assoc<span>Hub</span></a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#ai">AI Engine</a>
+      <a href="#comparison">Comparison</a>
+      <a href="#modules">Modules</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://github.com/tahiralatif/Association-Management-System" class="nav-cta">Star on GitHub →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-badge">🤖 AI-Native · Open Source · Self-Hosted</div>
+  <h1>
+    The Association Platform<br>
+    That <span class="gradient">Thinks for You</span>
+  </h1>
+  <p>
+    AssocHub is the first AMS with AI baked into every module — churn prediction, anomaly detection, 
+    semantic search, and a chat assistant that knows your data. No per-contact pricing. Ever.
+  </p>
+  <div class="hero-buttons">
+    <a href="https://github.com/tahiralatif/Association-Management-System" class="btn btn-primary">⭐ Get Started Free</a>
+    <a href="https://ams.14.jugaar.ai" class="btn btn-secondary">Live Demo →</a>
+  </div>
+</section>
+
+<!-- Stats -->
+<section class="stats-section">
+  <div class="stats-grid">
+    <div><div class="stat-number">11</div><div class="stat-label">Modules</div></div>
+    <div><div class="stat-number">199+</div><div class="stat-label">API Endpoints</div></div>
+    <div><div class="stat-number">$0</div><div class="stat-label">Per-Contact Fee</div></div>
+    <div><div class="stat-number">AI</div><div class="stat-label">Built Into Every Module</div></div>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features">
+  <div class="container">
+    <div class="section-header">
+      <div class="tag">Why AssocHub</div>
+      <h2>Everything Your Association Needs</h2>
+      <p>11 fully integrated modules. No plugins. No add-ons. No hidden costs.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon fi-blue">👥</div>
+        <h3>Member Management</h3>
+        <p>Full CRUD, groups, tags, bulk operations, CSV import/export, activity logging, and AI-powered churn prediction. Self-service portal for members.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-green">💰</div>
+        <h3>Financial Management</h3>
+        <p>Auto-numbered invoices, expense tracking with approval workflows, budget management, Stripe checkout, recurring billing, and AI financial insights.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-purple">📅</div>
+        <h3>Event Management</h3>
+        <p>Multiple ticket types, QR check-in, sessions & tracks, speakers, tier-based sponsors, post-event feedback with star ratings, and hybrid/virtual support.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-orange">🗳️</div>
+        <h3>Elections & Voting</h3>
+        <p>Full election lifecycle: nominations → ranked choice voting → secret ballots → real-time results. Quorum tracking. Nobody else has this.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-pink">⚙️</div>
+        <h3>Workflow Automation</h3>
+        <p>Visual step editor with 12+ action types, conditional branching, delayed execution, signed webhooks, run history, and reusable templates.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-teal">📊</div>
+        <h3>Custom Dashboards</h3>
+        <p>Widget-based dashboards with line charts, bar charts, pie charts, stat cards, and tables. KPI tracking with time series. Export everything to CSV/JSON.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI Section -->
+<section id="ai" class="ai-section">
+  <div class="container">
+    <div class="section-header">
+      <div class="tag">AI ENGINE</div>
+      <h2>Not a Chatbot. A Brain.</h2>
+      <p>Every other AMS treats AI as a bolt-on widget. AssocHub bakes it into the core.</p>
+    </div>
+    <div class="ai-grid">
+      <div class="ai-card">
+        <div class="icon">🧠</div>
+        <h3>Conversational AI Assistant</h3>
+        <p>Ask anything about your data in plain English. Powered by Groq Llama 3.3 70B with full database context. Not a generic chatbot — it knows your members, finances, and events.</p>
+      </div>
+      <div class="ai-card">
+        <div class="icon">📉</div>
+        <h3>Churn Prediction</h3>
+        <p>RFM scoring analyzes recency, frequency, and monetary value to predict which members are at risk of leaving — before they do.</p>
+      </div>
+      <div class="ai-card">
+        <div class="icon">🔍</div>
+        <h3>Anomaly Detection</h3>
+        <p>Z-score and IQR algorithms scan your data for unusual patterns. Get alerted to financial anomalies, attendance drops, and engagement spikes automatically.</p>
+      </div>
+      <div class="ai-card">
+        <div class="icon">🔎</div>
+        <h3>Semantic Search</h3>
+        <p>Vector embeddings power search that understands meaning, not just keywords. Find documents, members, and insights across all your data.</p>
+      </div>
+      <div class="ai-card">
+        <div class="icon">📝</div>
+        <h3>Document Generation</h3>
+        <p>Generate reports, letters, and communications from templates — then let AI polish the writing. Deterministic data + creative prose.</p>
+      </div>
+      <div class="ai-card">
+        <div class="icon">💡</div>
+        <h3>Cross-Module Insights</h3>
+        <p>AI analyzes patterns across members, finances, events, and communications to surface trends no human would spot. Severity-ranked, mark-as-read.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Comparison -->
+<section id="comparison" class="comparison-section">
+  <div class="container">
+    <div class="section-header">
+      <div class="tag">HEAD TO HEAD</div>
+      <h2>How AssocHub Compares</h2>
+      <p>Feature-by-feature against the most popular association management platforms.</p>
+    </div>
+    <div class="table-scroll">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th class="highlight">AssocHub</th>
+            <th>Wild Apricot</th>
+            <th>MemberClicks</th>
+            <th>CiviCRM</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>AI Assistant (built-in)</td>
+            <td class="highlight"><span class="check">✓ Full</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Churn Prediction</td>
+            <td class="highlight"><span class="check">✓ RFM</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Anomaly Detection</td>
+            <td class="highlight"><span class="check">✓ Z-score</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Semantic Search</td>
+            <td class="highlight"><span class="check">✓ Vector</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Workflow Automation</td>
+            <td class="highlight"><span class="check">✓ 12+ actions</span></td>
+            <td><span class="partial">~ Basic</span></td>
+            <td><span class="partial">~ Basic</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Conditional Branching</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Elections & Voting</td>
+            <td class="highlight"><span class="check">✓ Full</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="partial">~ Plugin</span></td>
+          </tr>
+          <tr>
+            <td>Ranked Choice Voting</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Expense Approvals</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="partial">~</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Budget Management</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>A/B Testing</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Custom Webhooks</td>
+            <td class="highlight"><span class="check">✓ HMAC</span></td>
+            <td><span class="partial">~ Zapier</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="partial">~</span></td>
+          </tr>
+          <tr>
+            <td>Audit Trail</td>
+            <td class="highlight"><span class="check">✓ Full</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="partial">~</span></td>
+          </tr>
+          <tr>
+            <td>Open Source</td>
+            <td class="highlight"><span class="check">✓ MIT</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="check">✓ GPL</span></td>
+          </tr>
+          <tr>
+            <td>Self-Hosted</td>
+            <td class="highlight"><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>Multi-Tenant</td>
+            <td class="highlight"><span class="check">✓ Native</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Per-Contact Pricing</td>
+            <td class="highlight"><span class="check">$0</span></td>
+            <td><span class="cross">$60–$350/mo</span></td>
+            <td><span class="cross">$80–$400/mo</span></td>
+            <td><span class="check">Free</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Modules -->
+<section id="modules">
+  <div class="container">
+    <div class="section-header">
+      <div class="tag">MODULES</div>
+      <h2>11 Modules. One Platform.</h2>
+      <p>Every module shares the same database, auth system, and AI engine. No silos.</p>
+    </div>
+    <div class="modules-grid">
+      <div class="module-card"><div class="icon">📊</div><h4>Dashboard</h4><p>KPIs & Insights</p></div>
+      <div class="module-card"><div class="icon">👥</div><h4>Members</h4><p>CRUD & Groups</p></div>
+      <div class="module-card"><div class="icon">💰</div><h4>Finances</h4><p>Invoices & Budgets</p></div>
+      <div class="module-card"><div class="icon">📅</div><h4>Events</h4><p>Tickets & Check-in</p></div>
+      <div class="module-card"><div class="icon">🗳️</div><h4>Elections</h4><p>Voting & Results</p></div>
+      <div class="module-card"><div class="icon">📄</div><h4>Documents</h4><p>Versioning & Share</p></div>
+      <div class="module-card"><div class="icon">📧</div><h4>Comms</h4><p>Campaigns & Surveys</p></div>
+      <div class="module-card"><div class="icon">⚙️</div><h4>Workflows</h4><p>Automation Engine</p></div>
+      <div class="module-card"><div class="icon">📈</div><h4>Analytics</h4><p>Dashboards & KPIs</p></div>
+      <div class="module-card"><div class="icon">🤖</div><h4>AI Engine</h4><p>Chat & Predictions</p></div>
+      <div class="module-card"><div class="icon">🔗</div><h4>Integrations</h4><p>Webhooks & APIs</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section id="pricing">
+  <div class="container">
+    <div class="section-header">
+      <div class="tag">PRICING</div>
+      <h2>Pay Nothing. Or Pay a Little.</h2>
+      <p>No per-contact fees. No hidden costs. No lock-in.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <h3>Community</h3>
+        <div class="price">$0<span>/forever</span></div>
+        <div class="desc">Self-hosted, full features</div>
+        <ul class="price-features">
+          <li>All 11 modules included</li>
+          <li>199+ API endpoints</li>
+          <li>AI engine (bring your own key)</li>
+          <li>Unlimited members</li>
+          <li>Community support</li>
+          <li>MIT License</li>
+        </ul>
+        <a href="https://github.com/tahiralatif/Association-Management-System" class="btn btn-secondary">Clone from GitHub</a>
+      </div>
+      <div class="price-card featured">
+        <h3>Managed</h3>
+        <div class="price">$29<span>/month</span></div>
+        <div class="desc">We host it. You use it.</div>
+        <ul class="price-features">
+          <li>Everything in Community</li>
+          <li>Managed hosting & SSL</li>
+          <li>Daily backups</li>
+          <li>99.9% uptime SLA</li>
+          <li>Email support</li>
+          <li>Unlimited members</li>
+        </ul>
+        <a href="mailto:hello@assochub.dev" class="btn btn-primary">Get Started</a>
+      </div>
+      <div class="price-card">
+        <h3>Enterprise</h3>
+        <div class="price">Custom</div>
+        <div class="desc">Multi-tenant, custom integrations</div>
+        <ul class="price-features">
+          <li>Everything in Managed</li>
+          <li>Multi-tenant setup</li>
+          <li>Custom integrations</li>
+          <li>Dedicated support</li>
+          <li>SLA & compliance</li>
+          <li>Training & onboarding</li>
+        </ul>
+        <a href="mailto:hello@assochub.dev" class="btn btn-secondary">Contact Sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="container">
+    <h2>Stop Paying Per Contact.<br>Start Thinking With AI.</h2>
+    <p>Join the associations that switched from Wild Apricot, MemberClicks, or CiviCRM to AssocHub.</p>
+    <div class="hero-buttons">
+      <a href="https://github.com/tahiralatif/Association-Management-System" class="btn btn-primary">⭐ Star on GitHub</a>
+      <a href="https://ams.14.jugaar.ai" class="btn btn-secondary">Try Live Demo</a>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <p style="margin-bottom: 12px;"><strong>AssocHub</strong> — AI-Powered Association Management</p>
+    <p>
+      <a href="https://github.com/tahiralatif/Association-Management-System">GitHub</a> · 
+      <a href="https://ams.14.jugaar.ai/docs">API Docs</a> · 
+      <a href="https://ams.14.jugaar.ai/redoc">ReDoc</a> · 
+      <a href="mailto:hello@assochub.dev">Contact</a>
+    </p>
+    <p style="margin-top: 16px; font-size: 12px; color: #94a3b8;">Open Source · MIT License · Built with FastAPI + Next.js + PostgreSQL + Groq AI</p>
+  </div>
+</footer>
+
+</body>
+</html>
