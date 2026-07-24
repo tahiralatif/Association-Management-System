@@ -179,6 +179,15 @@ function Navbar() {
               {item}
             </a>
           ))}
+          <a
+            href="https://tahiralatif.github.io/Association-Management-System/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[13px] font-medium transition-colors duration-300"
+            style={{ color: C.teal }}
+          >
+            📖 Docs
+          </a>
         </nav>
         <div className="flex items-center gap-3">
           <Link href="/login" className="text-[13px] font-medium px-4 py-2 transition-colors duration-300" style={{ color: C.textSecondary }}>
@@ -317,6 +326,15 @@ export default function HomePage() {
             >
               Demo Login →
             </Link>
+            <a
+              href="https://tahiralatif.github.io/Association-Management-System/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium px-6 py-3.5 rounded-xl text-[15px] transition-all duration-300 hover:-translate-y-0.5"
+              style={{ color: C.teal, border: `1px solid ${C.tealPale}`, backgroundColor: C.tealPalest }}
+            >
+              📖 Read the Docs
+            </a>
           </motion.div>
         </div>
 
@@ -498,6 +516,15 @@ export default function HomePage() {
               >
                 Demo Login →
               </Link>
+              <a
+                href="https://tahiralatif.github.io/Association-Management-System/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium px-8 py-3.5 rounded-xl text-[15px] transition-all duration-300"
+                style={{ color: C.teal, border: `1px solid ${C.tealPale}`, backgroundColor: C.tealPalest }}
+              >
+                📖 Read the Docs
+              </a>
             </div>
             <p className="text-xs mt-6" style={{ color: C.textMuted }}>No credit card required · Free tier available</p>
           </motion.div>

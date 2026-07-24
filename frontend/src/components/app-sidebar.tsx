@@ -16,6 +16,7 @@ import {
   Brain,
   Plug,
   Megaphone,
+  BookOpen,
 } from "lucide-react";
 import {
   Sidebar,
@@ -45,6 +46,7 @@ const navItems = [
   { title: "AI Engine", href: "/ai", icon: Brain },
   { title: "Integrations", href: "/integrations", icon: Plug },
   { title: "Marketing Page", href: "/marketing", icon: Megaphone, badge: "NEW" },
+  { title: "Documentation", href: "https://tahiralatif.github.io/Association-Management-System/", icon: BookOpen, external: true },
 ];
 
 export function AppSidebar() {
@@ -68,10 +70,11 @@ export function AppSidebar() {
             <SidebarMenu>
               {navItems.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                const isExternal = "external" in item && item.external;
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
-                      render={<Link href={item.href} />}
+                      render={isExternal ? <a href={item.href} target="_blank" rel="noopener noreferrer" /> : <Link href={item.href} />}
                       isActive={isActive}
                       tooltip={item.title}
                     >
