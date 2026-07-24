@@ -11,8 +11,8 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://docs.ams.14.jugaar.ai',
-  baseUrl: '/',
+  url: 'https://tahiralatif.github.io',
+  baseUrl: '/Association-Management-System/',
 
   organizationName: 'tahiralatif',
   projectName: 'Association-Management-System',
