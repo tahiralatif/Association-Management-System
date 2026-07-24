@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "@/components/logo";
 import { login as apiLogin, API_BASE } from "@/lib/api";
@@ -12,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
-  const router = useRouter();
   const { login: ctxLogin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,13 +21,14 @@ export default function LoginPage() {
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSent, setResendSent] = useState(false);
 
-  const doLogin = async (loginEmail: string, loginPassword: string, loginTenant: string) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError("");
     setNeedsVerification(false);
     setResendSent(false);
     setLoading(true);
     try {
-      const data = await apiLogin(loginEmail, loginPassword, loginTenant);
+      const data = await apiLogin(email, password, tenantId);
       const storedUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
       ctxLogin(storedUser, data.access_token);
       window.location.href = "/dashboard";
@@ -42,19 +41,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await doLogin(email, password, tenantId);
-  };
-
-  const handleDemoLogin = async () => {
-    setEmail("daniel.harris@example.com");
-    setPassword("Demo1234!");
-    setTenantId("demo-association");
-    setError("");
-    await doLogin("daniel.harris@example.com", "Demo1234!", "demo-association");
   };
 
   const handleResendVerification = async () => {
@@ -83,37 +69,6 @@ export default function LoginPage() {
           <CardDescription className="text-slate-500">Sign in to your AssocHub account</CardDescription>
         </CardHeader>
         <CardContent>
-          {/* ONE-CLICK DEMO BUTTON — most prominent element */}
-          <button
-            type="button"
-            onClick={handleDemoLogin}
-            disabled={loading}
-            className="w-full mb-6 py-4 rounded-xl font-semibold text-base text-white transition-all duration-200 cursor-pointer disabled:opacity-60 flex items-center justify-center gap-3 group"
-            style={{
-              background: "linear-gradient(135deg, #0d9488 0%, #065f46 100%)",
-              boxShadow: "0 4px 14px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.15)",
-            }}
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                Signing in...
-              </>
-            ) : (
-              <>
-                <span className="text-xl">🚀</span>
-                Try Demo — Instant Login
-              </>
-            )}
-          </button>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">or sign in manually</span>
-            <div className="flex-1 h-px bg-slate-200" />
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="p-3 rounded-md bg-red-50 text-red-700 text-sm border border-red-200">
@@ -153,7 +108,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="demo@gmail.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="border-slate-200 focus:border-teal-500 focus:ring-teal-500/20"
@@ -183,10 +138,10 @@ export default function LoginPage() {
             </p>
           </form>
 
-          {/* Compact demo info */}
+          {/* Demo credentials hint */}
           <div className="mt-5 p-3 bg-teal-50/60 border border-teal-100 rounded-lg">
             <p className="text-xs text-teal-700 text-center">
-              <strong>Demo:</strong> daniel.harris@example.com / Demo1234! / demo-association
+              <strong>Demo:</strong> demo@gmail.com / Demo1234! / demo-association
             </p>
           </div>
         </CardContent>
