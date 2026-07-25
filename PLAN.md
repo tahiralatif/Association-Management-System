@@ -1,547 +1,389 @@
-# 🏛️ AssocHub — AI-Powered Association Management System
+# 🏛️ AssocHub — Gap Fix Execution Plan
 
-> Production-ready, multi-tenant AMS with deep AI integration, not just a chatbot bolted onto old software.
-
----
-
-## 🎯 The Problem with Existing AMS
-
-| AMS Product | Pain Point |
-|---|---|
-| Wild Apricot | Limited customization, shallow AI, poor reporting |
-| MemberClicks | Dated UI, expensive, no real AI |
-| YourMembership | Clunky UX, weak integrations |
-| Personify/NetFORUM | Enterprise complexity, slow innovation, $$$ |
-| Fonterva (Salesforce) | Salesforce lock-in, massive cost |
-| StarChapter | Chapter-only focus, limited modules |
-
-**Common gaps across ALL of them:**
-- AI is a chatbot or afterthought, not a core engine
-- No predictive analytics (churn, revenue, engagement)
-- Document generation is manual or template-only
-- Elections are bolted-on, not built-in with audit integrity
-- No composable modules — you pay for everything or nothing
-- Communication is blast-only, not personalized/intelligent
-- Financial reporting requires export → Excel → manual analysis
+> **Goal:** Take AssocHub from 44% feature-complete to production-ready.  
+> **Method:** One task at a time, in order. Each task gets built, tested, committed, deployed.  
+> **Started:** 2026-07-25
 
 ---
 
-## 🧬 What Makes AssocHub Different
+## Status Legend
 
-### 1. AI as the Core Engine (Not a Feature)
-Every module has AI baked in:
-- **Predictive Member Churn** — ML model flags at-risk members 60 days before renewal
-- **Smart Onboarding** — AI generates personalized welcome journeys based on member type, industry, goals
-- **Document Intelligence** — Auto-generates meeting minutes, bylaws, resolutions, financial summaries
-- **Event Optimization** — AI analyzes attendance patterns, suggests optimal dates/times/venues
-- **Financial Anomaly Detection** — Auto-flags unusual transactions, budget overruns, fraud signals
-- **Communication AI** — Write-tone optimization, send-time prediction, engagement scoring
-- **Governance Copilot** — AI monitors compliance deadlines, suggests agenda items, flags conflicts of interest
-
-### 2. Composable Module Architecture
-- Organizations activate only what they need
-- Each module is independently deployable
-- Pay-per-module pricing (not all-or-nothing)
-- Custom modules can be added via plugin API
-
-### 3. True Multi-Tenancy
-- Complete data isolation (not just a tenant_id column)
-- Tenant-aware database schemas or row-level security
-- Per-tenant AI model fine-tuning (custom voice, tone, terminology)
-- White-label support (custom domains, branding, themes)
-
-### 4. Real-Time Intelligence Dashboard
-- Not just charts — actionable insights
-- "3 members are likely to churn this month" → One-click retention campaign
-- "Budget will exceed plan by $12K if trend continues" → Auto-reallocate suggestions
-- "Election turnout is 40% lower than target" → Targeted outreach recommendations
-
-### 5. Open & Extensible
-- REST + GraphQL APIs for every feature
-- Webhook system for integrations
-- Plugin architecture for custom modules
-- Import/export any data in standard formats
+- ⬜ Not started
+- 🔄 In progress
+- ✅ Done
+- ❌ Blocked
 
 ---
 
-## 🏗️ Architecture
+## Phase 1: Foundation Hardening 🔒
+*Make what exists secure, deployable, and maintainable.*
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      CLIENT LAYER                           │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │ Web App  │  │Mobile PWA│  │  Admin   │  │  Member  │   │
-│  │ (Next.js)│  │          │  │  Portal  │  │  Portal  │   │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
-└───────┼──────────────┼──────────────┼──────────────┼────────┘
-        │              │              │              │
-┌───────▼──────────────▼──────────────▼──────────────▼────────┐
-│                      API GATEWAY                            │
-│           (Rate Limiting, Auth, Tenant Routing)             │
-│              Traefik / Custom Middleware                     │
-└───────┬──────────────┬──────────────┬──────────────┬────────┘
-        │              │              │              │
-┌───────▼──────────────▼──────────────▼──────────────▼────────┐
-│              PYTHON BACKEND (FastAPI)                        │
-│           Single codebase — No Node.js ↔ Python boundary    │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │                  Core Services                      │    │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐            │    │
-│  │  │ Identity │ │ Members  │ │ Finances │            │    │
-│  │  │ & Auth   │ │ Module   │ │ Module   │            │    │
-│  │  └──────────┘ └──────────┘ └──────────┘            │    │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐            │    │
-│  │  │  Events  │ │  Comms   │ │Elections │            │    │
-│  │  │  Module  │ │  Module  │ │ Module   │            │    │
-│  │  └──────────┘ └──────────┘ └──────────┘            │    │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐            │    │
-│  │  │Documents │ │Analytics │ │ Workflows│            │    │
-│  │  │ Module   │ │ Module   │ │  Engine  │            │    │
-│  │  └──────────┘ └──────────┘ └──────────┘            │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │              AI Engine (same process)                │    │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐            │    │
-│  │  │ Churn    │ │ Document │ │ Anomaly  │            │    │
-│  │  │ Predictor│ │ Generator│ │ Detector │            │    │
-│  │  └──────────┘ └──────────┘ └──────────┘            │    │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐            │    │
-│  │  │   RAG    │ │  Smart   │ │  Event   │            │    │
-│  │  │  Search  │ │Segments  │ │Optimizer │            │    │
-│  │  └──────────┘ └──────────┘ └──────────┘            │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │              Shared Infrastructure                   │    │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐            │    │
-│  │  │ Tenant   │ │  Audit   │ │  Plugin  │            │    │
-│  │  │ Manager  │ │  Logger  │ │ Registry │            │    │
-│  │  └──────────┘ └──────────┘ └──────────┘            │    │
-│  └─────────────────────────────────────────────────────┘    │
-└───────┬──────────────┬──────────────┬──────────────┬────────┘
-        │              │              │              │
-┌───────▼──────────────▼──────────────▼──────────────▼────────┐
-│                     DATA LAYER                              │
-│                                                             │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
-│  │PostgreSQL│ │  Redis   │ │  S3/MinIO│ │ pgvector │       │
-│  │ (Core)   │ │ (Cache)  │ │  (Files) │ │ (Vectors)│       │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
-│                                                             │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐                     │
-│  │Meilisearch│ │  Celery  │ │Temporal  │                     │
-│  │ (Search) │ │(Workers) │ │(Workflows)│                     │
-│  └──────────┘ └──────────┘ └──────────┘                     │
-└─────────────────────────────────────────────────────────────┘
-```
+### Task 1.1 — RBAC Enforcement
+**Status:** ⬜  
+**What:** Add role/permission checks to ALL protected endpoints. Currently any authenticated user can hit any endpoint.  
+**Backend changes:**
+- Create `backend/app/core/auth/permissions.py` — Define permission matrix (e.g., `members:read`, `finances:write`, `admin:all`)
+- Create `backend/app/core/auth/deps.py` — `require_permission(permission)` FastAPI dependency
+- Apply to every router: `Depends(require_permission("members:read"))` on each endpoint
+- Add `permissions` JSON field to `User` model for fine-grained overrides  
+**Frontend changes:**
+- Hide/show sidebar items based on user roles
+- Hide/disable action buttons user can't use  
+**Validation:** Test with 3 role types (admin, staff, member) — each can only see/do what they should.  
+**Effort:** ~3-4 hours
+
+### Task 1.2 — Alembic Migrations
+**Status:** ⬜  
+**What:** Generate proper migration scripts for all 60 tables. Currently tables exist but have no version-controlled schema history.  
+**Steps:**
+- Add `alembic.ini` + `alembic/` config if missing
+- Run `alembic revision --autogenerate -m "initial schema"`
+- Review generated migration (should be empty since tables exist)
+- Create seed migration for demo data
+- Add migration check to startup (warn if not up to date)  
+**Validation:** `alembic upgrade head` on clean DB reproduces full schema.  
+**Effort:** ~1-2 hours
+
+### Task 1.3 — Test Suite Setup
+**Status:** ⬜  
+**What:** Add pytest + httpx async test infrastructure. Write tests for auth and one module as proof of concept.  
+**Steps:**
+- Add `pytest`, `pytest-asyncio`, `httpx` to dev dependencies
+- Create `backend/tests/conftest.py` — test DB fixtures, auth fixtures, client fixture
+- Create `backend/tests/test_auth.py` — register, login, verify, refresh, protected endpoint
+- Create `backend/tests/test_members.py` — CRUD + search + pagination + bulk ops
+- Create `backend/tests/test_health.py` — health endpoints  
+**Validation:** `pytest -v` passes. CI-ready.  
+**Effort:** ~4-6 hours
+
+### Task 1.4 — Auto-Renewal & Expiry Scheduler
+**Status:** ⬜  
+**What:** Members silently lapse with no warning. Add Celery beat tasks to process renewals and send reminders.  
+**Backend changes:**
+- Create `backend/app/tasks/membership.py`:
+  - `check_expiring_memberships()` — runs daily, sends 30/7/1 day reminder emails
+  - `process_auto_renewals()` — runs daily, charges stored payment methods via Stripe
+  - `mark_lapsed_memberships()` — runs daily, changes expired members to `lapsed`
+- Add to Celery beat schedule in `config.py`
+- Wire up email templates for reminders  
+**Validation:** Seed test members with expiring dates. Verify emails trigger and status changes.  
+**Effort:** ~3-4 hours
 
 ---
 
-## 🐍 Tech Stack — Full Python
+## Phase 2: Member Experience 👥
+*Members are the product. Let them self-serve.*
 
-### Why Python All the Way
+### Task 2.1 — Member Self-Service Portal
+**Status:** ⬜  
+**What:** Create a member-facing dashboard where members can manage their own stuff (currently admin-only).  
+**Frontend changes:**
+- New route: `frontend/src/app/(member)/layout.tsx` — simpler layout, no admin sidebar
+- `frontend/src/app/(member)/profile/page.tsx` — view/edit profile, avatar upload, change password
+- `frontend/src/app/(member)/invoices/page.tsx` — view invoices, pay online, download PDF
+- `frontend/src/app/(member)/events/page.tsx` — upcoming events, register, cancel, history
+- `frontend/src/app/(member)/documents/page.tsx` — shared documents
+- `frontend/src/app/(member)/groups/page.tsx` — my groups/committees  
+**Backend changes:**
+- `backend/app/modules/members/router.py` — add `/me` endpoints (GET /me, PUT /me, etc.)
+- Member can only see/edit their own data (enforced server-side)  
+**Validation:** Login as demo member → see dashboard, edit profile, view invoices.  
+**Effort:** ~1-2 days
 
-| Factor | Decision |
-|---|---|
-| **No boundary** | AI features call the same ORM, same auth, same DB directly |
-| **One language** | Faster dev, simpler onboarding, fewer bugs at integration points |
-| **ML ecosystem** | scikit-learn, PyTorch, Hugging Face, pandas — native |
-| **Async** | FastAPI + asyncio = high concurrency without Node.js complexity |
-| **Validation** | Pydantic v2 = fastest Python validation, auto-generates JSON Schema |
-| **ORM** | SQLAlchemy 2.0 (async) + Alembic migrations |
-| **Task Queue** | Celery with Redis broker (or ARQ for lighter setup) |
-| **WebSockets** | Native FastAPI support for real-time updates |
+### Task 2.2 — File Upload (Documents Module)
+**Status:** ⬜  
+**What:** Documents module is metadata-only. Add actual file storage.  
+**Backend changes:**
+- Create `backend/app/core/storage.py` — abstract storage interface (local filesystem for now, S3-ready)
+- Add `POST /api/v1/documents/{id}/upload` — multipart file upload
+- Add `GET /api/v1/documents/{id}/download` — serve file
+- Add `GET /api/v1/documents/{id}/preview` — serve inline for browser preview
+- Store files in `/data/uploads/` with UUID names
+- Update document model with `file_path`, `file_size`, `mime_type`  
+**Frontend changes:**
+- Add file upload component (drag-and-drop) to documents page
+- Add download/preview buttons  
+**Validation:** Upload a PDF → see it in list → download it → verify content matches.  
+**Effort:** ~4-6 hours
 
-### Full Stack
-
-| Layer | Technology | Version | Rationale |
-|---|---|---|---|
-| **Backend** | FastAPI | 0.115+ | Async, auto-docs, Pydantic, Python-native AI |
-| **ORM** | SQLAlchemy 2.0 | 2.0+ | Async, mature, excellent for complex queries |
-| **Migrations** | Alembic | — | Pairs with SQLAlchemy, supports multi-tenant |
-| **Validation** | Pydantic v2 | 2.0+ | Fastest Python validation, JSON Schema |
-| **Auth** | Custom JWT + RBAC | — | Full control, tenant-aware |
-| **Task Queue** | Celery / ARQ | — | Background jobs, scheduled tasks |
-| **Frontend** | Next.js 15 + shadcn/ui | — | SSR, RSC, accessible, TypeScript |
-| **Mobile** | PWA (primary) | — | Offline support, push, no app store |
-| **Database** | PostgreSQL 16 + RLS | — | Multi-tenant, ACID, pgvector |
-| **Cache** | Redis 7 | — | Sessions, queues, rate limiting |
-| **Search** | Meilisearch | — | Fast, typo-tolerant, tenant-aware |
-| **Vector DB** | pgvector | — | Embeddings in existing PostgreSQL |
-| **File Storage** | S3/MinIO | — | Documents, avatars, exports |
-| **Workers** | Celery + Redis | — | Async jobs, retries, scheduling |
-| **Workflow** | Temporal.io (Python SDK) | — | Durable, observable workflows |
-| **Monitoring** | Prometheus + Grafana | — | Metrics, dashboards, alerts |
-| **Tracing** | OpenTelemetry | — | Distributed tracing |
-| **CI/CD** | GitHub Actions | — | Test → Build → Deploy |
-| **Container** | Docker + Docker Compose | — | Local dev, production parity |
-| **Orchestration** | Kubernetes | — | Scalable production deploy |
-| **IaC** | Terraform | — | Reproducible infrastructure |
-
----
-
-## 📁 Project Structure
-
-```
-assochub/
-├── backend/                     # Python FastAPI application
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py              # FastAPI app factory
-│   │   ├── config.py            # Settings (pydantic-settings)
-│   │   ├── dependencies.py      # FastAPI dependencies
-│   │   │
-│   │   ├── core/                # Shared infrastructure
-│   │   │   ├── auth/            # JWT, RBAC, permissions
-│   │   │   ├── tenant/          # Multi-tenant middleware & utils
-│   │   │   ├── audit/           # Audit logging
-│   │   │   ├── security/        # Encryption, rate limiting
-│   │   │   ├── exceptions/      # Custom exception handlers
-│   │   │   └── middleware/       # CORS, tenant routing, logging
-│   │   │
-│   │   ├── modules/             # Feature modules
-│   │   │   ├── members/         # Member management
-│   │   │   │   ├── models.py    # SQLAlchemy models
-│   │   │   │   ├── schemas.py   # Pydantic schemas
-│   │   │   │   ├── router.py    # FastAPI routes
-│   │   │   │   ├── service.py   # Business logic
-│   │   │   │   ├── crud.py      # Database operations
-│   │   │   │   └── tests/       # Module tests
-│   │   │   │
-│   │   │   ├── finances/        # Financial management
-│   │   │   ├── events/          # Event management
-│   │   │   ├── communications/  # Email, SMS, push
-│   │   │   ├── elections/       # Voting & elections
-│   │   │   ├── documents/       # Document management
-│   │   │   ├── analytics/       # Reports & dashboards
-│   │   │   └── workflows/       # Automation engine
-│   │   │
-│   │   ├── ai/                  # AI engine (same process!)
-│   │   │   ├── models/          # ML models
-│   │   │   ├── services/        # AI business logic
-│   │   │   ├── pipelines/       # Data pipelines
-│   │   │   ├── prompts/         # LLM prompt templates
-│   │   │   └── embeddings/      # Vector operations
-│   │   │
-│   │   └── plugins/             # Plugin architecture
-│   │       ├── registry.py      # Plugin discovery
-│   │       ├── loader.py        # Dynamic loading
-│   │       └── base.py          # Plugin base class
-│   │
-│   ├── alembic/                 # Database migrations
-│   │   ├── versions/
-│   │   └── env.py
-│   │
-│   ├── tests/                   # Test suite
-│   │   ├── unit/
-│   │   ├── integration/
-│   │   └── e2e/
-│   │
-│   ├── scripts/                 # Management scripts
-│   │   ├── seed.py              # Demo data
-│   │   └── migrate.py           # Migration runner
-│   │
-│   ├── pyproject.toml           # Dependencies (uv/poetry)
-│   ├── Dockerfile
-│   └── alembic.ini
-│
-├── frontend/                    # Next.js application
-│   ├── src/
-│   │   ├── app/                 # App router pages
-│   │   ├── components/          # UI components
-│   │   ├── hooks/               # Custom hooks
-│   │   ├── lib/                 # API client, utils
-│   │   ├── stores/              # State management
-│   │   └── types/               # TypeScript types
-│   │
-│   ├── public/                  # Static assets
-│   ├── package.json
-│   ├── Dockerfile
-│   └── next.config.ts
-│
-├── infra/                       # Infrastructure as Code
-│   ├── terraform/
-│   ├── kubernetes/
-│   └── docker-compose.yml
-│
-├── docs/                        # Documentation
-│   ├── api/                     # Auto-generated OpenAPI
-│   ├── architecture/
-│   └── user-guides/
-│
-├── .github/                     # CI/CD
-│   └── workflows/
-│
-├── .env.example
-├── Makefile
-├── docker-compose.yml
-└── README.md
-```
+### Task 2.3 — Invoice PDF Generation
+**Status:** ⬜  
+**What:** Members and admins need downloadable invoice PDFs.  
+**Backend changes:**
+- Add `weasyprint` or `reportlab` dependency
+- Create `backend/app/core/pdf.py` — invoice PDF generator using Jinja2 HTML template
+- Create `backend/templates/pdf/invoice.html` — professional invoice template
+- Add `GET /api/v1/finances/invoices/{id}/pdf` endpoint
+- Return `application/pdf` response  
+**Frontend changes:**
+- Add "Download PDF" button on invoice detail views  
+**Validation:** Generate PDF for existing invoice → verify it has logo, line items, total, dates.  
+**Effort:** ~3-4 hours
 
 ---
 
-## 📦 Modules (Deep Dive)
+## Phase 3: Financial Completeness 💰
+*Revenue features make an AMS commercially viable.*
 
-### 1. 👥 Member Management
-- **Profiles** — Rich member profiles with custom fields per tenant
-- **Membership Tiers** — Free, Basic, Premium, Corporate, Lifetime
-- **Lifecycle Management** — Onboarding → Active → Renewal → Lapsed → Re-engaged
-- **AI Predictions** — Churn risk score, engagement score, lifetime value
-- **Self-Service Portal** — Members update own profiles, renew, pay
-- **Bulk Operations** — Import/export, mass email, tag management
-- **Groups & Chapters** — Hierarchical organization support
-- **Skills & Interests** — Matching members for mentorship, committees
+### Task 3.1 — Discount/Promo Codes
+**Status:** ⬜  
+**What:** Events and memberships need discount codes.  
+**Backend changes:**
+- New model: `DiscountCode` (code, type: percentage/fixed, value, max_uses, valid_from, valid_to, applicable_to)
+- CRUD endpoints for discount codes
+- Apply discount in registration/invoice creation endpoints  
+**Frontend changes:**
+- Discount code management page in admin
+- Promo code input field on event registration and membership purchase  
+**Validation:** Create 10% off code → register for event with code → verify discount applied.  
+**Effort:** ~1 day
 
-### 2. 💰 Financial Management
-- **Dues & Billing** — Auto-renewal, prorated, installment plans
-- **Invoicing** — Auto-generated, customizable templates (Jinja2)
-- **Payment Processing** — Stripe integration, multiple payment methods
-- **Expense Tracking** — Categorized expenses with approval workflows
-- **Budgeting** — AI-assisted budget creation and variance analysis
-- **Financial Reports** — P&L, balance sheet, cash flow (auto-generated PDFs)
-- **Anomaly Detection** — AI flags unusual transactions
-- **Grant Management** — Track grants, deadlines, reporting requirements
-- **Tax Compliance** — 1099 generation, deduction tracking
+### Task 3.2 — Payment Receipts
+**Status:** ⬜  
+**What:** Auto-send PDF receipts after payment.  
+**Backend changes:**
+- Create `backend/templates/pdf/receipt.html` — receipt template
+- Add receipt generation to payment webhook handler (Stripe)
+- Send receipt via email automatically  
+**Validation:** Complete a Stripe payment → receive receipt email with PDF attached.  
+**Effort:** ~2-3 hours
 
-### 3. 📅 Event Management
-- **Event Types** — Conferences, webinars, workshops, social events, AGMs
-- **Registration** — Custom forms, pricing tiers, discount codes
-- **Venue Management** — Room booking, capacity tracking
-- **Virtual Events** — Zoom/Meet integration, live streaming
-- **AI Optimization** — Best date/time suggestions based on historical data
-- **Speaker Management** — Profiles, availability, session scheduling
-- **Networking** — AI-powered attendee matching
-- **Post-Event** — Surveys, feedback analysis, ROI calculation
-- **Recurring Events** — Calendar sync, automated reminders
+### Task 3.3 — Refund Processing
+**Status:** ⬜  
+**What:** `PaymentStatus.refunded` exists but no actual Stripe refund call.  
+**Backend changes:**
+- Add `POST /api/v1/finances/payments/{id}/refund` endpoint
+- Call `stripe.Refund.create()` with payment_intent ID
+- Update payment status + generate credit note  
+**Frontend changes:**
+- Add "Refund" button on payment detail (admin only)  
+**Validation:** Process a refund → verify Stripe refund created → payment status updated.  
+**Effort:** ~2-3 hours
 
-### 4. 📧 Communication Hub
-- **Email Campaigns** — Drag-and-drop builder, A/B testing
-- **Smart Segmentation** — AI-driven audience grouping
-- **Personalization** — Dynamic content per member segment
-- **Send-Time Optimization** — AI predicts best send time per member
-- **Multi-Channel** — Email, SMS, push notifications, in-app
-- **Templates** — AI-generated drafts based on past campaigns
-- **Analytics** — Open rates, click-through, engagement scoring
-- **Newsletter** — Auto-curated content from member activities
-
-### 5. 🗳️ Elections & Voting
-- **Election Setup** — Nomination periods, candidate profiles
-- **Secure Voting** — End-to-end encrypted ballots
-- **Audit Trail** — Immutable vote log (optional blockchain anchoring)
-- **Proxy Voting** — Delegated voting with verification
-- **Real-Time Results** — Live tally with publish controls
-- **Bylaws Integration** — AI checks election rules compliance
-- **Multi-Race Support** — Board, committees, referendums simultaneously
-
-### 6. 📄 Document Management
-- **Document Repository** — Versioned, categorized, searchable
-- **AI Document Generation** — Meeting minutes, bylaws, resolutions, reports
-- **Template Engine** — Dynamic templates (Jinja2) with member/event data injection
-- **E-Signatures** — Integrated signing workflow
-- **Compliance** — Retention policies, access controls
-- **OCR/Extraction** — AI extracts data from uploaded documents
-- **RAG Search** — Semantic search across all documents via pgvector
-
-### 7. 📊 Analytics & Intelligence
-- **Dashboard** — Real-time KPIs (membership growth, revenue, engagement)
-- **Custom Reports** — Drag-and-drop report builder
-- **Predictive Analytics** — Revenue forecasting, membership projections
-- **Comparisons** — Year-over-year, peer benchmarks
-- **Export** — PDF, Excel, CSV, API access
-- **Scheduled Reports** — Auto-delivered to stakeholders
-
-### 8. ⚙️ Workflow Automation
-- **Visual Builder** — Drag-and-drop workflow creation
-- **Triggers** — Events, schedules, conditions, webhooks
-- **Actions** — Send email, update record, create task, call API
-- **Branching** — If/else logic, loops, delays
-- **Templates** — Pre-built workflows (onboarding, renewal, event follow-up)
-- **Audit** — Full execution log with rollback
-
-### 9. 🔌 Integrations
-- **CRM** — Salesforce, HubSpot connectors
-- **Accounting** — QuickBooks, Xero sync
-- **Calendar** — Google Calendar, Outlook
-- **Communication** — Slack, Microsoft Teams
-- **Payment** — Stripe, PayPal, Square
-- **SSO** — SAML, OAuth, OpenID Connect
-- **Zapier/Make** — 5000+ app connections via webhook
+### Task 3.4 — Financial Reports (P&L)
+**Status:** ⬜  
+**What:** No actual financial reporting. Need revenue, expenses, net income views.  
+**Backend changes:**
+- Add report endpoints: revenue summary, expense summary, P&L, cash flow
+- Add date range filtering
+- Support CSV + PDF export  
+**Frontend changes:**
+- Enhance analytics page with financial report widgets (Recharts)
+- Date range picker
+- Export buttons  
+**Validation:** Filter by Q1 2026 → see revenue vs expenses → export as PDF.  
+**Effort:** ~1 day
 
 ---
 
-## 🤖 AI Engine — Deep Integration
+## Phase 4: Communications Upgrade 📧
+*Move from "we can send emails" to "smart communication platform."*
 
-Since it's all Python, the AI features are **first-class citizens**, not services calling other services:
+### Task 4.1 — Email Open/Click Tracking
+**Status:** ⬜  
+**What:** No idea if anyone opens or clicks campaign emails.  
+**Backend changes:**
+- Add tracking pixel (1x1 image) to outgoing emails
+- Add click-through URL wrapping (redirect → track → redirect)
+- Store events in `email_tracking_events` table
+- Add engagement score to member profile  
+**Frontend changes:**
+- Show open rate / click rate per campaign
+- Show per-recipient engagement data  
+**Validation:** Send campaign → open email → click link → see stats in dashboard.  
+**Effort:** ~1 day
 
-```python
-# Example: Churn prediction runs in the same process as member queries
-from app.ai.models.churn import ChurnPredictor
-from app.modules.members.crud import get_members_at_risk
+### Task 4.2 — Unsubscribe Management
+**Status:** ⬜  
+**What:** No opt-out handling. Legally required (CAN-SPAM, GDPR).  
+**Backend changes:**
+- Add `unsubscribe_token` field to email sending logs
+- Add `GET /api/v1/unsubscribe/{token}` endpoint — one-click unsubscribe
+- Add `Preferences` model — member email preferences per category
+- Add `GET/PUT /api/v1/me/preferences` endpoint  
+**Frontend changes:**
+- Unsubscribe landing page (clean, branded)
+- Member preference center (opt in/out of campaigns, announcements, etc.)  
+**Validation:** Click unsubscribe link → removed from future sends. Update preferences → respected.  
+**Effort:** ~1 day
 
-async def check_churn_risk(tenant_id: str):
-    predictor = ChurnPredictor(tenant_id=tenant_id)
-    at_risk = await predictor.predict_risk()
-    # Same DB session, same auth, same tenant context
-    await notify_admins(tenant_id, at_risk)
-```
-
-### AI Capabilities by Module
-
-| Module | AI Feature | Model/Approach |
-|---|---|---|
-| Members | Churn prediction | scikit-learn gradient boosting |
-| Members | Engagement scoring | Custom ML pipeline |
-| Members | Member matching | Embedding similarity (pgvector) |
-| Finances | Anomaly detection | Isolation Forest / Z-score |
-| Finances | Revenue forecasting | Prophet / ARIMA |
-| Events | Optimal scheduling | Historical pattern analysis |
-| Events | Attendee matching | Collaborative filtering |
-| Comms | Send-time optimization | Per-member engagement history |
-| Comms | Content generation | LLM (GPT-4 / Claude / local) |
-| Documents | Auto-generation | LLM + Jinja2 templates |
-| Documents | Semantic search | pgvector + embeddings |
-| Elections | Compliance checking | Rule engine + LLM |
-| Analytics | Insight generation | LLM-powered narratives |
-
----
-
-## 🛡️ Security & Compliance
-
-- **Authentication** — JWT + refresh tokens, MFA (TOTP, SMS, WebAuthn)
-- **Authorization** — RBAC with granular permissions per module
-- **Tenant Isolation** — Row-Level Security (RLS) in PostgreSQL
-- **Encryption** — TLS 1.3 in transit, AES-256 at rest
-- **Audit Logs** — Every action logged with actor, timestamp, before/after
-- **Data Privacy** — GDPR/CCPA compliance, data export, right to deletion
-- **Rate Limiting** — Per-tenant, per-endpoint throttling (Redis-based)
-- **Input Validation** — Pydantic on every request (automatic, enforced)
-- **Dependency Scanning** — pip-audit in CI
+### Task 4.3 — Drip Campaigns (Automated Sequences)
+**Status:** ⬜  
+**What:** No automated email sequences (welcome series, renewal reminders, re-engagement).  
+**Backend changes:**
+- New model: `EmailSequence` with steps (delay_days, template, condition)
+- New model: `EmailSequenceEnrollment` — member in sequence + current step
+- New Celery task: `process_sequences()` — checks enrollments, sends due emails, advances step
+- Auto-enroll on events: new member → welcome series, expired → re-engagement  
+**Frontend changes:**
+- Sequence builder page (list steps, set delays, choose templates)
+- Enrollment dashboard (who's in what sequence, progress)  
+**Validation:** Create welcome series (day 0, 3, 7) → enroll new member → verify emails sent on schedule.  
+**Effort:** ~2 days
 
 ---
 
-## 🧪 Quality & DevOps
+## Phase 5: AI Differentiators 🤖
+*What makes AssocHub unique vs every other AMS.*
 
-- **Testing** — pytest + httpx (async tests), Playwright for E2E, k6 for load
-- **CI/CD** — GitHub Actions: lint → test → build → deploy
-- **Feature Flags** — Unleash or custom for gradual rollouts
-- **Blue/Green** — Zero-downtime releases via K8s rolling updates
-- **Observability** — OpenTelemetry SDK → Jaeger/Tempo
-- **Alerting** — Prometheus Alertmanager → Slack/PagerDuty
-- **Docs** — Auto-generated from FastAPI (OpenAPI 3.1), MkDocs for guides
-- **Accessibility** — WCAG 2.1 AA compliance on frontend
+### Task 5.1 — Real ML Churn Model
+**Status:** ⬜  
+**What:** `ChurnPredictor` field exists but has no actual model. Build a real scikit-learn model.  
+**Backend changes:**
+- Create `backend/app/ai/ml/churn.py` — train/predict with scikit-learn
+- Features: days since last login, event attendance, payment timeliness, tenure, group membership
+- Training endpoint: trains on current member data, saves model with joblib
+- Prediction endpoint: scores all members, returns risk levels (low/medium/high/critical)
+- Scheduled retrain: weekly Celery beat task  
+**Validation:** Train on 94 members → predict churn → verify predictions make intuitive sense.  
+**Effort:** ~1-2 days
 
----
+### Task 5.2 — Real Engagement Scoring
+**Status:** ⬜  
+**What:** `engagement_score` field exists but is always 0.0.  
+**Backend changes:**
+- Create `backend/app/ai/ml/engagement.py`
+- Scoring factors: event attendance (25%), payment timeliness (25%), email engagement (20%), login frequency (15%), group participation (15%)
+- Normalize to 0-100 scale
+- Daily Celery task to recalculate all member scores  
+**Validation:** Members with high activity → high score. Inactive members → low score.  
+**Effort:** ~4-6 hours
 
-## 📅 Development Phases
-
-### Phase 1: Foundation (Weeks 1–6)
-**Goal:** Core infra + Members module
-
-- [ ] FastAPI project scaffold (app factory, config, logging)
-- [ ] SQLAlchemy models + Alembic setup
-- [ ] Multi-tenant middleware (tenant_id injection, RLS)
-- [ ] Authentication (JWT, MFA, refresh tokens)
-- [ ] RBAC permission system
-- [ ] Member module (CRUD, profiles, tiers, lifecycle)
-- [ ] Member self-service portal (Next.js)
-- [ ] Admin dashboard shell (Next.js)
-- [ ] Docker Compose for local dev
-- [ ] CI/CD pipeline (GitHub Actions)
-
-### Phase 2: Core Business (Weeks 7–12)
-**Goal:** Finances + Events + Communications
-
-- [ ] Financial module (dues, invoicing, expenses)
-- [ ] Stripe payment integration
-- [ ] Event module (CRUD, registration, calendar)
-- [ ] Email campaigns (drag-and-drop, A/B testing)
-- [ ] Communication hub (multi-channel)
-- [ ] Celery worker setup (background jobs)
-- [ ] Search integration (Meilisearch)
-- [ ] Basic analytics dashboard
-
-### Phase 3: Intelligence (Weeks 13–18)
-**Goal:** AI features + Advanced modules
-
-- [ ] AI engine: churn prediction model
-- [ ] AI engine: document generation (LLM + templates)
-- [ ] AI engine: financial anomaly detection
-- [ ] RAG-based document search (pgvector)
-- [ ] Smart member segmentation
-- [ ] Workflow automation engine
-- [ ] Event optimization AI
-
-### Phase 4: Governance & Polish (Weeks 19–24)
-**Goal:** Elections + Production readiness
-
-- [ ] Elections & voting module (encrypted ballots, audit)
-- [ ] Audit logging system (every action tracked)
-- [ ] Advanced reporting & analytics
-- [ ] Plugin architecture
-- [ ] Performance optimization
-- [ ] Security hardening
-- [ ] Documentation (API + user guides)
-- [ ] Kubernetes manifests
-
-### Phase 5: Scale & Launch (Weeks 25–30)
-**Goal:** Production deployment + Iteration
-
-- [ ] Load testing & optimization
-- [ ] Multi-region deployment support
-- [ ] Mobile PWA polish + offline support
-- [ ] Onboarding wizard
-- [ ] Help center
-- [ ] Beta testing with partner associations
-- [ ] Public launch
+### Task 5.3 — Smart Member Segmentation
+**Status:** ⬜  
+**What:** No AI-driven audience grouping.  
+**Backend changes:**
+- Create `backend/app/ai/segmentation.py`
+- Auto-segments: "At Risk", "Champions", "New Members", "Dormant", "High Value"
+- Based on churn score + engagement score + tenure + payment history
+- Endpoint: `GET /api/v1/ai/segments` — returns segments with member counts
+- Endpoint: `GET /api/v1/ai/segments/{name}/members` — members in segment  
+**Frontend changes:**
+- Segment cards on analytics/AI page with member counts and drill-down  
+**Validation:** Run segmentation → see 5+ meaningful groups → click into each to see members.  
+**Effort:** ~1 day
 
 ---
 
-## 💰 Pricing Model (Suggested)
+## Phase 6: Production Readiness 🏭
+*Everything needed to deploy with confidence.*
 
-| Plan | Price | Modules Included |
-|---|---|---|
-| **Starter** | $99/mo | Members, Basic Comms, Events |
-| **Professional** | $299/mo | + Finances, Documents, Analytics |
-| **Enterprise** | $799/mo | + Elections, AI, Custom Integrations |
-| **Custom** | Contact Us | White-label, On-prem, Custom AI |
+### Task 6.1 — CI/CD Pipeline
+**Status:** ⬜  
+**What:** No automated testing or deployment pipeline.  
+**Steps:**
+- Create `.github/workflows/ci.yml`:
+  - On push/PR: install deps → lint → run tests → build frontend → report
+- Create `.github/workflows/deploy.yml`:
+  - On merge to main: SSH → pull → migrate → restart services  
+**Validation:** Push to branch → CI runs → PR shows green check.  
+**Effort:** ~3-4 hours
+
+### Task 6.2 — Prometheus Metrics + Health Dashboard
+**Status:** ⬜  
+**What:** No metrics collection or monitoring.  
+**Backend changes:**
+- Add `prometheus-fastapi-instrumentator` — auto-collect request metrics
+- Add custom metrics: members count, active sessions, email send rate
+- Add `GET /metrics` endpoint  
+**Frontend changes:**
+- System status page showing service health, DB stats, memory usage  
+**Validation:** Hit `/metrics` → see Prometheus metrics. Check system page → see live stats.  
+**Effort:** ~3-4 hours
+
+### Task 6.3 — Automated Backups
+**Status:** ⬜  
+**What:** No database backup system.  
+**Steps:**
+- Create backup script: `pg_dump` → compress → store locally (S3 later)
+- Add cron job: daily at 3 AM UTC
+- Add retention: keep 7 daily, 4 weekly
+- Add `POST /api/v1/admin/backups` endpoint (trigger manual backup)  
+**Validation:** Run backup → verify file exists → restore to test DB → verify data intact.  
+**Effort:** ~2-3 hours
+
+### Task 6.4 — Two-Factor Authentication (2FA)
+**Status:** ⬜  
+**What:** No 2FA/MFA support.  
+**Backend changes:**
+- Add `pyotp` dependency (TOTP)
+- Add `POST /api/v1/auth/2fa/enable` — generates secret + QR code
+- Add `POST /api/v1/auth/2fa/verify` — verify TOTP code
+- Add `POST /api/v1/auth/2fa/disable` — disable with current code
+- Update login flow: if 2FA enabled → require TOTP after password  
+**Frontend changes:**
+- 2FA setup page (show QR code, enter verification code)
+- Login flow: 2FA input step  
+**Validation:** Enable 2FA → scan QR → login requires code → works.  
+**Effort:** ~1 day
+
+### Task 6.5 — ICS Calendar Export
+**Status:** ⬜  
+**What:** No calendar export for events.  
+**Backend changes:**
+- Add `icalendar` dependency
+- Add `GET /api/v1/events/{id}/ics` — returns `.ics` file
+- Include event title, description, location, start/end times, organizer  
+**Frontend changes:**
+- "Add to Calendar" button on event detail page (Google, Apple, Outlook options)  
+**Validation:** Download ICS → open in Google Calendar → event appears correctly.  
+**Effort:** ~2-3 hours
+
+### Task 6.6 — Dark Mode
+**Status:** ⬜  
+**What:** No theme toggle.  
+**Frontend changes:**
+- Add `next-themes` dependency
+- Create `ThemeToggle` component
+- Add to header
+- Configure Tailwind dark mode  
+**Validation:** Toggle dark mode → entire UI switches → persists across refresh.  
+**Effort:** ~2 hours
+
+### Task 6.7 — Notification Center
+**Status:** ⬜  
+**What:** Notifications exist in DB but no UI to view them.  
+**Frontend changes:**
+- Create `NotificationCenter` dropdown component in header
+- Show unread count badge
+- List notifications with read/unread state
+- Mark as read on click
+- Link to relevant pages  
+**Backend changes:**
+- Add `PUT /api/v1/notifications/{id}/read`
+- Add `POST /api/v1/notifications/read-all`  
+**Validation:** Trigger notification → bell icon shows badge → click → opens panel → mark read.  
+**Effort:** ~3-4 hours
 
 ---
 
-## 🚀 Getting Started
+## 📊 Progress Tracker
 
-```bash
-# Clone and setup
-git clone https://github.com/your-org/assochub.git
-cd assochub
-cp .env.example .env
+| Phase | Tasks | Done | Progress |
+|-------|-------|------|----------|
+| 1. Foundation | 4 | 0 | 0% |
+| 2. Member Experience | 3 | 0 | 0% |
+| 3. Financial Completeness | 4 | 0 | 0% |
+| 4. Communications | 3 | 0 | 0% |
+| 5. AI Differentiators | 3 | 0 | 0% |
+| 6. Production Readiness | 7 | 0 | 0% |
+| **TOTAL** | **24** | **0** | **0%** |
 
-# Install backend dependencies
-cd backend && uv sync  # or: poetry install
-
-# Install frontend dependencies
-cd ../frontend && npm install
-
-# Start infrastructure (DB, Redis, Meilisearch)
-cd .. && docker-compose up -d
-
-# Run migrations
-cd backend && alembic upgrade head
-
-# Seed demo data
-python scripts/seed.py
-
-# Start backend (terminal 1)
-uvicorn app.main:app --reload
-
-# Start frontend (terminal 2)
-cd ../frontend && npm run dev
-
-# Open browser
-open http://localhost:3000
-```
+**Estimated Total Effort:** ~15-20 days of focused work
 
 ---
 
-*Last updated: 2026-07-22*
+## 🔄 How We Work
+
+1. Tahira approves next task
+2. I build it (backend + frontend + tests)
+3. Commit & push to GitHub
+4. Deploy to production
+5. Verify it works live
+6. Mark ✅ in this plan
+7. Move to next task
+
+---
+
+*Plan created: 2026-07-25*
+*Last updated: 2026-07-25*
