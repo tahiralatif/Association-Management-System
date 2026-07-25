@@ -1,5 +1,6 @@
 """Audit trail service — records business-level mutations to audit_logs table."""
 
+import json
 import uuid
 import logging
 from datetime import datetime, timezone
@@ -47,7 +48,7 @@ async def log_audit_event(
                 "action": action,
                 "resource_type": resource_type,
                 "resource_id": resource_id,
-                "details": details or {},
+                "details": json.dumps(details) if details else "{}",
                 "ip_address": ip_address,
                 "created_at": datetime.now(timezone.utc),
             },
