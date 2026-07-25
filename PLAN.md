@@ -19,18 +19,9 @@
 *Make what exists secure, deployable, and maintainable.*
 
 ### Task 1.1 — RBAC Enforcement
-**Status:** ⬜  
-**What:** Add role/permission checks to ALL protected endpoints. Currently any authenticated user can hit any endpoint.  
-**Backend changes:**
-- Create `backend/app/core/auth/permissions.py` — Define permission matrix (e.g., `members:read`, `finances:write`, `admin:all`)
-- Create `backend/app/core/auth/deps.py` — `require_permission(permission)` FastAPI dependency
-- Apply to every router: `Depends(require_permission("members:read"))` on each endpoint
-- Add `permissions` JSON field to `User` model for fine-grained overrides  
-**Frontend changes:**
-- Hide/show sidebar items based on user roles
-- Hide/disable action buttons user can't use  
-**Validation:** Test with 3 role types (admin, staff, member) — each can only see/do what they should.  
-**Effort:** ~3-4 hours
+**Status:** ✅  
+**Done:** 2026-07-25 | **Commit:** e23ee9c  
+**What:** 46 granular permissions across 11 modules. Role hierarchy: super_admin (46), tenant_admin (41), staff (30), member (8). PermissionChecker dependency, User model custom_permissions, JWT-embedded permissions, frontend PermissionGate + usePermissions hook + sidebar filtering. Verified with 3 role types.
 
 ### Task 1.2 — Alembic Migrations
 **Status:** ⬜  
