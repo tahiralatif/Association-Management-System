@@ -31,6 +31,7 @@ export function setUser(user: AuthUser) {
 export interface AuthUser {
   email: string;
   roles: string[];
+  permissions: string[];  // RBAC permissions, e.g. ["members:read", "finances:write"]
   token_type: string;
   tenant_id?: string;
 }
@@ -39,6 +40,7 @@ export interface LoginResponse {
   access_token: string;
   token_type: string;
   roles: string[];
+  permissions: string[];  // RBAC permissions from backend
   email: string;
 }
 
@@ -818,6 +820,7 @@ export interface MeResponse {
   first_name: string;
   last_name: string;
   roles: string[];
+  permissions: string[];  // RBAC permissions from backend
   tenant_id?: string;
 }
 
@@ -847,10 +850,10 @@ export async function login(
   // Fetch real user profile from /me
   try {
     const me = await fetchMe(data.access_token);
-    setUser({ email: me.email, roles: me.roles, token_type: data.token_type, tenant_id: me.tenant_id || tenant_id });
+    setUser({ email: me.email, roles: me.roles, permissions: me.permissions ?? [], token_type: data.token_type, tenant_id: me.tenant_id || tenant_id });
   } catch {
     // Fallback: use what we know
-    setUser({ email, roles: ["member"], token_type: data.token_type, tenant_id });
+    setUser({ email, roles: ["member"], permissions: [], token_type: data.token_type, tenant_id });
   }
 
   return data;
@@ -873,10 +876,10 @@ export async function register(
   // Fetch real user profile from /me
   try {
     const me = await fetchMe(data.access_token);
-    setUser({ email: me.email, roles: me.roles, token_type: data.token_type, tenant_id: me.tenant_id || tenant_id });
+    setUser({ email: me.email, roles: me.roles, permissions: me.permissions ?? [], token_type: data.token_type, tenant_id: me.tenant_id || tenant_id });
   } catch {
     // Fallback: use what we know
-    setUser({ email, roles: ["member"], token_type: data.token_type, tenant_id });
+    setUser({ email, roles: ["member"], permissions: [], token_type: data.token_type, tenant_id });
   }
 
   return data;

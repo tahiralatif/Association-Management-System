@@ -33,25 +33,41 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
 
-const navItems = [
+interface NavItem {
+  title: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+  external?: boolean;
+  /** If set, user must have this permission to see the nav item */
+  permission?: string;
+}
+
+const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Members", href: "/members", icon: Users },
-  { title: "Finances", href: "/finances", icon: DollarSign },
-  { title: "Events", href: "/events", icon: Calendar },
-  { title: "Communications", href: "/communications", icon: Mail },
-  { title: "Elections", href: "/elections", icon: Vote },
-  { title: "Documents", href: "/documents", icon: FileText },
-  { title: "Analytics", href: "/analytics", icon: BarChart3 },
-  { title: "Workflows", href: "/workflows", icon: GitBranch },
-  { title: "AI Engine", href: "/ai", icon: Brain },
-  { title: "Integrations", href: "/integrations", icon: Plug },
+  { title: "Members", href: "/members", icon: Users, permission: "members:read" },
+  { title: "Finances", href: "/finances", icon: DollarSign, permission: "finances:read" },
+  { title: "Events", href: "/events", icon: Calendar, permission: "events:read" },
+  { title: "Communications", href: "/communications", icon: Mail, permission: "communications:read" },
+  { title: "Elections", href: "/elections", icon: Vote, permission: "elections:read" },
+  { title: "Documents", href: "/documents", icon: FileText, permission: "documents:read" },
+  { title: "Analytics", href: "/analytics", icon: BarChart3, permission: "analytics:read" },
+  { title: "Workflows", href: "/workflows", icon: GitBranch, permission: "workflows:read" },
+  { title: "AI Engine", href: "/ai", icon: Brain, permission: "ai:chat" },
+  { title: "Integrations", href: "/integrations", icon: Plug, permission: "integrations:read" },
   { title: "Marketing Page", href: "/marketing", icon: Megaphone, badge: "NEW" },
   { title: "Documentation", href: "https://tahiralatif.github.io/Association-Management-System/", icon: BookOpen, external: true },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+
+  // Filter nav items based on user permissions
+  const visibleNavItems = navItems.filter(item => {
+    if (!item.permission) return true; // No permission required = visible to all
+    return hasPermission(item.permission);
+  });
 
   return (
     <Sidebar collapsible="icon">
@@ -68,9 +84,9 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => {
+              {visibleNavItems.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                const isExternal = "external" in item && item.external;
+                const isExternal = item.external;
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -80,7 +96,7 @@ export function AppSidebar() {
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
-                      {"badge" in item && item.badge && (
+                      {item.badge && (
                         <span className="ml-auto text-[10px] bg-[#0d9488] text-white px-1.5 py-0.5 rounded-full font-bold">
                           {item.badge}
                         </span>

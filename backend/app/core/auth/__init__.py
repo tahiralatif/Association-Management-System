@@ -9,6 +9,12 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 
 from app.config import settings
+from app.core.auth.permissions import (
+    PERMISSIONS,
+    ROLE_PERMISSIONS,
+    get_permissions_for_roles,
+    user_has_permission,
+)
 
 
 # Password hashing — use bcrypt with explicit truncation
@@ -24,6 +30,7 @@ class TokenPayload(BaseModel):
     sub: str  # user_id
     tenant_id: str
     roles: list[str] = []
+    permissions: list[str] = []
     exp: int
     type: str = "access"  # "access" or "refresh"
 
@@ -55,15 +62,25 @@ def create_access_token(
     user_id: str,
     tenant_id: str,
     roles: list[str],
+    custom_permissions: list[str] | None = None,
     expires_delta: timedelta | None = None,
 ) -> str:
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     )
+    all_perms = list(get_permissions_for_roles(roles))
+    # Add custom permissions
+    if custom_permissions:
+        for p in custom_permissions:
+            if p.startswith("+"):
+                all_perms.append(p[1:])
+            else:
+                all_perms.append(p)
     payload = {
         "sub": user_id,
         "tenant_id": tenant_id,
         "roles": roles,
+        "permissions": all_perms,
         "exp": expire,
         "type": "access",
     }
@@ -132,3 +149,30 @@ class RoleChecker:
 require_admin = RoleChecker(["super_admin", "tenant_admin"])
 require_staff = RoleChecker(["super_admin", "tenant_admin", "staff"])
 require_member = RoleChecker(["super_admin", "tenant_admin", "staff", "member"])
+
+
+# ── Permission-based access control ──────────────────────────
+
+class PermissionChecker:
+    """Dependency that checks if the current user has a specific permission.
+
+    Checks both role-based permissions and custom user permissions.
+    """
+
+    def __init__(self, permission: str):
+        self.permission = permission
+
+    async def __call__(self, user: TokenPayload = Depends(get_current_user)) -> TokenPayload:
+        # For now, check against role permissions
+        # (custom_permissions will be added when User model gets the field)
+        if not user_has_permission(user.roles, None, self.permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: requires '{self.permission}'",
+            )
+        return user
+
+
+def require_permission(permission: str) -> PermissionChecker:
+    """Create a permission checker dependency for a specific permission."""
+    return PermissionChecker(permission)

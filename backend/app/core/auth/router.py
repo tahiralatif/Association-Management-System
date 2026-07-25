@@ -21,6 +21,7 @@ from app.core.auth import (
     TokenPair,
     TokenPayload,
 )
+from app.core.auth.permissions import get_permissions_for_roles
 from app.core.password import validate_password_strength, PasswordValidationError
 from app.core.audit import log_auth_event
 from app.core.middleware.rate_limit import limiter
@@ -102,6 +103,7 @@ class UserResponse(BaseModel):
     first_name: str
     last_name: str
     roles: list[str]
+    permissions: list[str] = []
     tenant_id: str
     email_verified: bool = True
 
@@ -150,7 +152,7 @@ async def register(req: RegisterRequest, request: Request, background_tasks: Bac
     db.add(profile)
     await db.flush()
 
-    access = create_access_token(user.id, user.tenant_id, user.roles)
+    access = create_access_token(user.id, user.tenant_id, user.roles, getattr(user, 'custom_permissions', None))
     refresh = create_refresh_token(user.id, user.tenant_id)
 
     ip = request.client.host if request.client else None
@@ -313,7 +315,7 @@ async def login(req: LoginRequest, request: Request, background_tasks: Backgroun
             detail="Please verify your email address before logging in. Check your inbox for the verification link, or click 'Resend verification email' on the login page."
         )
 
-    access = create_access_token(user.id, user.tenant_id, user.roles)
+    access = create_access_token(user.id, user.tenant_id, user.roles, getattr(user, 'custom_permissions', None))
     refresh = create_refresh_token(user.id, user.tenant_id)
 
     ip = request.client.host if request.client else None
@@ -369,7 +371,7 @@ async def refresh_token(req: RefreshRequest, request: Request):
     if payload.type != "refresh":
         raise HTTPException(status_code=401, detail="Invalid token type")
 
-    access = create_access_token(payload.sub, payload.tenant_id, payload.roles)
+    access = create_access_token(payload.sub, payload.tenant_id, payload.roles, getattr(payload, 'permissions', None))
     refresh = create_refresh_token(payload.sub, payload.tenant_id)
 
     return TokenPair(access_token=access, refresh_token=refresh)
@@ -385,15 +387,31 @@ async def get_me(user: TokenPayload = Depends(get_current_user), db: AsyncSessio
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    all_perms = get_permissions_for_roles(db_user.roles or [])
+    if getattr(db_user, 'custom_permissions', None):
+        for p in db_user.custom_permissions:
+            if p.startswith("+"):
+                all_perms.add(p[1:])
+            else:
+                all_perms.add(p)
+
     return UserResponse(
         id=db_user.id,
         email=db_user.email,
         first_name=db_user.first_name,
         last_name=db_user.last_name,
         roles=db_user.roles,
+        permissions=sorted(all_perms),
         tenant_id=db_user.tenant_id,
         email_verified=db_user.email_verified,
     )
+
+
+@router.get("/me/permissions")
+async def get_my_permissions(user: TokenPayload = Depends(get_current_user)):
+    """Get the permissions for the current user based on their roles."""
+    perms = get_permissions_for_roles(user.roles)
+    return {"permissions": sorted(perms), "roles": user.roles}
 
 
 # ── Password Management ─────────────────────────────────────

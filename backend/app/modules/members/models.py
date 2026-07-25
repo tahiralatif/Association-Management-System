@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Enum, String, Text, Float, ForeignKey, JSON, Boolean
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -56,6 +56,12 @@ class User(Base):
     first_name: Mapped[str] = mapped_column(String(100))
     last_name: Mapped[str] = mapped_column(String(100))
     roles: Mapped[list] = mapped_column(JSON, default=["member"])
+    custom_permissions: Mapped[list | None] = mapped_column(
+        ARRAY(String(100)),
+        nullable=True,
+        default=None,
+        comment="Per-user permission overrides. +perm to add.",
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=True)
     verification_token: Mapped[str | None] = mapped_column(String(255), nullable=True)

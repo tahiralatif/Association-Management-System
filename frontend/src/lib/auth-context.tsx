@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   getUser,
@@ -14,6 +14,12 @@ import {
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  /** Check if current user has a specific permission */
+  hasPermission: (permission: string) => boolean;
+  /** Check if current user is admin (super_admin or tenant_admin) */
+  isAdmin: boolean;
+  /** Check if current user is staff or above */
+  isStaff: boolean;
   login: (user: AuthUser, token: string) => void;
   logout: () => void;
   loading: boolean;
@@ -58,10 +64,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   };
 
+  const hasPermission = useCallback((permission: string): boolean => {
+    if (!user) return false;
+    return user.permissions?.includes(permission) ?? false;
+  }, [user]);
+
+  const isAdmin = useMemo(() => {
+    if (!user) return false;
+    return (
+      user.permissions?.includes("admin:all") ||
+      user.roles?.includes("super_admin") ||
+      user.roles?.includes("tenant_admin")
+    ) ?? false;
+  }, [user]);
+
+  const isStaff = useMemo(() => {
+    if (!user) return false;
+    return (
+      user.permissions?.includes("admin:all") ||
+      user.roles?.some(r => ["super_admin", "tenant_admin", "staff"].includes(r))
+    ) ?? false;
+  }, [user]);
+
   const isAuthenticated = !!user && !!getToken();
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, hasPermission, isAdmin, isStaff, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
