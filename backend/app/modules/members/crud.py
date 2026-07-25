@@ -196,9 +196,12 @@ async def get_member_stats(db: AsyncSession, tenant_id: str) -> dict:
     """Get comprehensive member statistics."""
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
-    # Total
+    # Total (active only — deleted/inactive members excluded)
     total = await db.execute(
-        select(func.count()).select_from(MemberProfile).where(MemberProfile.tenant_id == tenant_id)
+        select(func.count()).select_from(MemberProfile).where(
+            MemberProfile.tenant_id == tenant_id,
+            MemberProfile.status == "active",
+        )
     )
 
     # By status

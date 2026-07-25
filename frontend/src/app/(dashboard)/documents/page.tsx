@@ -53,6 +53,13 @@ export default function DocumentsPage() {
   const [shareLoading, setShareLoading] = useState(false);
   const [revokeId, setRevokeId] = useState<string | null>(null);
 
+  // ── Upload State ──
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadDragOver, setUploadDragOver] = useState(false);
+
   // ── Create form ──
   const [form, setForm] = useState({
     title: "",
@@ -103,6 +110,59 @@ export default function DocumentsPage() {
       .then((res) => setCategories(res.items || []))
       .catch(() => {});
   }, []);
+
+  // ── Upload File ──
+  async function handleUpload() {
+    if (!uploadFile) return;
+    try {
+      setUploading(true);
+      const formData = new URLSearchParams();
+      if (uploadTitle.trim()) formData.set("title", uploadTitle.trim());
+      const params = formData.toString() ? `?${formData.toString()}` : "";
+
+      // Use native fetch for multipart upload (apiFetch doesn't support FormData)
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`/api/v1/documents/upload${params}`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: (() => { const fd = new FormData(); fd.append("file", uploadFile); return fd; })(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+        throw new Error(err.detail || "Upload failed");
+      }
+      toast.success(`"${uploadFile.name}" uploaded successfully`);
+      setShowUpload(false);
+      setUploadFile(null);
+      setUploadTitle("");
+      loadDocuments();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // ── Download helper ──
+  function getDownloadUrl(doc: DocumentItem): string {
+    if (doc.storage_path) {
+      const parts = doc.storage_path.split("/");
+      const tenantId = parts[0];
+      const filePath = parts.slice(1).join("/");
+      return `/api/v1/documents/file/${tenantId}/${filePath}?download=true`;
+    }
+    return doc.file_url || "#";
+  }
+
+  function getPreviewUrl(doc: DocumentItem): string {
+    if (doc.storage_path) {
+      const parts = doc.storage_path.split("/");
+      const tenantId = parts[0];
+      const filePath = parts.slice(1).join("/");
+      return `/api/v1/documents/file/${tenantId}/${filePath}`;
+    }
+    return doc.file_url || "#";
+  }
 
   // ── Create Document ──
   async function handleCreate() {
@@ -336,14 +396,45 @@ export default function DocumentsPage() {
               <div className="space-y-4">
                 <div className="rounded-lg border p-4">
                   <h3 className="font-medium mb-2">Description</h3>
-                  <p className="text-sm text-muted-foreground">{selected.description || "No description"}</p>
+                  <p className="text-sm text-slate-600">{selected.description || "No description"}</p>
                 </div>
+
+                {/* Download / Preview Buttons */}
+                {(selected.file_url || selected.storage_path) && (
+                  <div className="rounded-lg border p-4">
+                    <h3 className="font-medium mb-3">File</h3>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-slate-600">{selected.file_name || "file"}</span>
+                      {selected.file_size && (
+                        <span className="text-xs text-slate-400">({(selected.file_size / 1024).toFixed(1)} KB)</span>
+                      )}
+                      <div className="flex gap-2 ml-auto">
+                        <a
+                          href={getPreviewUrl(selected)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-md hover:bg-slate-50 text-slate-700"
+                        >
+                          👁 Preview
+                        </a>
+                        <a
+                          href={getDownloadUrl(selected)}
+                          download
+                          className="px-3 py-1.5 text-xs font-medium bg-slate-900 text-white rounded-md hover:bg-slate-800"
+                        >
+                          ⬇ Download
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {selected.tags && selected.tags.length > 0 && (
                   <div className="rounded-lg border p-4">
                     <h3 className="font-medium mb-2">Tags</h3>
                     <div className="flex flex-wrap gap-1">
                       {selected.tags.map((tag) => (
-                        <span key={tag} className="px-2 py-0.5 bg-muted rounded text-xs">{tag}</span>
+                        <span key={tag} className="px-2 py-0.5 bg-slate-100 rounded text-xs text-slate-600">{tag}</span>
                       ))}
                     </div>
                   </div>
@@ -509,12 +600,20 @@ export default function DocumentsPage() {
         title="Documents"
         description="Manage association documents, policies, and files"
         actions={
-          <button
-            onClick={() => setShowCreate(true)}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90"
-          >
-            + New Document
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowUpload(true)}
+              className="px-4 py-2 border border-slate-200 rounded-md text-sm font-medium hover:bg-slate-50 text-slate-700"
+            >
+              📤 Upload File
+            </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="px-4 py-2 bg-slate-900 text-white rounded-md text-sm font-medium hover:bg-slate-800"
+            >
+              + New Document
+            </button>
+          </div>
         }
       />
 
@@ -706,6 +805,83 @@ export default function DocumentsPage() {
               className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
             >
               {catCreating ? "Creating..." : "Create Category"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Upload Modal */}
+      <Modal open={showUpload} onOpenChange={setShowUpload} title="Upload File">
+        <div className="space-y-4">
+          <div
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const dropped = e.dataTransfer.files[0];
+              if (dropped) {
+                setUploadFile(dropped);
+                if (!uploadTitle.trim()) setUploadTitle(dropped.name.replace(/\.[^.]+$/, ""));
+              }
+            }}
+            className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-teal-400 hover:bg-teal-50/50 transition-colors cursor-pointer"
+          >
+            {uploadFile ? (
+              <div className="space-y-2">
+                <p className="text-2xl">📄</p>
+                <p className="text-sm font-medium text-slate-700">{uploadFile.name}</p>
+                <p className="text-xs text-slate-500">{(uploadFile.size / 1024).toFixed(1)} KB</p>
+                <button
+                  onClick={() => { setUploadFile(null); setUploadTitle(""); }}
+                  className="text-xs text-red-500 hover:text-red-700 underline"
+                >
+                  Remove file
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-2xl">📁</p>
+                <p className="text-sm text-slate-600">Drag & drop a file here, or</p>
+                <label className="inline-block px-4 py-2 bg-teal-600 text-white rounded-md text-sm font-medium hover:bg-teal-700 cursor-pointer transition-colors">
+                  Browse Files
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setUploadFile(f);
+                        if (!uploadTitle.trim()) setUploadTitle(f.name.replace(/\.[^.]+$/, ""));
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+
+          <FormField label="Title">
+            <Input
+              value={uploadTitle}
+              onChange={(e) => setUploadTitle(e.target.value)}
+              placeholder="Document title (optional)"
+            />
+          </FormField>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              onClick={() => { setShowUpload(false); setUploadFile(null); setUploadTitle(""); }}
+              className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted"
+              disabled={uploading}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={!uploadFile || uploading}
+              className="px-4 py-2 bg-teal-600 text-white rounded-md text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
+            >
+              {uploading ? "Uploading..." : "Upload"}
             </button>
           </div>
         </div>

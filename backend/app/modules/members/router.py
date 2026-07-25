@@ -437,6 +437,18 @@ async def delete_member(
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
     member.is_active = False
+    # Also deactivate the member profile so stats update
+    from sqlalchemy import select
+    from app.modules.members.models import MemberProfile
+    mp = await db.execute(
+        select(MemberProfile).where(
+            MemberProfile.user_id == user_id,
+            MemberProfile.tenant_id == user.tenant_id,
+        ).limit(1)
+    )
+    profile = mp.scalar_one_or_none()
+    if profile:
+        profile.status = "cancelled"
     await db.flush()
 
 
@@ -447,11 +459,23 @@ async def bulk_delete_members(
     db: AsyncSession = Depends(get_db),
 ):
     """Soft-delete multiple members (admin only)."""
+    from sqlalchemy import select
+    from app.modules.members.models import MemberProfile
     count = 0
     for mid in data.member_ids:
         member = await crud.get_user_by_id(db, mid, user.tenant_id)
         if member:
             member.is_active = False
+            # Also deactivate the member profile
+            mp = await db.execute(
+                select(MemberProfile).where(
+                    MemberProfile.user_id == mid,
+                    MemberProfile.tenant_id == user.tenant_id,
+                ).limit(1)
+            )
+            profile = mp.scalar_one_or_none()
+            if profile:
+                profile.status = "cancelled"
             count += 1
     await db.flush()
     return {"message": f"Deleted {count} members", "count": count}

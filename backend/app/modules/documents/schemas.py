@@ -1,7 +1,7 @@
 """Documents schemas."""
 
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ── Category ─────────────────────────────────────────────────
@@ -81,6 +81,13 @@ class DocumentResponse(BaseModel):
     published_at: datetime | None = None
     created_by: str
     created_at: datetime
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def coerce_tags(cls, v):
+        if v is None:
+            return []
+        return v
 
     model_config = {"from_attributes": True}
 
