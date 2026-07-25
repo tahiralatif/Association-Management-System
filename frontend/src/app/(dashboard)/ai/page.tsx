@@ -281,7 +281,7 @@ export default function AIPage() {
       <PageHeader
         title="AI Assistant"
         description="Ask anything about your association — the AI knows your data"
-        actions={<button onClick={() => { if (tab === "health") loadHealth(); else if (tab === "insights") loadInsights(); else if (tab === "models") loadModels(); }} className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-lg text-xs font-medium text-secondary hover:bg-muted transition-colors"><RefreshCw size={14} /> Refresh</button>}
+        actions={<button onClick={() => { if (tab === "health") loadHealth(); else if (tab === "insights") loadInsights(); else if (tab === "models") loadModels(); }} className="flex items-center gap-2 px-4 py-2 border border-teal/20 rounded-2xl text-xs font-semibold text-teal-700 hover:bg-teal-50 hover:border-teal/40 transition-all duration-200"><RefreshCw size={14} /> Refresh</button>}
       />
       <Tabs tabs={tabs} activeTab={tab} onChange={(k) => setTab(k as TabKey)} />
 
@@ -289,47 +289,48 @@ export default function AIPage() {
       {tab === "chat" && (
         <div className="bg-white rounded-xl border border-border overflow-hidden" style={{ minHeight: "620px" }}>
           {/* Header */}
-          <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface/50">
+          <div className="px-6 py-4 border-b border-teal/10 flex items-center justify-between bg-gradient-to-r from-teal-50/80 to-white">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-teal/10 flex items-center justify-center"><Sparkles size={18} className="text-teal" /></div>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-sm"><Sparkles size={18} className="text-white" /></div>
               <div>
-                <h3 className="text-sm font-semibold text-text">AI Assistant</h3>
+                <h3 className="text-sm font-bold text-text">AI Assistant</h3>
                 <div className="flex items-center gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${ok ? "bg-emerald-500" : "bg-gray-400"}`} />
-                  <span className="text-[10px] text-muted">{ok ? "Powered by Groq LLM" : "Demo mode"}</span>
+                  {ok && <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
+                  {!ok && <div className="w-2 h-2 rounded-full bg-gray-400" />}
+                  <span className="text-[11px] text-muted font-medium">{ok ? "Online — Ready to help" : "Offline"}</span>
                 </div>
               </div>
             </div>
             {msgs.length > 0 && (
-              <button onClick={clearChat} className="text-xs text-muted hover:text-secondary transition-colors px-3 py-1.5 rounded-lg hover:bg-muted">Clear chat</button>
+              <button onClick={clearChat} className="text-xs text-muted hover:text-teal transition-all duration-200 px-3 py-1.5 rounded-lg hover:bg-teal-50 font-medium">Clear chat</button>
             )}
           </div>
 
           {/* Messages */}
-          <div className="p-6 space-y-4 bg-surface/20" style={{ minHeight: "470px", maxHeight: "500px", overflowY: "auto" }}>
+          <div className="p-6 space-y-4 bg-gradient-to-b from-teal-50/30 to-surface/10" style={{ minHeight: "470px", maxHeight: "500px", overflowY: "auto" }}>
             {msgs.length === 0 ? (
               /* Welcome Screen */
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-teal/10 flex items-center justify-center mb-5">
-                  <Sparkles size={32} className="text-teal" />
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center mb-6 shadow-lg shadow-teal-500/20">
+                  <Sparkles size={36} className="text-white" />
                 </div>
-                <h2 className="text-xl font-bold text-text mb-2">Hi! I'm your AssocHub AI</h2>
-                <p className="text-sm text-secondary max-w-md mb-8">
-                  I know everything about your association — members, finances, events, documents, elections, and more. Ask me anything, or try one of these:
+                <h2 className="text-2xl font-bold text-text mb-2">Hi! I'm your AssocHub AI ✨</h2>
+                <p className="text-sm text-secondary max-w-md mb-8 leading-relaxed">
+                  I know everything about your association — members, finances, events, documents, elections, and more.
+                  <br />Ask me anything, or try one of these:
                 </p>
-                <div className="grid grid-cols-2 gap-3 max-w-lg w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
                   {QUICK_ACTIONS.map((a) => (
                     <button
                       key={a.label}
                       onClick={() => send(a.label)}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border text-left hover:shadow-md transition-all group"
-                      style={{ backgroundColor: a.bg }}
+                      className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-teal/10 bg-white text-left hover:shadow-lg hover:shadow-teal-500/10 hover:border-teal/30 hover:-translate-y-0.5 transition-all duration-200 group"
                     >
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: a.color + "20" }}>
-                        <a.icon size={16} style={{ color: a.color }} />
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-gradient-to-br from-teal-50 to-teal-100/80 group-hover:from-teal-100 group-hover:to-teal-200/60 transition-colors duration-200">
+                        <a.icon size={16} className="text-teal-600" />
                       </div>
-                      <span className="text-xs font-medium text-text group-hover:text-teal transition-colors">{a.label}</span>
-                      <ArrowRight size={12} className="text-muted group-hover:text-teal ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span className="text-xs font-semibold text-text group-hover:text-teal-600 transition-colors duration-200">{a.label}</span>
+                      <ArrowRight size={12} className="text-muted group-hover:text-teal-500 ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:translate-x-0.5" />
                     </button>
                   ))}
                 </div>
@@ -342,7 +343,7 @@ export default function AIPage() {
           </div>
 
           {/* Input */}
-          <div className="px-6 py-4 border-t border-border bg-white">
+          <div className="px-6 py-4 border-t border-teal/10 bg-gradient-to-r from-white to-teal-50/30">
             <div className="flex gap-3 items-end">
               <textarea
                 value={input}
@@ -350,10 +351,10 @@ export default function AIPage() {
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                 placeholder="Ask me anything about your association..."
                 rows={1}
-                className="flex-1 resize-none border border-border rounded-xl px-4 py-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal transition-all"
+                className="flex-1 resize-none border border-teal/20 rounded-2xl px-5 py-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal transition-all duration-200 bg-white shadow-sm"
                 style={{ minHeight: "44px", maxHeight: "120px" }}
               />
-              <button onClick={() => send()} disabled={chatBusy || !input.trim()} className="w-11 h-11 rounded-xl bg-teal text-white flex items-center justify-center hover:bg-teal-light disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0">
+              <button onClick={() => send()} disabled={chatBusy || !input.trim()} className="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center hover:from-teal-600 hover:to-teal-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md shrink-0">
                 <Send size={18} />
               </button>
             </div>
@@ -366,25 +367,26 @@ export default function AIPage() {
         <div className="space-y-6">
           {healthLoading ? <LoadingSpinner /> : health ? (
             <>
-              <div className={`rounded-xl border-2 p-6 ${ok ? "border-emerald-200 bg-emerald-50/50" : "border-red-200 bg-red-50/50"}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${ok ? "bg-emerald-100" : "bg-red-100"}`}>
-                    {ok ? <HeartPulse size={24} className="text-emerald-600" /> : <AlertTriangle size={24} className="text-red-600" />}
+              <div className="rounded-2xl border-2 p-6 bg-gradient-to-r from-teal-50/60 to-white border-teal-200 shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center shadow-md shadow-teal-500/20">
+                    {ok ? <HeartPulse size={28} className="text-white" /> : <AlertTriangle size={28} className="text-white" />}
                   </div>
                   <div>
-                    <h3 className={`text-lg font-bold ${ok ? "text-emerald-800" : "text-red-800"}`}>{ok ? "All Systems Operational" : "Issues Detected"}</h3>
-                    <p className={`text-sm ${ok ? "text-emerald-600" : "text-red-600"}`}>{ok ? "AI engine is running normally" : "Some features may not work"}</p>
+                    <h3 className="text-lg font-bold text-teal-800">{ok ? "All Systems Operational" : "Issues Detected"}</h3>
+                    <p className="text-sm text-teal-600/80">{ok ? "AI engine is running normally" : "Some features may not work"}</p>
                   </div>
+                  {ok && <div className="ml-auto"><span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" /> Healthy</span></div>}
                 </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {Object.entries(feats).map(([k, v]) => (
-                  <div key={k} className={`rounded-xl border p-4 ${v ? "border-emerald-200 bg-white" : "border-border bg-surface opacity-60"}`}>
+                  <div key={k} className={`rounded-2xl border p-4 transition-all duration-200 hover:shadow-sm ${v ? "border-teal-200/60 bg-white hover:border-teal-300" : "border-border bg-surface opacity-60"}`}>
                     <div className="flex items-center gap-2 mb-2">
-                      {v ? <Check size={14} className="text-emerald-600" /> : <AlertTriangle size={14} className="text-red-500" />}
-                      <span className="text-xs font-medium text-secondary capitalize">{k.replace(/_/g, " ")}</span>
+                      {v ? <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center"><Check size={12} className="text-teal-600" /></div> : <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center"><AlertTriangle size={12} className="text-red-500" /></div>}
+                      <span className="text-xs font-semibold text-secondary capitalize">{k.replace(/_/g, " ")}</span>
                     </div>
-                    <p className={`text-xs ${v ? "text-emerald-600" : "text-red-500"}`}>{v ? "Available" : "Unavailable"}</p>
+                    <p className={`text-[11px] font-medium ${v ? "text-teal-600" : "text-red-500"}`}>{v ? "Available" : "Unavailable"}</p>
                   </div>
                 ))}
               </div>
@@ -481,7 +483,7 @@ export default function AIPage() {
       {tab === "models" && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowModelModal(true)} className="flex items-center gap-2 px-4 py-2 bg-teal text-white rounded-xl text-sm font-medium hover:bg-teal-light"><Plus size={16} /> Register Model</button>
+            <button onClick={() => setShowModelModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl text-sm font-semibold hover:from-teal-600 hover:to-teal-700 shadow-sm hover:shadow-md transition-all duration-200"><Plus size={16} /> Register Model</button>
           </div>
           {modelsLoading ? <LoadingSpinner /> : models.length === 0 ? (
             <EmptyState icon={"🤖"} title="No models registered" description="Register AI models to track versions and deployment." />
@@ -509,14 +511,14 @@ export default function AIPage() {
       {tab === "predictions" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Churn */}
-          <div className="bg-white rounded-xl border border-border p-6">
+          <div className="bg-white rounded-2xl border border-teal/10 p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center"><TrendingDown size={20} className="text-rose-600" /></div>
-              <div><h3 className="text-sm font-semibold text-text">Churn Prediction</h3><p className="text-[10px] text-secondary">Predict if a member is at risk of leaving</p></div>
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-100 to-teal-50 flex items-center justify-center"><TrendingDown size={20} className="text-teal-600" /></div>
+              <div><h3 className="text-sm font-bold text-text">Churn Prediction</h3><p className="text-[11px] text-secondary">Predict if a member is at risk of leaving</p></div>
             </div>
             <div className="flex gap-2 mb-4">
-              <input value={churnId} onChange={(e) => setChurnId(e.target.value)} placeholder="Enter member ID..." className="flex-1 border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose/30" />
-              <button onClick={predictChurn} disabled={churnBusy || !churnId.trim()} className="px-5 py-2.5 bg-rose-600 text-white rounded-xl text-sm font-medium hover:bg-rose-700 disabled:opacity-50">{churnBusy ? "Analyzing..." : "Predict"}</button>
+              <input value={churnId} onChange={(e) => setChurnId(e.target.value)} placeholder="Enter member ID..." className="flex-1 border border-teal/20 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal/30 transition-all duration-200 bg-white shadow-sm" />
+              <button onClick={predictChurn} disabled={churnBusy || !churnId.trim()} className="px-5 py-2.5 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl text-sm font-semibold hover:from-teal-600 hover:to-teal-700 disabled:opacity-50 shadow-sm hover:shadow-md transition-all duration-200">{churnBusy ? "Analyzing..." : "Predict"}</button>
             </div>
             {churnRes && (
               <div className="bg-surface rounded-xl p-4">
@@ -542,13 +544,13 @@ export default function AIPage() {
           </div>
 
           {/* Anomaly */}
-          <div className="bg-white rounded-xl border border-border p-6">
+          <div className="bg-white rounded-2xl border border-teal/10 p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center"><AlertTriangle size={20} className="text-amber-600" /></div>
-              <div><h3 className="text-sm font-semibold text-text">Anomaly Detection</h3><p className="text-[10px] text-secondary">Detect unusual patterns in transactions</p></div>
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-100 to-teal-50 flex items-center justify-center"><AlertTriangle size={20} className="text-teal-600" /></div>
+              <div><h3 className="text-sm font-bold text-text">Anomaly Detection</h3><p className="text-[11px] text-secondary">Detect unusual patterns in transactions</p></div>
             </div>
-            <textarea value={anomalyInput} onChange={(e) => setAnomalyInput(e.target.value)} rows={4} className="w-full border border-border rounded-xl px-4 py-2.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber/30 mb-3" />
-            <button onClick={detectAnomaly} disabled={anomalyBusy} className="px-5 py-2.5 bg-amber-600 text-white rounded-xl text-sm font-medium hover:bg-amber-700 disabled:opacity-50 w-full">
+            <textarea value={anomalyInput} onChange={(e) => setAnomalyInput(e.target.value)} rows={4} className="w-full border border-teal/20 rounded-2xl px-4 py-2.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-teal/30 transition-all duration-200 mb-3 bg-white shadow-sm" />
+            <button onClick={detectAnomaly} disabled={anomalyBusy} className="px-5 py-2.5 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl text-sm font-semibold hover:from-teal-600 hover:to-teal-700 disabled:opacity-50 w-full shadow-sm hover:shadow-md transition-all duration-200">
               {anomalyBusy ? "Analyzing..." : "Detect Anomalies"}
             </button>
             {anomalyRes && <div className="mt-4 bg-surface rounded-xl p-4"><pre className="text-xs text-text whitespace-pre-wrap">{JSON.stringify(anomalyRes, null, 2)}</pre></div>}
@@ -559,44 +561,44 @@ export default function AIPage() {
       {/* ════════════════════════════ DOC GENERATION ════════════════════════════ */}
       {tab === "generation" && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-border p-6">
-            <h3 className="text-sm font-semibold text-text mb-4">Choose Document Type</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white rounded-2xl border border-teal/10 p-6 shadow-sm">
+            <h3 className="text-sm font-bold text-text mb-4">Choose Document Type</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {[
-                { type: "meeting_minutes", label: "Meeting Minutes", icon: FileText, color: C.teal },
-                { type: "bylaws", label: "Bylaws", icon: Shield, color: C.indigo },
-                { type: "membership_letter", label: "Membership Letter", icon: Users, color: C.emerald },
-                { type: "annual_report", label: "Annual Report", icon: BarChart3, color: C.violet },
-                { type: "newsletter", label: "Newsletter", icon: Zap, color: C.amber },
-                { type: "event_invitation", label: "Event Invitation", icon: Calendar, color: C.cyan },
-                { type: "welcome_letter", label: "Welcome Letter", icon: HeartPulse, color: C.rose },
-                { type: "policy_document", label: "Policy Document", icon: Shield, color: C.orange },
+                { type: "meeting_minutes", label: "Meeting Minutes", icon: FileText },
+                { type: "bylaws", label: "Bylaws", icon: Shield },
+                { type: "membership_letter", label: "Membership Letter", icon: Users },
+                { type: "annual_report", label: "Annual Report", icon: BarChart3 },
+                { type: "newsletter", label: "Newsletter", icon: Zap },
+                { type: "event_invitation", label: "Event Invitation", icon: Calendar },
+                { type: "welcome_letter", label: "Welcome Letter", icon: HeartPulse },
+                { type: "policy_document", label: "Policy Document", icon: Shield },
               ].map((d) => (
-                <button key={d.type} onClick={() => setGenType(d.type)} className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${genType === d.type ? "border-teal bg-teal/5 shadow-sm" : "border-border hover:border-muted"}`}>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: d.color + "15" }}><d.icon size={20} style={{ color: d.color }} /></div>
-                  <span className="text-[11px] font-medium text-text">{d.label}</span>
+                <button key={d.type} onClick={() => setGenType(d.type)} className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-200 ${genType === d.type ? "border-teal-500 bg-teal-50 shadow-md shadow-teal-500/10" : "border-teal/10 bg-white hover:border-teal/30 hover:shadow-sm"}`}>
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-100 to-teal-50 flex items-center justify-center"><d.icon size={20} className="text-teal-600" /></div>
+                  <span className="text-[11px] font-semibold text-text">{d.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-border p-6">
-            <h3 className="text-sm font-semibold text-text mb-4">Context</h3>
-            <textarea value={genCtx} onChange={(e) => setGenCtx(e.target.value)} rows={4} className="w-full border border-border rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal/30 mb-4" placeholder='{"title": "Q2 Board Meeting", "attendees": ["John", "Sarah"], "date": "2025-06-15"}' />
-            <button onClick={generateDoc} disabled={genBusy} className="px-6 py-3 bg-teal text-white rounded-xl text-sm font-medium hover:bg-teal-light disabled:opacity-50 flex items-center gap-2">
+          <div className="bg-white rounded-2xl border border-teal/10 p-6 shadow-sm">
+            <h3 className="text-sm font-bold text-text mb-4">Context</h3>
+            <textarea value={genCtx} onChange={(e) => setGenCtx(e.target.value)} rows={4} className="w-full border border-teal/20 rounded-2xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal/30 transition-all duration-200 mb-4 bg-white shadow-sm" placeholder='{"title": "Q2 Board Meeting", "attendees": ["John", "Sarah"], "date": "2025-06-15"}' />
+            <button onClick={generateDoc} disabled={genBusy} className="px-6 py-3 bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl text-sm font-semibold hover:from-teal-600 hover:to-teal-700 disabled:opacity-50 flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200">
               {genBusy ? <><RefreshCw size={14} className="animate-spin" /> Generating...</> : <><Sparkles size={14} /> Generate Document</>}
             </button>
           </div>
 
           {genResult && (
-            <div className="bg-white rounded-xl border border-border p-6">
+            <div className="bg-white rounded-2xl border border-teal/10 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-text">Generated Document</h3>
-                <button onClick={() => { navigator.clipboard.writeText(genResult); setCopiedResult(true); toast.success("Copied!"); setTimeout(() => setCopiedResult(false), 2000); }} className="text-xs text-teal hover:text-teal-light flex items-center gap-1">
+                <h3 className="text-sm font-bold text-text">Generated Document</h3>
+                <button onClick={() => { navigator.clipboard.writeText(genResult); setCopiedResult(true); toast.success("Copied!"); setTimeout(() => setCopiedResult(false), 2000); }} className="text-xs text-teal-600 hover:text-teal-700 flex items-center gap-1 font-semibold">
                   {copiedResult ? <Check size={12} /> : <Copy size={12} />} {copiedResult ? "Copied!" : "Copy"}
                 </button>
               </div>
-              <div className="bg-surface rounded-xl p-5"><pre className="whitespace-pre-wrap text-sm leading-relaxed font-sans text-text">{genResult}</pre></div>
+              <div className="bg-teal-50/30 rounded-2xl p-5 border border-teal/10"><pre className="whitespace-pre-wrap text-sm leading-relaxed font-sans text-text">{genResult}</pre></div>
             </div>
           )}
         </div>
