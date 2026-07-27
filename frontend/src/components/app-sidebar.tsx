@@ -17,6 +17,9 @@ import {
   Plug,
   Megaphone,
   BookOpen,
+  UserCircle,
+  Receipt,
+  CalendarCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -39,10 +42,17 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
   external?: boolean;
-  /** If set, user must have this permission to see the nav item */
   permission?: string;
 }
 
+// Member self-service — visible to all authenticated users
+const memberNavItems: NavItem[] = [
+  { title: "My Profile", href: "/profile", icon: UserCircle },
+  { title: "My Invoices", href: "/my-invoices", icon: Receipt },
+  { title: "My Events", href: "/my-events", icon: CalendarCheck },
+];
+
+// Admin/staff navigation — permission-filtered
 const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Members", href: "/members", icon: Users, permission: "members:read" },
@@ -63,11 +73,12 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { user, hasPermission } = useAuth();
 
-  // Filter nav items based on user permissions
   const visibleNavItems = navItems.filter(item => {
-    if (!item.permission) return true; // No permission required = visible to all
+    if (!item.permission) return true;
     return hasPermission(item.permission);
   });
+
+  const hasAdminItems = visibleNavItems.length > 0;
 
   return (
     <Sidebar collapsible="icon">
@@ -80,27 +91,26 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
+        {/* Member self-service — always visible */}
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-xs text-slate-400 uppercase tracking-wider">
+            My Account
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleNavItems.map((item) => {
+              {memberNavItems.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                const isExternal = item.external;
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
-                      render={isExternal ? <a href={item.href} target="_blank" rel="noopener noreferrer" /> : <Link href={item.href} />}
+                      render={<Link href={item.href} />}
                       isActive={isActive}
                       tooltip={item.title}
                     >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                      {item.badge && (
-                        <span className="ml-auto text-[10px] bg-[#0d9488] text-white px-1.5 py-0.5 rounded-full font-bold">
-                          {item.badge}
-                        </span>
-                      )}
+                      <Link href={item.href}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -108,6 +118,40 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin sections — permission-filtered */}
+        {hasAdminItems && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs text-slate-400 uppercase tracking-wider">
+              Management
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleNavItems.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                  const isExternal = item.external;
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        render={isExternal ? <a href={item.href} target="_blank" rel="noopener noreferrer" /> : <Link href={item.href} />}
+                        isActive={isActive}
+                        tooltip={item.title}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                        {item.badge && (
+                          <span className="ml-auto text-[10px] bg-[#0d9488] text-white px-1.5 py-0.5 rounded-full font-bold">
+                            {item.badge}
+                          </span>
+                        )}
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <div className="px-2 py-1.5">
