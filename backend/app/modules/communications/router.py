@@ -555,8 +555,20 @@ async def unsubscribe(
     from app.modules.members.models import MemberProfile
 
     # Find the sending log with this token
+    try:
+        from uuid import UUID
+        token_uuid = UUID(token)
+    except ValueError:
+        return HTMLResponse(
+            "<html><body style='font-family:sans-serif;text-align:center;padding:50px'>"
+            "<h2>Invalid Unsubscribe Link</h2>"
+            "<p>This link is invalid or has already been used.</p>"
+            "</body></html>",
+            status_code=404,
+        )
+
     result = await db.execute(
-        select(EmailSendingLog).where(EmailSendingLog.id == token)
+        select(EmailSendingLog).where(EmailSendingLog.id == token_uuid)
     )
     log_entry = result.scalar_one_or_none()
 

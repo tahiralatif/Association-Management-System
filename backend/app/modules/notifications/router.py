@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, TokenPayload
-from app.modules.notifications.models import Notification
+from app.modules.communications.models import Notification
 
 router = APIRouter()
 

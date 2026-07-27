@@ -980,7 +980,7 @@ async def refund_payment(
     db: AsyncSession = Depends(get_db),
 ):
     """Process a refund for a payment."""
-    from app.modules.finances.models import Payment, Invoice, PaymentStatus
+    from app.modules.finances.models import Payment, Invoice
     from sqlalchemy import select as sa_select
 
     result = await db.execute(
@@ -989,11 +989,11 @@ async def refund_payment(
     payment = result.scalar_one_or_none()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
-    if payment.status == PaymentStatus.REFUNDED:
+    if payment.status == "refunded":
         raise HTTPException(status_code=400, detail="Already refunded")
 
     # Mark payment as refunded
-    payment.status = PaymentStatus.REFUNDED
+    payment.status = "refunded"
     payment.notes = f"Refunded by {user.sub}: {data.reason}" if data.reason else f"Refunded by {user.sub}"
 
     # Update invoice balance if linked
@@ -1005,7 +1005,7 @@ async def refund_payment(
         if invoice:
             invoice.amount_paid = max(0, (invoice.amount_paid or 0) - (payment.amount or 0))
             if invoice.amount_paid <= 0:
-                invoice.status = InvoiceStatus.REFUNDED
+                invoice.status = "refunded"
 
     await db.commit()
     return {
@@ -1028,7 +1028,7 @@ async def revenue_summary(
     db: AsyncSession = Depends(get_db),
 ):
     """Revenue summary from payments."""
-    from app.modules.finances.models import Payment, PaymentStatus
+    from app.modules.finances.models import Payment
     from sqlalchemy import select as sa_select, func as sqlfunc
 
     query = sa_select(
@@ -1036,7 +1036,7 @@ async def revenue_summary(
         sqlfunc.count(Payment.id).label("count"),
     ).where(
         Payment.tenant_id == user.tenant_id,
-        Payment.status.in_([PaymentStatus.COMPLETED, PaymentStatus.SUCCEEDED]),
+        Payment.status.in_(["completed", "succeeded"]),
     )
     if start_date:
         query = query.where(Payment.payment_date >= datetime.fromisoformat(start_date))
@@ -1054,7 +1054,7 @@ async def revenue_summary(
             sqlfunc.count(Payment.id),
         ).where(
             Payment.tenant_id == user.tenant_id,
-            Payment.status.in_([PaymentStatus.COMPLETED, PaymentStatus.SUCCEEDED]),
+            Payment.status.in_(["completed", "succeeded"]),
         ).group_by(Payment.payment_method)
     )
     methods = [{"method": str(r[0]), "total": float(r[1]), "count": r[2]} for r in method_query.all()]
@@ -1122,13 +1122,13 @@ async def profit_loss(
     db: AsyncSession = Depends(get_db),
 ):
     """Profit & Loss report."""
-    from app.modules.finances.models import Payment, Expense, PaymentStatus, ExpenseStatus
+    from app.modules.finances.models import Payment, Expense, ExpenseStatus
     from sqlalchemy import select as sa_select, func as sqlfunc
 
     # Revenue
     rev_query = sa_select(sqlfunc.coalesce(sqlfunc.sum(Payment.amount), 0)).where(
         Payment.tenant_id == user.tenant_id,
-        Payment.status.in_([PaymentStatus.COMPLETED, PaymentStatus.SUCCEEDED]),
+        Payment.status.in_(["completed", "succeeded"]),
     )
     if start_date:
         rev_query = rev_query.where(Payment.payment_date >= datetime.fromisoformat(start_date))
