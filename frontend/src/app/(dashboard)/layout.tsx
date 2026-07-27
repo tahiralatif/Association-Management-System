@@ -8,6 +8,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationCenter } from "@/components/notification-center";
 import { LogOut, User } from "lucide-react";
 
 // Admin-only routes — members should not access these
@@ -56,6 +57,7 @@ export default function DashboardLayout({
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <NotificationCenter />
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <User className="h-4 w-4" />
               <span>{user?.email || "User"}</span>

@@ -12,6 +12,11 @@ from app.modules.finances.schemas import (
     BudgetCreate,
     BudgetResponse,
     BudgetUpdate,
+    DiscountApplyRequest,
+    DiscountApplyResponse,
+    DiscountCodeCreate,
+    DiscountCodeResponse,
+    DiscountCodeUpdate,
     DuesStructureCreate,
     DuesStructureResponse,
     DuesStructureUpdate,
@@ -778,3 +783,414 @@ async def get_my_events(
         }
         for e in events
     ]
+
+
+# ═══════════════════════════════════════════════════════════════
+# Discount Codes
+# ═══════════════════════════════════════════════════════════════
+
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+
+
+class DiscountCodeCreate(BaseModel):
+    code: str
+    discount_type: str = "percentage"  # percentage or fixed
+    value: float
+    max_uses: Optional[int] = None
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    applicable_to: str = "both"  # event, membership, both
+    is_active: bool = True
+
+
+class DiscountCodeApply(BaseModel):
+    code: str
+    amount: float
+
+
+@router.get("/discount-codes")
+async def list_discount_codes(
+    user: TokenPayload = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all discount codes (admin)."""
+    from app.modules.finances.models import DiscountCode
+    from sqlalchemy import select as sa_select
+    result = await db.execute(
+        sa_select(DiscountCode).where(DiscountCode.tenant_id == user.tenant_id).order_by(DiscountCode.created_at.desc())
+    )
+    codes = result.scalars().all()
+    return {
+        "items": [
+            {
+                "id": str(c.id),
+                "code": c.code,
+                "discount_type": c.discount_type,
+                "value": c.value,
+                "max_uses": c.max_uses,
+                "used_count": c.used_count,
+                "valid_from": c.valid_from.isoformat() if c.valid_from else None,
+                "valid_to": c.valid_to.isoformat() if c.valid_to else None,
+                "applicable_to": c.applicable_to,
+                "is_active": c.is_active,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            }
+            for c in codes
+        ]
+    }
+
+
+@router.post("/discount-codes")
+async def create_discount_code(
+    data: DiscountCodeCreate,
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a discount code (admin)."""
+    from app.modules.finances.models import DiscountCode
+    from sqlalchemy import select as sa_select
+    # Check duplicate
+    existing = await db.execute(
+        sa_select(DiscountCode).where(
+            DiscountCode.code == data.code.upper(),
+            DiscountCode.tenant_id == user.tenant_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Code already exists")
+
+    dc = DiscountCode(
+        code=data.code.upper(),
+        discount_type=data.discount_type,
+        value=data.value,
+        max_uses=data.max_uses,
+        valid_from=data.valid_from,
+        valid_to=data.valid_to,
+        applicable_to=data.applicable_to,
+        is_active=data.is_active,
+        tenant_id=user.tenant_id,
+        created_by=user.sub,
+    )
+    db.add(dc)
+    await db.commit()
+    await db.refresh(dc)
+    return {"id": str(dc.id), "code": dc.code, "status": "created"}
+
+
+@router.patch("/discount-codes/{code_id}")
+async def update_discount_code(
+    code_id: str,
+    data: DiscountCodeCreate,
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a discount code (admin)."""
+    from app.modules.finances.models import DiscountCode
+    from sqlalchemy import select as sa_select
+    result = await db.execute(
+        sa_select(DiscountCode).where(DiscountCode.id == code_id, DiscountCode.tenant_id == user.tenant_id)
+    )
+    dc = result.scalar_one_or_none()
+    if not dc:
+        raise HTTPException(status_code=404, detail="Not found")
+    dc.code = data.code.upper()
+    dc.discount_type = data.discount_type
+    dc.value = data.value
+    dc.max_uses = data.max_uses
+    dc.valid_from = data.valid_from
+    dc.valid_to = data.valid_to
+    dc.applicable_to = data.applicable_to
+    dc.is_active = data.is_active
+    await db.commit()
+    return {"status": "updated"}
+
+
+@router.delete("/discount-codes/{code_id}", status_code=204)
+async def delete_discount_code(
+    code_id: str,
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a discount code (admin)."""
+    from app.modules.finances.models import DiscountCode
+    from sqlalchemy import select as sa_select
+    result = await db.execute(
+        sa_select(DiscountCode).where(DiscountCode.id == code_id, DiscountCode.tenant_id == user.tenant_id)
+    )
+    dc = result.scalar_one_or_none()
+    if not dc:
+        raise HTTPException(status_code=404, detail="Not found")
+    await db.delete(dc)
+    await db.commit()
+    return None
+
+
+@router.post("/discounts/apply")
+async def apply_discount(
+    data: DiscountCodeApply,
+    db: AsyncSession = Depends(get_db),
+):
+    """Apply a discount code and return discounted amount."""
+    from app.modules.finances.models import DiscountCode
+    from sqlalchemy import select as sa_select
+    result = await db.execute(
+        sa_select(DiscountCode).where(
+            DiscountCode.code == data.code.upper(),
+            DiscountCode.is_active == True,
+        )
+    )
+    dc = result.scalar_one_or_none()
+    if not dc:
+        raise HTTPException(status_code=404, detail="Invalid discount code")
+    if dc.max_uses and dc.used_count >= dc.max_uses:
+        raise HTTPException(status_code=400, detail="Code has been fully redeemed")
+    if dc.valid_to and dc.valid_to < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Code has expired")
+
+    if dc.discount_type == "percentage":
+        discount = data.amount * (dc.value / 100)
+    else:
+        discount = min(dc.value, data.amount)
+
+    return {
+        "code": dc.code,
+        "discount_type": dc.discount_type,
+        "discount_value": dc.value,
+        "discount_amount": round(discount, 2),
+        "original_amount": data.amount,
+        "final_amount": round(data.amount - discount, 2),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Refund Processing (Task 3.3)
+# ═══════════════════════════════════════════════════════════════
+
+class RefundRequest(BaseModel):
+    reason: str = ""
+
+
+@router.post("/payments/{payment_id}/refund")
+async def refund_payment(
+    payment_id: str,
+    data: RefundRequest,
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Process a refund for a payment."""
+    from app.modules.finances.models import Payment, Invoice, PaymentStatus
+    from sqlalchemy import select as sa_select
+
+    result = await db.execute(
+        sa_select(Payment).where(Payment.id == payment_id, Payment.tenant_id == user.tenant_id)
+    )
+    payment = result.scalar_one_or_none()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if payment.status == PaymentStatus.REFUNDED:
+        raise HTTPException(status_code=400, detail="Already refunded")
+
+    # Mark payment as refunded
+    payment.status = PaymentStatus.REFUNDED
+    payment.notes = f"Refunded by {user.sub}: {data.reason}" if data.reason else f"Refunded by {user.sub}"
+
+    # Update invoice balance if linked
+    if payment.invoice_id:
+        inv_result = await db.execute(
+            sa_select(Invoice).where(Invoice.id == payment.invoice_id)
+        )
+        invoice = inv_result.scalar_one_or_none()
+        if invoice:
+            invoice.amount_paid = max(0, (invoice.amount_paid or 0) - (payment.amount or 0))
+            if invoice.amount_paid <= 0:
+                invoice.status = InvoiceStatus.REFUNDED
+
+    await db.commit()
+    return {
+        "status": "refunded",
+        "payment_id": str(payment.id),
+        "amount": float(payment.amount or 0),
+        "reason": data.reason,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Financial Reports (Task 3.4)
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/reports/revenue-summary")
+async def revenue_summary(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user: TokenPayload = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revenue summary from payments."""
+    from app.modules.finances.models import Payment, PaymentStatus
+    from sqlalchemy import select as sa_select, func as sqlfunc
+
+    query = sa_select(
+        sqlfunc.coalesce(sqlfunc.sum(Payment.amount), 0).label("total"),
+        sqlfunc.count(Payment.id).label("count"),
+    ).where(
+        Payment.tenant_id == user.tenant_id,
+        Payment.status.in_([PaymentStatus.COMPLETED, PaymentStatus.SUCCEEDED]),
+    )
+    if start_date:
+        query = query.where(Payment.payment_date >= datetime.fromisoformat(start_date))
+    if end_date:
+        query = query.where(Payment.payment_date <= datetime.fromisoformat(end_date))
+
+    result = await db.execute(query)
+    row = result.one()
+
+    # Breakdown by method
+    method_query = await db.execute(
+        sa_select(
+            Payment.payment_method,
+            sqlfunc.coalesce(sqlfunc.sum(Payment.amount), 0),
+            sqlfunc.count(Payment.id),
+        ).where(
+            Payment.tenant_id == user.tenant_id,
+            Payment.status.in_([PaymentStatus.COMPLETED, PaymentStatus.SUCCEEDED]),
+        ).group_by(Payment.payment_method)
+    )
+    methods = [{"method": str(r[0]), "total": float(r[1]), "count": r[2]} for r in method_query.all()]
+
+    return {
+        "total_revenue": float(row[0]),
+        "total_payments": row[1],
+        "by_method": methods,
+        "period": {"start": start_date, "end": end_date},
+    }
+
+
+@router.get("/reports/expense-summary")
+async def expense_summary(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user: TokenPayload = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    """Expense summary."""
+    from app.modules.finances.models import Expense, ExpenseStatus
+    from sqlalchemy import select as sa_select, func as sqlfunc
+
+    query = sa_select(
+        sqlfunc.coalesce(sqlfunc.sum(Expense.amount), 0).label("total"),
+        sqlfunc.count(Expense.id).label("count"),
+    ).where(
+        Expense.tenant_id == user.tenant_id,
+        Expense.status.in_([ExpenseStatus.APPROVED, ExpenseStatus.REIMBURSED]),
+    )
+    if start_date:
+        query = query.where(Expense.expense_date >= datetime.fromisoformat(start_date))
+    if end_date:
+        query = query.where(Expense.expense_date <= datetime.fromisoformat(end_date))
+
+    result = await db.execute(query)
+    row = result.one()
+
+    # By category
+    cat_query = await db.execute(
+        sa_select(
+            Expense.category,
+            sqlfunc.coalesce(sqlfunc.sum(Expense.amount), 0),
+            sqlfunc.count(Expense.id),
+        ).where(
+            Expense.tenant_id == user.tenant_id,
+            Expense.status.in_([ExpenseStatus.APPROVED, ExpenseStatus.REIMBURSED]),
+        ).group_by(Expense.category)
+    )
+    categories = [{"category": str(r[0]), "total": float(r[1]), "count": r[2]} for r in cat_query.all()]
+
+    return {
+        "total_expenses": float(row[0]),
+        "total_entries": row[1],
+        "by_category": categories,
+        "period": {"start": start_date, "end": end_date},
+    }
+
+
+@router.get("/reports/profit-loss")
+async def profit_loss(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user: TokenPayload = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    """Profit & Loss report."""
+    from app.modules.finances.models import Payment, Expense, PaymentStatus, ExpenseStatus
+    from sqlalchemy import select as sa_select, func as sqlfunc
+
+    # Revenue
+    rev_query = sa_select(sqlfunc.coalesce(sqlfunc.sum(Payment.amount), 0)).where(
+        Payment.tenant_id == user.tenant_id,
+        Payment.status.in_([PaymentStatus.COMPLETED, PaymentStatus.SUCCEEDED]),
+    )
+    if start_date:
+        rev_query = rev_query.where(Payment.payment_date >= datetime.fromisoformat(start_date))
+    if end_date:
+        rev_query = rev_query.where(Payment.payment_date <= datetime.fromisoformat(end_date))
+    revenue = (await db.execute(rev_query)).scalar() or 0
+
+    # Expenses
+    exp_query = sa_select(sqlfunc.coalesce(sqlfunc.sum(Expense.amount), 0)).where(
+        Expense.tenant_id == user.tenant_id,
+        Expense.status.in_([ExpenseStatus.APPROVED, ExpenseStatus.REIMBURSED]),
+    )
+    if start_date:
+        exp_query = exp_query.where(Expense.expense_date >= datetime.fromisoformat(start_date))
+    if end_date:
+        exp_query = exp_query.where(Expense.expense_date <= datetime.fromisoformat(end_date))
+    expenses = (await db.execute(exp_query)).scalar() or 0
+
+    return {
+        "revenue": float(revenue),
+        "expenses": float(expenses),
+        "net_income": float(revenue) - float(expenses),
+        "margin": round((float(revenue) - float(expenses)) / float(revenue) * 100, 1) if revenue else 0,
+        "period": {"start": start_date, "end": end_date},
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Payment Receipt PDF (Task 3.2)
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/payments/{payment_id}/receipt")
+async def get_payment_receipt(
+    payment_id: str,
+    user: TokenPayload = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Download a receipt PDF for a payment."""
+    from fastapi.responses import Response
+    from app.modules.finances.models import Payment, PaymentStatus
+    from sqlalchemy import select as sa_select
+
+    result = await db.execute(
+        sa_select(Payment).where(Payment.id == payment_id, Payment.tenant_id == user.tenant_id)
+    )
+    payment = result.scalar_one_or_none()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    from app.core.pdf import generate_receipt_pdf
+    receipt_data = {
+        "receipt_number": f"REC-{str(payment.id)[:8].upper()}",
+        "date": payment.payment_date.strftime("%B %d, %Y") if payment.payment_date else "N/A",
+        "amount": float(payment.amount or 0),
+        "method": str(payment.payment_method) if payment.payment_method else "N/A",
+        "status": str(payment.status),
+        "reference": payment.stripe_payment_id or "N/A",
+        "tenant_name": "AssocHub",
+    }
+    pdf_bytes = generate_receipt_pdf(receipt_data)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=\"receipt-{payment_id[:8]}.pdf\""},
+    )

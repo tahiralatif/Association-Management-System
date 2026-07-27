@@ -509,3 +509,121 @@ async def process_recurring_invoices(db: AsyncSession, tenant_id: str) -> int:
 
     await db.flush()
     return count
+
+
+# ── Discount Codes ───────────────────────────────────────────
+
+from app.modules.finances.models import DiscountCode, DiscountType, ApplicableTo
+
+
+async def create_discount_code(db: AsyncSession, tenant_id: str, user_id: str, data: dict) -> DiscountCode:
+    code = DiscountCode(
+        tenant_id=tenant_id,
+        created_by=user_id,
+        code=data["code"].upper(),
+        discount_type=DiscountType(data.get("discount_type", "percentage")),
+        value=data["value"],
+        max_uses=data.get("max_uses"),
+        used_count=0,
+        valid_from=data.get("valid_from"),
+        valid_to=data.get("valid_to"),
+        applicable_to=ApplicableTo(data.get("applicable_to", "both")),
+        is_active=data.get("is_active", True),
+    )
+    db.add(code)
+    await db.flush()
+    return code
+
+
+async def list_discount_codes(db: AsyncSession, tenant_id: str) -> list[DiscountCode]:
+    result = await db.execute(
+        select(DiscountCode).where(DiscountCode.tenant_id == tenant_id).order_by(DiscountCode.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def get_discount_code(db: AsyncSession, code_id: str, tenant_id: str) -> DiscountCode | None:
+    result = await db.execute(
+        select(DiscountCode).where(DiscountCode.id == code_id, DiscountCode.tenant_id == tenant_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_discount_code_by_code(db: AsyncSession, tenant_id: str, code: str) -> DiscountCode | None:
+    result = await db.execute(
+        select(DiscountCode).where(
+            DiscountCode.tenant_id == tenant_id,
+            DiscountCode.code == code.upper(),
+            DiscountCode.is_active == True,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_discount_code(db: AsyncSession, code_id: str, tenant_id: str, updates: dict) -> DiscountCode | None:
+    code = await get_discount_code(db, code_id, tenant_id)
+    if not code:
+        return None
+    for key, value in updates.items():
+        if value is not None and hasattr(code, key):
+            if key == "discount_type":
+                code.discount_type = DiscountType(value)
+            elif key == "applicable_to":
+                code.applicable_to = ApplicableTo(value)
+            elif key == "code":
+                code.code = value.upper()
+            else:
+                setattr(code, key, value)
+    await db.flush()
+    return code
+
+
+async def delete_discount_code(db: AsyncSession, code_id: str, tenant_id: str) -> bool:
+    code = await get_discount_code(db, code_id, tenant_id)
+    if not code:
+        return False
+    await db.delete(code)
+    await db.flush()
+    return True
+
+
+async def apply_discount_code(
+    db: AsyncSession, tenant_id: str, code_str: str, amount: float, applies_to: str | None = None
+) -> tuple[bool, float, float, str]:
+    """
+    Validate and apply a discount code.
+    Returns: (valid, discount_amount, final_amount, message)
+    """
+    code_obj = await get_discount_code_by_code(db, tenant_id, code_str)
+    if not code_obj:
+        return False, 0, amount, "Invalid or inactive discount code"
+
+    now = datetime.now(timezone.utc)
+
+    # Check date validity
+    if code_obj.valid_from and now < code_obj.valid_from:
+        return False, 0, amount, "This code is not yet valid"
+    if code_obj.valid_to and now > code_obj.valid_to:
+        return False, 0, amount, "This code has expired"
+
+    # Check usage limit
+    if code_obj.max_uses and code_obj.used_count >= code_obj.max_uses:
+        return False, 0, amount, "This code has reached its maximum usage limit"
+
+    # Check applicability
+    if applies_to and code_obj.applicable_to.value != "both" and code_obj.applicable_to.value != applies_to:
+        return False, 0, amount, f"This code is not valid for {applies_to}"
+
+    # Calculate discount
+    if code_obj.discount_type == DiscountType.PERCENTAGE:
+        discount = round(amount * (float(code_obj.value) / 100), 2)
+    else:
+        discount = min(float(code_obj.value), amount)  # can't discount more than the amount
+
+    final = round(amount - discount, 2)
+
+    # Increment usage count
+    code_obj.used_count += 1
+    await db.flush()
+
+    return True, discount, final, f"Code '{code_obj.code}' applied successfully"

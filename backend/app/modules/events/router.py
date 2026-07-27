@@ -347,3 +347,46 @@ async def delete_event(
     if not ok:
         raise HTTPException(status_code=404, detail="Event not found")
     return None
+
+
+@router.get("/{event_id}/ics")
+async def export_event_ics(
+    event_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Export event as .ics calendar file."""
+    from fastapi.responses import Response
+    from sqlalchemy import select
+    from app.modules.events.models import Event
+
+    result = await db.execute(
+        select(Event).where(Event.id == event_id)
+    )
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Build ICS content
+    from datetime import datetime
+    now = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    start = event.start_date.strftime("%Y%m%dT%H%M%SZ") if event.start_date else now
+    end = event.end_date.strftime("%Y%m%dT%H%M%SZ") if event.end_date else start
+
+    ics_content = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//AssocHub//Event//EN
+BEGIN:VEVENT
+DTSTART:{start}
+DTEND:{end}
+SUMMARY:{event.title or 'Event'}
+DESCRIPTION:{(event.description or '').replace(chr(10), '\\n')}
+LOCATION:{event.location or ''}
+UID:{event_id}@assochub
+END:VEVENT
+END:VCALENDAR"""
+
+    return Response(
+        content=ics_content,
+        media_type="text/calendar",
+        headers={"Content-Disposition": f'attachment; filename="event-{event_id[:8]}.ics"'}
+    )

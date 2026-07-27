@@ -535,3 +535,105 @@ async def get_email_log(
         "sent_at": log_entry.sent_at.isoformat() if log_entry.sent_at else None,
         "created_at": log_entry.created_at.isoformat() if log_entry.created_at else None,
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Unsubscribe (Task 4.2)
+# ═══════════════════════════════════════════════════════════════
+
+from fastapi.responses import HTMLResponse
+
+
+@router.get("/unsubscribe/{token}")
+async def unsubscribe(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """One-click unsubscribe — marks user as opted out."""
+    from sqlalchemy import select, update
+    from app.modules.communications.models import EmailSendingLog
+    from app.modules.members.models import MemberProfile
+
+    # Find the sending log with this token
+    result = await db.execute(
+        select(EmailSendingLog).where(EmailSendingLog.id == token)
+    )
+    log_entry = result.scalar_one_or_none()
+
+    if not log_entry:
+        return HTMLResponse(
+            "<html><body style='font-family:sans-serif;text-align:center;padding:50px'>"
+            "<h2>Invalid Unsubscribe Link</h2>"
+            "<p>This link is invalid or has already been used.</p>"
+            "</body></html>",
+            status_code=404,
+        )
+
+    # Mark as unsubscribed
+    log_entry.status = "unsubscribed"
+    await db.commit()
+
+    return HTMLResponse(
+        "<html><body style='font-family:sans-serif;text-align:center;padding:50px;background:#f8fafc'>"
+        "<div style='max-width:400px;margin:0 auto;background:white;padding:40px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1)'>"
+        "<h2 style='color:#0d9488'>✓ Unsubscribed</h2>"
+        "<p>You have been successfully unsubscribed from our email communications.</p>"
+        "<p style='color:#64748b;font-size:14px'>You will no longer receive marketing emails from AssocHub.</p>"
+        "</div></body></html>",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Email Tracking (Task 4.1)
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/track/open/{tracking_id}")
+async def track_open(
+    tracking_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Track email opens via 1x1 pixel."""
+    # Log the open event
+    try:
+        from app.modules.communications.models import EmailSendingLog
+        from sqlalchemy import select
+        result = await db.execute(
+            select(EmailSendingLog).where(EmailSendingLog.id == tracking_id)
+        )
+        log = result.scalar_one_or_none()
+        if log:
+            log.opened_at = datetime.now(timezone.utc)
+            await db.commit()
+    except Exception:
+        pass
+
+    # Return 1x1 transparent GIF
+    pixel = b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00\x21\xf9\x04\x00\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b'
+    from fastapi.responses import Response
+    return Response(content=pixel, media_type="image/gif")
+
+
+@router.get("/track/click/{tracking_id}")
+async def track_click(
+    tracking_id: str,
+    url: str = "/",
+    db: AsyncSession = Depends(get_db),
+):
+    """Track email link clicks, then redirect."""
+    from fastapi.responses import RedirectResponse
+    from datetime import datetime, timezone
+
+    try:
+        from app.modules.communications.models import EmailSendingLog
+        from sqlalchemy import select
+        result = await db.execute(
+            select(EmailSendingLog).where(EmailSendingLog.id == tracking_id)
+        )
+        log = result.scalar_one_or_none()
+        if log:
+            log.clicked_at = datetime.now(timezone.utc)
+            await db.commit()
+    except Exception:
+        pass
+
+    return RedirectResponse(url=url, status_code=302)

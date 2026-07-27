@@ -224,6 +224,41 @@ class Expense(Base):
 
 # ── Budget ───────────────────────────────────────────────────
 
+class DiscountType(str, enum.Enum):
+    PERCENTAGE = "percentage"
+    FIXED = "fixed"
+
+
+class ApplicableTo(str, enum.Enum):
+    EVENT = "event"
+    MEMBERSHIP = "membership"
+    BOTH = "both"
+
+
+class DiscountCode(Base):
+    """Promo / discount codes."""
+    __tablename__ = "discount_codes"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    code: Mapped[str] = mapped_column(String(50))
+    discount_type: Mapped[DiscountType] = mapped_column(Enum(DiscountType), default=DiscountType.PERCENTAGE)
+    value: Mapped[float] = mapped_column(Numeric(10, 2))  # percentage (0-100) or fixed amount
+    max_uses: Mapped[int | None] = mapped_column(Integer)
+    used_count: Mapped[int] = mapped_column(Integer, default=0)
+    valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    valid_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    applicable_to: Mapped[ApplicableTo] = mapped_column(Enum(ApplicableTo), default=ApplicableTo.BOTH)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
 class Budget(Base):
     """Budgets for tracking planned vs actual spending."""
     __tablename__ = "budgets"

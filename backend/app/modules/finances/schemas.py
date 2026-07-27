@@ -239,3 +239,57 @@ class RevenueForecast(BaseModel):
     projected_annual: float
     growth_rate: float
     forecast_months: list[dict]  # [{month: "2026-08", predicted: 12000, confidence: 0.85}]
+
+
+# ── Discount Codes ──────────────────────────────────────────
+
+class DiscountCodeCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=50)
+    discount_type: str = "percentage"  # percentage or fixed
+    value: float = Field(ge=0)
+    max_uses: int | None = None
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    applicable_to: str = "both"  # event, membership, both
+    is_active: bool = True
+
+
+class DiscountCodeUpdate(BaseModel):
+    code: str | None = None
+    discount_type: str | None = None
+    value: float | None = Field(default=None, ge=0)
+    max_uses: int | None = None
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    applicable_to: str | None = None
+    is_active: bool | None = None
+
+
+class DiscountCodeResponse(BaseModel):
+    id: str
+    code: str
+    discount_type: str
+    value: float
+    max_uses: int | None = None
+    used_count: int
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    applicable_to: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DiscountApplyRequest(BaseModel):
+    code: str
+    amount: float = Field(gt=0)
+    applies_to: str | None = None  # event or membership
+
+
+class DiscountApplyResponse(BaseModel):
+    valid: bool
+    discount_amount: float
+    original_amount: float
+    final_amount: float
+    message: str

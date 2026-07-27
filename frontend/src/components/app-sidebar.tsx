@@ -20,6 +20,7 @@ import {
   UserCircle,
   Receipt,
   CalendarCheck,
+  Tag,
 } from "lucide-react";
 import {
   Sidebar,
@@ -65,6 +66,7 @@ const navItems: NavItem[] = [
   { title: "Workflows", href: "/workflows", icon: GitBranch, permission: "workflows:read" },
   { title: "AI Engine", href: "/ai", icon: Brain, permission: "ai:chat" },
   { title: "Integrations", href: "/integrations", icon: Plug, permission: "integrations:read" },
+  { title: "Discount Codes", href: "/discount-codes", icon: Tag, permission: "finances:write" },
   { title: "Marketing Page", href: "/marketing", icon: Megaphone, badge: "NEW" },
   { title: "Documentation", href: "https://tahiralatif.github.io/Association-Management-System/", icon: BookOpen, external: true },
 ];
