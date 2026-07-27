@@ -322,7 +322,7 @@ export default function FinancesPage() {
                         <td className="p-3 text-gray-500">{fmtDate(inv.due_at || inv.due_date)}</td>
                         <td className="p-3">
                           <div className="flex gap-1">
-                            <button onClick={() => window.open(`${F}/invoices/${inv.id}/pdf`, '_blank')} className="p-1 hover:bg-gray-100 rounded text-gray-600" title="Download PDF"><Download className="h-4 w-4" /></button>
+                            <button onClick={async () => { try { const res = await fetch(`${API_BASE}${F}/invoices/${inv.id}/pdf`, { headers: { Authorization: `Bearer ${getToken()}` } }); if (!res.ok) throw new Error('Failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); window.open(url, '_blank'); } catch(e) { toast.error('Failed to download PDF'); } }} className="p-1 hover:bg-gray-100 rounded text-gray-600" title="Download PDF"><Download className="h-4 w-4" /></button>
                             {inv.status === "pending" && (
                               <>
                                 <button onClick={() => handleSendInvoice(inv)} className="p-1 hover:bg-blue-50 rounded text-blue-600" title="Send"><Send className="h-4 w-4" /></button>
