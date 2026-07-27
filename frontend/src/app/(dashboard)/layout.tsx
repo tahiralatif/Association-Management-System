@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { LogOut, User } from "lucide-react";
 
 // Admin-only routes — members should not access these
@@ -49,11 +50,12 @@ export default function DashboardLayout({
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-14 items-center gap-2 border-b bg-white px-4">
+        <header className="flex h-14 items-center gap-2 border-b bg-white dark:bg-slate-900 dark:border-slate-700 px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-6" />
           <div className="flex-1" />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <User className="h-4 w-4" />
               <span>{user?.email || "User"}</span>
@@ -69,7 +71,7 @@ export default function DashboardLayout({
             </Button>
           </div>
         </header>
-        <div className="flex-1 overflow-auto bg-slate-50 p-4 sm:p-6">
+        <div className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-950 p-4 sm:p-6">
           {children}
         </div>
       </SidebarInset>
