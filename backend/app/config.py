@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # Auth
     JWT_SECRET_KEY: str = "change-me-jwt-secret"
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours (was 30 min — too short for UX)
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS

@@ -50,3 +50,4 @@ backend/alembic/versions/*.pyc
 # Temp
 /tmp/
 *.tmp
+test-invoice.pdf

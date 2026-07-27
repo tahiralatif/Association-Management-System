@@ -14,6 +14,7 @@ export function setToken(token: string) {
 export function clearToken() {
   localStorage.removeItem("auth_token");
   localStorage.removeItem("auth_user");
+  localStorage.removeItem("refresh_token");
 }
 
 export function getUser(): AuthUser | null {
@@ -24,6 +25,15 @@ export function getUser(): AuthUser | null {
 
 export function setUser(user: AuthUser) {
   localStorage.setItem("auth_user", JSON.stringify(user));
+}
+
+export function setRefreshToken(token: string) {
+  localStorage.setItem("refresh_token", token);
+}
+
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("refresh_token");
 }
 
 // ---------- types ----------
@@ -38,6 +48,7 @@ export interface AuthUser {
 
 export interface LoginResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
   roles: string[];
   permissions: string[];  // RBAC permissions from backend
@@ -744,7 +755,7 @@ export interface AnalyticsExport {
 
 export async function apiFetch<T = unknown>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit & { _retryingRefresh?: boolean } = {}
 ): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -762,15 +773,39 @@ export async function apiFetch<T = unknown>(
     headers["X-Tenant-ID"] = user.tenant_id;
   }
 
+  const { _retryingRefresh, ...fetchOptions } = options;
+
   const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
+    ...fetchOptions,
     headers,
   });
 
   if (res.status === 401) {
+    // Try token refresh before clearing
+    const refreshToken = getRefreshToken();
+    if (refreshToken && !_retryingRefresh) {
+      try {
+        const refreshRes = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+        if (refreshRes.ok) {
+          const data = await refreshRes.json();
+          setToken(data.access_token);
+          if (data.refresh_token) setRefreshToken(data.refresh_token);
+          // Retry original request with new token
+          headers["Authorization"] = `Bearer ${data.access_token}`;
+          const retryRes = await fetch(`${API_BASE}${path}`, { method: options.method, headers, body: options.body } as RequestInit);
+          if (retryRes.status === 204) return undefined as T;
+          if (!retryRes.ok) throw new Error("Request failed after refresh");
+          return retryRes.json();
+        }
+      } catch {
+        // Refresh failed — fall through to logout
+      }
+    }
     clearToken();
-    // Use router-safe redirect instead of hard page reload
-    // Only redirect if not already on a public path
     if (typeof window !== "undefined") {
       const currentPath = window.location.pathname;
       const publicPaths = ["/", "/login", "/register", "/verify-email", "/why"];
@@ -846,13 +881,13 @@ export async function login(
   });
 
   setToken(data.access_token);
+  if (data.refresh_token) setRefreshToken(data.refresh_token);
 
   // Fetch real user profile from /me
   try {
     const me = await fetchMe(data.access_token);
     setUser({ email: me.email, roles: me.roles, permissions: me.permissions ?? [], token_type: data.token_type, tenant_id: me.tenant_id || tenant_id });
   } catch {
-    // Fallback: use what we know
     setUser({ email, roles: ["member"], permissions: [], token_type: data.token_type, tenant_id });
   }
 
@@ -872,13 +907,13 @@ export async function register(
   });
 
   setToken(data.access_token);
+  if (data.refresh_token) setRefreshToken(data.refresh_token);
 
   // Fetch real user profile from /me
   try {
     const me = await fetchMe(data.access_token);
     setUser({ email: me.email, roles: me.roles, permissions: me.permissions ?? [], token_type: data.token_type, tenant_id: me.tenant_id || tenant_id });
   } catch {
-    // Fallback: use what we know
     setUser({ email, roles: ["member"], permissions: [], token_type: data.token_type, tenant_id });
   }
 
