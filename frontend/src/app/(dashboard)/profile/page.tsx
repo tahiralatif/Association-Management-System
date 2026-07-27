@@ -134,7 +134,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
       <PageHeader
         title="My Profile"
         description="Manage your account settings and personal information"
@@ -150,7 +150,7 @@ export default function ProfilePage() {
           <CardDescription>Your basic profile details</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>First Name</Label>
               <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -169,7 +169,7 @@ export default function ProfilePage() {
             <Label>Phone</Label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Organization</Label>
               <Input value={organization} onChange={(e) => setOrganization(e.target.value)} />
@@ -202,7 +202,7 @@ export default function ProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-slate-500">Member Number</span>
                 <p className="font-medium">{profile.member_profile.member_number || "—"}</p>
@@ -250,7 +250,7 @@ export default function ProfilePage() {
             <Label>Current Password</Label>
             <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>New Password</Label>
               <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />

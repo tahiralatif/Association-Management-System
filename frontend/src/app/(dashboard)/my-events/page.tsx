@@ -120,13 +120,13 @@ export default function MyEventsPage() {
           ) : (
             <div className="space-y-3">
               {upcoming.map((event) => (
-                <div key={event.id} className="flex items-center justify-between p-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
+                <div key={event.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-slate-900">{event.title}</span>
                       <StatusBadge status={event.is_registered ? "registered" : event.event_type || "event"} />
                     </div>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
+                    <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-slate-500">
                       {event.start_date && (
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />
@@ -153,7 +153,7 @@ export default function MyEventsPage() {
                     size="sm"
                     onClick={() => toggleRegistration(event)}
                     disabled={registering === event.id}
-                    className={event.is_registered ? "text-red-600 border-red-200 hover:bg-red-50" : "bg-teal-600 hover:bg-teal-700"}
+                    className={`shrink-0 ${event.is_registered ? "text-red-600 border-red-200 hover:bg-red-50" : "bg-teal-600 hover:bg-teal-700"}`}
                   >
                     {registering === event.id ? (
                       "..."
@@ -179,10 +179,10 @@ export default function MyEventsPage() {
           <CardContent>
             <div className="space-y-2">
               {past.map((event) => (
-                <div key={event.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 opacity-70">
-                  <div>
+                <div key={event.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 p-3 rounded-lg bg-slate-50 opacity-70">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-slate-600">{event.title}</span>
-                    <span className="text-sm text-slate-400 ml-3">
+                    <span className="text-sm text-slate-400">
                       {event.start_date && new Date(event.start_date).toLocaleDateString()}
                     </span>
                   </div>
