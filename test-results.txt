@@ -1,0 +1,43 @@
+AMS Invoice PDF Generation Test Results
+========================================
+Date: 2026-07-27 08:53 UTC
+Backend: http://127.0.0.1:8002
+
+1. LOGIN
+   Status: SUCCESS
+   User: daniel.harris@example.com (super_admin)
+   Token obtained successfully.
+
+2. LIST MEMBERS
+   Status: SUCCESS
+   Found 38 total members.
+   Member used: Test User (ID: 578d9f44-a84d-4f27-9753-28ccc685287b)
+
+3. CREATE INVOICE
+   Status: SUCCESS (HTTP 201)
+   NOTE: Correct endpoint is /api/v1/finances/finances/invoices (double "finances")
+         The task assumed /api/v1/finances/invoices/ which returned 404.
+   
+   Invoice ID:   8f029a0c-f544-48d6-9775-1b084bd24994
+   Invoice #:    INV-2026-00016
+   Status:       pending
+   Subtotal:     $299.00
+   Tax Rate:     8.25%
+   Tax Amount:   $24.67
+   Total:        $323.67
+   Due Date:     2026-08-26
+   Line Items:   Annual Membership Dues 2026 (1x $299.00)
+
+4. DOWNLOAD PDF
+   Status: SUCCESS (HTTP 200)
+   Endpoint: /api/v1/finances/finances/invoices/{id}/pdf
+
+5. PDF VERIFICATION
+   File: /root/.openclaw/workspace/ams-project/test-invoice.pdf
+   Size: 13,268 bytes (13.3 KB) ✅ (well over 1000 bytes)
+   Starts with: %PDF-1.7 ✅
+   File type:   PDF document, version 1.7 ✅
+   Valid PDF:    YES ✅
+
+SUMMARY: All steps passed. The invoice PDF generation feature is working correctly.
+The PDF was successfully created, downloaded, and validated as a proper PDF document.
