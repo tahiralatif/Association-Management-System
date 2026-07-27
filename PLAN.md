@@ -82,34 +82,17 @@
 **Effort:** ~1-2 days
 
 ### Task 2.2 — File Upload (Documents Module)
-**Status:** ⬜  
-**What:** Documents module is metadata-only. Add actual file storage.  
-**Backend changes:**
-- Create `backend/app/core/storage.py` — abstract storage interface (local filesystem for now, S3-ready)
-- Add `POST /api/v1/documents/{id}/upload` — multipart file upload
-- Add `GET /api/v1/documents/{id}/download` — serve file
-- Add `GET /api/v1/documents/{id}/preview` — serve inline for browser preview
-- Store files in `/data/uploads/` with UUID names
-- Update document model with `file_path`, `file_size`, `mime_type`  
-**Frontend changes:**
-- Add file upload component (drag-and-drop) to documents page
-- Add download/preview buttons  
-**Validation:** Upload a PDF → see it in list → download it → verify content matches.  
-**Effort:** ~4-6 hours
+**Status:** ✅  
+**Done:** 2026-07-27 | **Commit:** e23ee9c  
+**What:** Documents module metadata-only. Added actual file storage.
 
 ### Task 2.3 — Invoice PDF Generation
-**Status:** ⬜  
-**What:** Members and admins need downloadable invoice PDFs.  
-**Backend changes:**
-- Add `weasyprint` or `reportlab` dependency
-- Create `backend/app/core/pdf.py` — invoice PDF generator using Jinja2 HTML template
-- Create `backend/templates/pdf/invoice.html` — professional invoice template
-- Add `GET /api/v1/finances/invoices/{id}/pdf` endpoint
-- Return `application/pdf` response  
-**Frontend changes:**
-- Add "Download PDF" button on invoice detail views  
-**Validation:** Generate PDF for existing invoice → verify it has logo, line items, total, dates.  
-**Effort:** ~3-4 hours
+**Status:** ✅  
+**Done:** 2026-07-27 | **What:** PDF invoice generation with WeasyPrint + Jinja2 templates.  
+**Backend:** `backend/app/core/pdf.py` (generate_invoice_pdf, generate_receipt_pdf), `backend/templates/pdf/invoice.html` + `receipt.html`. Admin PDF: `GET /api/v1/finances/invoices/{id}/pdf`. Member PDF: `GET /api/v1/finances/my/invoices/{id}/pdf`.  
+**Frontend:** Download PDF button on invoice rows in finances page.  
+**Validation:** Created test invoice → downloaded PDF → verified 13KB+ valid PDF with line items, totals, dates.  
+**Effort:** ~3 hours
 
 ---
 
@@ -353,12 +336,12 @@
 | Phase | Tasks | Done | Progress |
 |-------|-------|------|----------|
 | 1. Foundation | 4 | 0 | 0% |
-| 2. Member Experience | 3 | 0 | 0% |
+| 2. Member Experience | 3 | 2 | 67% |
 | 3. Financial Completeness | 4 | 0 | 0% |
 | 4. Communications | 3 | 0 | 0% |
 | 5. AI Differentiators | 3 | 0 | 0% |
 | 6. Production Readiness | 7 | 0 | 0% |
-| **TOTAL** | **24** | **0** | **0%** |
+| **TOTAL** | **24** | **3** | **12.5%** |
 
 **Estimated Total Effort:** ~15-20 days of focused work
 

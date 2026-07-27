@@ -1,6 +1,6 @@
 """Financial routes — API endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -263,6 +263,79 @@ async def send_invoice(
     await log_financial_event(db, user.tenant_id, user.sub, "send", "invoice", invoice_id)
 
     return {"message": "Invoice sent", "invoice_id": invoice_id}
+
+
+# ── Invoice PDF Download ──────────────────────────────────────
+
+@router.get("/invoices/{invoice_id}/pdf")
+async def download_invoice_pdf(
+    invoice_id: str,
+    user: TokenPayload = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate and download invoice as PDF."""
+    from fastapi.responses import Response
+    from app.core.pdf import generate_invoice_pdf
+
+    invoice = await crud.get_invoice(db, invoice_id, user.tenant_id)
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Build member info
+    member_name = ""
+    member_email = ""
+    member_address = ""
+    if invoice.member and invoice.member.user:
+        member_name = f"{invoice.member.user.first_name} {invoice.member.user.last_name}"
+        member_email = invoice.member.user.email
+
+    # Build line items from invoice JSON field
+    line_items = invoice.line_items or []
+    if not line_items and invoice.subtotal:
+        # Fallback: create a single line item from subtotal
+        line_items = [{"description": "Membership Dues", "quantity": 1, "unit_price": float(invoice.subtotal), "amount": float(invoice.subtotal)}]
+
+    # Build association info from tenant_id
+    association_name = user.tenant_id.replace('-', ' ').title()
+    association_email = ""
+    association_address = ""
+
+    pdf_data = generate_invoice_pdf({
+        "association_name": association_name,
+        "association_email": association_email,
+        "association_address": association_address,
+        "invoice_number": invoice.invoice_number,
+        "status": invoice.status.value if invoice.status else "pending",
+        "issued_at": invoice.issued_at.strftime("%B %d, %Y") if invoice.issued_at else "—",
+        "due_at": invoice.due_at.strftime("%B %d, %Y") if invoice.due_at else "—",
+        "member_name": member_name,
+        "member_email": member_email,
+        "member_address": member_address,
+        "line_items": line_items,
+        "subtotal": float(invoice.subtotal or 0),
+        "tax_rate": float(invoice.tax_rate or 0),
+        "tax_amount": float(invoice.tax_amount or 0),
+        "discount_amount": float(invoice.discount_amount or 0),
+        "total": float(invoice.total or 0),
+        "amount_paid": float(invoice.amount_paid or 0),
+        "balance_due": float(invoice.total or 0) - float(invoice.amount_paid or 0),
+        "currency": invoice.currency or "USD",
+        "currency_symbol": "$",
+        "notes": invoice.notes or "",
+        "payment_instructions": "Payment is due within 30 days of the invoice date. Pay online at https://ams.14.jugaar.ai/finances",
+        "generated_at": datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC"),
+    })
+
+    from app.core.audit import log_financial_event
+    await log_financial_event(db, user.tenant_id, user.sub, "download", "invoice_pdf", invoice_id)
+
+    return Response(
+        content=pdf_data,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="invoice-{invoice.invoice_number}.pdf"',
+        },
+    )
 
 
 # ── Payments ─────────────────────────────────────────────────
@@ -548,7 +621,6 @@ async def get_my_invoices(
     from app.modules.members.models import MemberProfile
     from sqlalchemy import select
 
-    # Find member profile for this user
     result = await db.execute(
         select(MemberProfile).where(
             MemberProfile.user_id == user.sub,
@@ -597,6 +669,77 @@ async def get_my_invoice(
     return InvoiceResponse(
         **{c.key: getattr(invoice, c.key) for c in invoice.__table__.columns},
         member_name=member_name,
+    )
+
+
+@router.get("/my/invoices/{invoice_id}/pdf")
+async def download_my_invoice_pdf(
+    invoice_id: str,
+    user: TokenPayload = Depends(require_member),
+    db: AsyncSession = Depends(get_db),
+):
+    """Member can download PDF for their own invoice."""
+    from fastapi.responses import Response
+    from app.core.pdf import generate_invoice_pdf
+    from app.modules.members.models import MemberProfile
+    from sqlalchemy import select
+
+    result = await db.execute(
+        select(MemberProfile).where(
+            MemberProfile.user_id == user.sub,
+            MemberProfile.tenant_id == user.tenant_id,
+        )
+    )
+    profile = result.scalar_one_or_none()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Member profile not found")
+
+    invoice = await crud.get_invoice(db, invoice_id, user.tenant_id)
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if str(invoice.member_id) != str(profile.id):
+        raise HTTPException(status_code=403, detail="Not your invoice")
+
+    member_name = ""
+    member_email = ""
+    if invoice.member and invoice.member.user:
+        member_name = f"{invoice.member.user.first_name} {invoice.member.user.last_name}"
+        member_email = invoice.member.user.email
+
+    line_items = invoice.line_items or []
+    if not line_items and invoice.subtotal:
+        line_items = [{"description": "Membership Dues", "quantity": 1, "unit_price": float(invoice.subtotal), "amount": float(invoice.subtotal)}]
+
+    association_name = user.tenant_id.replace('-', ' ').title()
+
+    pdf_data = generate_invoice_pdf({
+        "association_name": association_name,
+        "invoice_number": invoice.invoice_number,
+        "status": invoice.status.value if invoice.status else "pending",
+        "issued_at": invoice.issued_at.strftime("%B %d, %Y") if invoice.issued_at else "—",
+        "due_at": invoice.due_at.strftime("%B %d, %Y") if invoice.due_at else "—",
+        "member_name": member_name,
+        "member_email": member_email,
+        "member_address": "",
+        "line_items": line_items,
+        "subtotal": float(invoice.subtotal or 0),
+        "tax_rate": float(invoice.tax_rate or 0),
+        "tax_amount": float(invoice.tax_amount or 0),
+        "discount_amount": float(invoice.discount_amount or 0),
+        "total": float(invoice.total or 0),
+        "amount_paid": float(invoice.amount_paid or 0),
+        "balance_due": float(invoice.total or 0) - float(invoice.amount_paid or 0),
+        "currency": invoice.currency or "USD",
+        "currency_symbol": "$",
+        "notes": invoice.notes or "",
+        "payment_instructions": "Payment is due within 30 days. Pay online at https://ams.14.jugaar.ai/finances",
+        "generated_at": datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC"),
+    })
+
+    return Response(
+        content=pdf_data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="invoice-{invoice.invoice_number}.pdf"'},
     )
 
 

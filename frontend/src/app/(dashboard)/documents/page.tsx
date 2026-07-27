@@ -15,6 +15,7 @@ export default function DocumentsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("all");
+  const [hasFileOnly, setHasFileOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,6 +97,11 @@ export default function DocumentsPage() {
   }, [page, search, tab]);
 
   useEffect(() => { loadDocuments(); }, [loadDocuments]);
+
+  // ── Filtered display list ──
+  const displayDocuments = hasFileOnly
+    ? documents.filter((d) => d.storage_path || d.file_url)
+    : documents;
 
   // ── Load Stats ──
   useEffect(() => {
@@ -339,16 +345,48 @@ export default function DocumentsPage() {
     },
     { key: "created_by_name", header: "Created By", render: (row: Record<string, unknown>) => (row.created_by_name as string) || "—" },
     {
+      key: "has_file",
+      header: "File",
+      render: (row: Record<string, unknown>) => {
+        const doc = row as unknown as DocumentItem;
+        const hasFile = !!(doc.storage_path || doc.file_url);
+        return hasFile ? (
+          <span className="inline-flex items-center gap-1 text-sm" title={doc.file_name || "File attached"}>
+            📎 <span className="text-xs text-muted-foreground truncate max-w-[100px]">{doc.file_name || "file"}</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
+    },
+    {
       key: "actions",
       header: "Actions",
-      render: (row: Record<string, unknown>) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); setSelected(row as unknown as DocumentItem); }}
-          className="text-sm text-primary hover:underline"
-        >
-          View
-        </button>
-      ),
+      render: (row: Record<string, unknown>) => {
+        const doc = row as unknown as DocumentItem;
+        const hasFile = !!(doc.storage_path || doc.file_url);
+        return (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); setSelected(doc); }}
+              className="text-sm text-primary hover:underline"
+            >
+              View
+            </button>
+            {hasFile && (
+              <a
+                href={getDownloadUrl(doc)}
+                download
+                onClick={(e) => e.stopPropagation()}
+                className="text-sm text-slate-500 hover:text-slate-700"
+                title="Download file"
+              >
+                ⬇
+              </a>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -625,7 +663,18 @@ export default function DocumentsPage() {
 
       {/* Tabs + Search */}
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-        <Tabs tabs={typeTabs} activeTab={tab} onChange={(k) => { setTab(k); setPage(1); }} />
+        <div className="flex items-center gap-4">
+          <Tabs tabs={typeTabs} activeTab={tab} onChange={(k) => { setTab(k); setPage(1); }} />
+          <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hasFileOnly}
+              onChange={(e) => { setHasFileOnly(e.target.checked); setPage(1); }}
+              className="rounded border-slate-300"
+            />
+            📎 With files only
+          </label>
+        </div>
         <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search documents..." />
       </div>
 
@@ -635,14 +684,14 @@ export default function DocumentsPage() {
       ) : (
         <DataTable
           columns={columns}
-          data={documents as unknown as Record<string, unknown>[]}
+          data={displayDocuments as unknown as Record<string, unknown>[]}
           loading={loading}
           emptyMessage="No documents found"
           onRowClick={(row) => setSelected(row as unknown as DocumentItem)}
         />
       )}
 
-      <Pagination page={page} total={total} perPage={perPage} onChange={setPage} />
+      <Pagination page={page} total={hasFileOnly ? displayDocuments.length : total} perPage={perPage} onChange={setPage} />
 
       {/* Categories Section */}
       <div className="rounded-lg border p-4">

@@ -272,6 +272,7 @@ function FeatureCard({ icon, title, description, delay }: { icon: string; title:
    ═══════════════════════════════════════════════════════════ */
 
 export default function HomePage() {
+  const { isAuthenticated } = useAuth();
   return (
     <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: C.bg, color: C.text }}>
       <ScrollProgress />
@@ -331,20 +332,32 @@ export default function HomePage() {
             transition={{ duration: 0.7, delay: 1 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
-            <Link
-              href="/register"
-              className="font-semibold px-8 py-3.5 rounded-xl text-[15px] transition-all duration-300 hover:-translate-y-0.5"
-              style={{ backgroundColor: C.teal, color: "#fff", boxShadow: "0 4px 14px rgba(13,148,136,0.3)" }}
-            >
-              Start Free Trial
-            </Link>
-            <Link
-              href="/login"
-              className="font-medium px-6 py-3.5 rounded-xl text-[15px] transition-all duration-300 hover:-translate-y-0.5"
-              style={{ color: C.textSecondary, border: `1px solid ${C.border}`, backgroundColor: C.bg }}
-            >
-              Demo Login →
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                href="/dashboard"
+                className="font-semibold px-8 py-3.5 rounded-xl text-[15px] transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: C.teal, color: "#fff", boxShadow: "0 4px 14px rgba(13,148,136,0.3)" }}
+              >
+                Go to Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/register"
+                  className="font-semibold px-8 py-3.5 rounded-xl text-[15px] transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: C.teal, color: "#fff", boxShadow: "0 4px 14px rgba(13,148,136,0.3)" }}
+                >
+                  Start Free Trial
+                </Link>
+                <Link
+                  href="/login"
+                  className="font-medium px-6 py-3.5 rounded-xl text-[15px] transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ color: C.textSecondary, border: `1px solid ${C.border}`, backgroundColor: C.bg }}
+                >
+                  Demo Login →
+                </Link>
+              </>
+            )}
             <a
               href="https://tahiralatif.github.io/Association-Management-System/"
               target="_blank"
@@ -564,20 +577,32 @@ export default function HomePage() {
               Modern associations are already managing smarter with AI-powered AssocHub.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link
-                href="/register"
-                className="font-semibold px-10 py-3.5 rounded-xl text-[15px] transition-all duration-300 hover:-translate-y-0.5"
-                style={{ backgroundColor: C.green, color: "#fff", boxShadow: "0 4px 14px rgba(6,95,70,0.25)" }}
-              >
-                Start Free Trial
-              </Link>
-              <Link
-                href="/login"
-                className="font-medium px-8 py-3.5 rounded-xl text-[15px] transition-all duration-300"
-                style={{ color: C.textSecondary, border: `1px solid ${C.border}`, backgroundColor: C.bg }}
-              >
-                Demo Login →
-              </Link>
+              {isAuthenticated ? (
+                <Link
+                  href="/dashboard"
+                  className="font-semibold px-10 py-3.5 rounded-xl text-[15px] transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: C.green, color: "#fff", boxShadow: "0 4px 14px rgba(6,95,70,0.25)" }}
+                >
+                  Go to Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/register"
+                    className="font-semibold px-10 py-3.5 rounded-xl text-[15px] transition-all duration-300 hover:-translate-y-0.5"
+                    style={{ backgroundColor: C.green, color: "#fff", boxShadow: "0 4px 14px rgba(6,95,70,0.25)" }}
+                  >
+                    Start Free Trial
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="font-medium px-8 py-3.5 rounded-xl text-[15px] transition-all duration-300"
+                    style={{ color: C.textSecondary, border: `1px solid ${C.border}`, backgroundColor: C.bg }}
+                  >
+                    Demo Login →
+                  </Link>
+                </>
+              )}
               <a
                 href="https://tahiralatif.github.io/Association-Management-System/"
                 target="_blank"

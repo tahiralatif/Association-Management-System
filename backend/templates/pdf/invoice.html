@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm 15mm 20mm 15mm;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #1e293b;
+      background: #fff;
+    }
+    
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 3px solid #0d9488;
+    }
+    .company-info h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0d9488;
+      margin-bottom: 4px;
+    }
+    .company-info p {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .invoice-badge {
+      text-align: right;
+    }
+    .invoice-badge h2 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .invoice-badge .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+    .status-paid { background: #dcfce7; color: #166534; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-overdue { background: #fee2e2; color: #991b1b; }
+    .status-draft { background: #f1f5f9; color: #475569; }
+
+    /* Details grid */
+    .details-grid {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .details-box {
+      width: 48%;
+    }
+    .details-box h3 {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+    .details-box p {
+      font-size: 12px;
+      color: #334155;
+      margin-bottom: 2px;
+    }
+    .details-box .name {
+      font-weight: 600;
+      font-size: 13px;
+      color: #0f172a;
+    }
+
+    /* Line items table */
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+    }
+    .items-table thead th {
+      background: #f8fafc;
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #64748b;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .items-table thead th:nth-child(2),
+    .items-table thead th:nth-child(3),
+    .items-table thead th:nth-child(4) {
+      text-align: right;
+    }
+    .items-table tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 12px;
+    }
+    .items-table tbody td:nth-child(2),
+    .items-table tbody td:nth-child(3),
+    .items-table tbody td:nth-child(4) {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .items-table tbody tr:last-child td {
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    /* Totals */
+    .totals-section {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 28px;
+    }
+    .totals-box {
+      width: 280px;
+    }
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 12px;
+      color: #475569;
+    }
+    .totals-row.total {
+      border-top: 2px solid #0d9488;
+      margin-top: 6px;
+      padding-top: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .totals-row .label { color: #64748b; }
+    .totals-row .amount { font-variant-numeric: tabular-nums; }
+
+    /* Notes */
+    .notes {
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .notes h4 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+    .notes p {
+      font-size: 12px;
+      color: #475569;
+    }
+
+    /* Payment info */
+    .payment-info {
+      background: #f0fdfa;
+      border: 1px solid #99f6e4;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .payment-info h4 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #0d9488;
+      margin-bottom: 6px;
+    }
+    .payment-info p {
+      font-size: 12px;
+      color: #334155;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+      color: #94a3b8;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="company-info">
+      <h1>{{ association_name | default("Association") }}</h1>
+      {% if association_address %}<p>{{ association_address }}</p>{% endif %}
+      {% if association_email %}<p>{{ association_email }}</p>{% endif %}
+    </div>
+    <div class="invoice-badge">
+      <h2>Invoice</h2>
+      <p style="font-size: 12px; color: #64748b; margin-top: 4px;">{{ invoice_number }}</p>
+      <span class="status status-{{ status | default('pending') }}">{{ status | default("Pending") }}</span>
+    </div>
+  </div>
+
+  <!-- Details -->
+  <div class="details-grid">
+    <div class="details-box">
+      <h3>Bill To</h3>
+      <p class="name">{{ member_name | default("N/A") }}</p>
+      {% if member_email %}<p>{{ member_email }}</p>{% endif %}
+      {% if member_address %}<p>{{ member_address }}</p>{% endif %}
+    </div>
+    <div class="details-box" style="text-align: right;">
+      <h3>Invoice Details</h3>
+      <p><strong>Issued:</strong> {{ issued_at }}</p>
+      <p><strong>Due:</strong> {{ due_at }}</p>
+      {% if payment_terms %}<p><strong>Terms:</strong> {{ payment_terms }}</p>{% endif %}
+    </div>
+  </div>
+
+  <!-- Line Items -->
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th>Qty</th>
+        <th>Unit Price</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in line_items %}
+      <tr>
+        <td>{{ item.description }}</td>
+        <td>{{ item.quantity | default(1) }}</td>
+        <td>{{ currency_symbol | default('$') }}{{ "%.2f" | format(item.unit_price) }}</td>
+        <td>{{ currency_symbol | default('$') }}{{ "%.2f" | format(item.amount | default(item.unit_price * (item.quantity | default(1)))) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Totals -->
+  <div class="totals-section">
+    <div class="totals-box">
+      <div class="totals-row">
+        <span class="label">Subtotal</span>
+        <span class="amount">{{ currency_symbol | default('$') }}{{ "%.2f" | format(subtotal) }}</span>
+      </div>
+      {% if discount_amount and discount_amount > 0 %}
+      <div class="totals-row">
+        <span class="label">Discount</span>
+        <span class="amount" style="color: #16a34a;">-{{ currency_symbol | default('$') }}{{ "%.2f" | format(discount_amount) }}</span>
+      </div>
+      {% endif %}
+      {% if tax_rate and tax_rate > 0 %}
+      <div class="totals-row">
+        <span class="label">Tax ({{ "%.1f" | format(tax_rate) }}%)</span>
+        <span class="amount">{{ currency_symbol | default('$') }}{{ "%.2f" | format(tax_amount) }}</span>
+      </div>
+      {% endif %}
+      <div class="totals-row total">
+        <span class="label">Total</span>
+        <span class="amount">{{ currency_symbol | default('$') }}{{ "%.2f" | format(total) }}</span>
+      </div>
+      {% if amount_paid and amount_paid > 0 %}
+      <div class="totals-row">
+        <span class="label">Paid</span>
+        <span class="amount" style="color: #16a34a;">-{{ currency_symbol | default('$') }}{{ "%.2f" | format(amount_paid) }}</span>
+      </div>
+      <div class="totals-row" style="font-weight: 600; font-size: 14px; color: #dc2626;">
+        <span class="label">Balance Due</span>
+        <span class="amount">{{ currency_symbol | default('$') }}{{ "%.2f" | format(balance_due | default(total - (amount_paid or 0))) }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Notes -->
+  {% if notes %}
+  <div class="notes">
+    <h4>Notes</h4>
+    <p>{{ notes }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Payment Instructions -->
+  {% if payment_instructions %}
+  <div class="payment-info">
+    <h4>Payment Instructions</h4>
+    <p>{{ payment_instructions }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>Thank you for your membership! • {{ association_name | default("Association") }}</p>
+    <p style="margin-top: 4px;">Generated on {{ generated_at }}</p>
+  </div>
+</body>
+</html>
