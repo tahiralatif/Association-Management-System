@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -7,17 +9,38 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 
+// Admin-only routes — members should not access these
+const ADMIN_ROUTES = ["/dashboard", "/members", "/finances", "/events", "/communications", "/elections", "/documents", "/analytics", "/workflows", "/ai", "/integrations", "/marketing"];
+
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, isStaff } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && user && !isStaff) {
+      // Redirect non-staff members away from admin routes
+      router.replace("/profile");
+    }
+  }, [loading, user, isStaff, router]);
 
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-white">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isStaff) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white">
+        <div className="text-center">
+          <p className="text-slate-500">Redirecting to your portal...</p>
+        </div>
       </div>
     );
   }

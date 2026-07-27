@@ -31,7 +31,10 @@ export default function LoginPage() {
       const data = await apiLogin(email, password, tenantId);
       const storedUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
       ctxLogin(storedUser, data.access_token);
-      window.location.href = "/dashboard";
+      // Route by role: members → profile, staff/admin → dashboard
+      const roles = storedUser.roles || [];
+      const isStaff = roles.includes("super_admin") || roles.includes("tenant_admin") || roles.includes("staff");
+      window.location.href = isStaff ? "/dashboard" : "/profile";
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Login failed";
       if (msg.toLowerCase().includes("verify")) {
