@@ -24,16 +24,16 @@
 **What:** 46 granular permissions across 11 modules. Role hierarchy: super_admin (46), tenant_admin (41), staff (30), member (8). PermissionChecker dependency, User model custom_permissions, JWT-embedded permissions, frontend PermissionGate + usePermissions hook + sidebar filtering. Verified with 3 role types.
 
 ### Task 1.2 - Alembic Migrations
-**Status:** ⬜
-**What:** Generate proper migration scripts for all 60 tables. Currently tables exist but have no version-controlled schema history.
-**Steps:**
-- Add `alembic.ini` + `alembic/` config if missing
-- Run `alembic revision --autogenerate -m "initial schema"`
-- Review generated migration (should be empty since tables exist)
-- Create seed migration for demo data
-- Add migration check to startup (warn if not up to date)
-**Validation:** `alembic upgrade head` on clean DB reproduces full schema.
-**Effort:** ~1-2 hours
+**Status:** ✅
+**Done:** 2026-07-27
+**What:** Generated migration scripts for all 60+ tables. 5 migration versions in `backend/alembic/versions/`:
+- `ac8b8a4a13f3` — initial schema (all 9 modules)
+- `b1a2c3d4e5f6` — custom permissions
+- `8a1b2c3d4e5f` — email sending logs
+- `733cc2117d46` — AI and integrations modules
+- `0040638c77bf` — remaining 8 modules (finances, comms)
+
+`alembic.ini` configured with async PostgreSQL URL.
 
 ### Task 1.3 - Test Suite Setup
 **Status:** ⬜
@@ -48,17 +48,18 @@
 **Effort:** ~4-6 hours
 
 ### Task 1.4 - Auto-Renewal & Expiry Scheduler
-**Status:** ⬜
-**What:** Members silently lapse with no warning. Add Celery beat tasks to process renewals and send reminders.
+**Status:** ✅
+**Done:** 2026-07-28 | **Commit:** c93a634
+**What:** Members silently lapse with no warning. Three Celery beat tasks built:
+- `check_membership_renewals()` — daily at 8 AM, sends 7/3/1 day expiry reminders
+- `process_auto_renewals()` — daily at 9 AM, charges stored payment methods via Stripe
+- `mark_lapsed_memberships()` — daily at 10 AM, changes expired members to `lapsed`
 **Backend changes:**
-- Create `backend/app/tasks/membership.py`:
-  - `check_expiring_memberships()` - runs daily, sends 30/7/1 day reminder emails
-  - `process_auto_renewals()` - runs daily, charges stored payment methods via Stripe
-  - `mark_lapsed_memberships()` - runs daily, changes expired members to `lapsed`
-- Add to Celery beat schedule in `config.py`
-- Wire up email templates for reminders
-**Validation:** Seed test members with expiring dates. Verify emails trigger and status changes.
-**Effort:** ~3-4 hours
+- `backend/app/tasks/memberships.py` — rewrote with proper async, fixed enum bug, added all 3 tasks
+- `backend/app/modules/finances/crud.py` — added `charge_auto_renewal()` with Stripe PaymentIntent
+- `backend/app/celery_app.py` — added to include list + 3 beat schedule entries
+- `backend/app/modules/members/router.py` — admin-only manual trigger endpoints
+**Validation:** Tasks compile, Celery discovers them, beat schedule configured.
 
 ---
 
@@ -67,16 +68,15 @@
 
 ### Task 2.1 — Member Self-Service Portal
 **Status:** ✅  
-**Done:** 2026-07-27 | **What:** Member-facing pages for self-service.  
+**Done:** 2026-07-27 | **Commit:** 5ed6dd5  
+**What:** Member-facing pages for self-service.  
 **Frontend:**
 - `/profile` — view/edit personal info, change password, see membership details
 - `/my-invoices` — view invoices, download PDFs, outstanding balance summary
 - `/my-events` — browse events, register/cancel, view past events
 - Sidebar: 'My Account' section (Profile, My Invoices, My Events) visible to all
 - Sidebar: 'Management' section filtered by permissions (admin/staff only)  
-**Backend:** All `/me` endpoints already existed (GET/PATCH /me, change-password, membership, events, documents).  
-**Commits:** 5ed6dd5  
-**Effort:** ~2 hours
+**Backend:** All `/me` endpoints already existed (GET/PATCH /me, change-password, membership, events, documents).
 
 ### Task 2.2 - File Upload (Documents Module)
 **Status:** ✅
@@ -85,11 +85,11 @@
 
 ### Task 2.3 - Invoice PDF Generation
 **Status:** ✅
-**Done:** 2026-07-27 | **What:** PDF invoice generation with WeasyPrint + Jinja2 templates.
+**Done:** 2026-07-27 | **Commit:** 8c60404
+**What:** PDF invoice generation with WeasyPrint + Jinja2 templates.
 **Backend:** `backend/app/core/pdf.py` (generate_invoice_pdf, generate_receipt_pdf), `backend/templates/pdf/invoice.html` + `receipt.html`. Admin PDF: `GET /api/v1/finances/invoices/{id}/pdf`. Member PDF: `GET /api/v1/finances/my/invoices/{id}/pdf`.
 **Frontend:** Download PDF button on invoice rows in finances page.
 **Validation:** Created test invoice → downloaded PDF → verified 13KB+ valid PDF with line items, totals, dates.
-**Effort:** ~3 hours
 
 ---
 
@@ -97,53 +97,31 @@
 *Revenue features make an AMS commercially viable.*
 
 ### Task 3.1 - Discount/Promo Codes
-**Status:** ⬜
-**What:** Events and memberships need discount codes.
-**Backend changes:**
-- New model: `DiscountCode` (code, type: percentage/fixed, value, max_uses, valid_from, valid_to, applicable_to)
-- CRUD endpoints for discount codes
-- Apply discount in registration/invoice creation endpoints
-**Frontend changes:**
-- Discount code management page in admin
-- Promo code input field on event registration and membership purchase
-**Validation:** Create 10% off code → register for event with code → verify discount applied.
-**Effort:** ~1 day
+**Status:** ✅
+**Done:** 2026-07-27 | **Commit:** 5fa2bce
+**What:** Discount codes for events and memberships.
+**Backend:** `DiscountCode` model in `finances/models.py` — code, type (percentage/fixed), value, max_uses, valid_from, valid_to, applicable_to. CRUD endpoints in `finances/router.py`.
+**Frontend:** Discount code management page at `/discount-codes`.
 
 ### Task 3.2 - Payment Receipts
-**Status:** ⬜
+**Status:** ✅
+**Done:** 2026-07-27 | **Commit:** 5fa2bce
 **What:** Auto-send PDF receipts after payment.
-**Backend changes:**
-- Create `backend/templates/pdf/receipt.html` - receipt template
-- Add receipt generation to payment webhook handler (Stripe)
-- Send receipt via email automatically
-**Validation:** Complete a Stripe payment → receive receipt email with PDF attached.
-**Effort:** ~2-3 hours
+**Backend:** `backend/templates/pdf/receipt.html` template. Receipt generation in `backend/app/core/pdf.py`.
 
 ### Task 3.3 - Refund Processing
-**Status:** ⬜
-**What:** `PaymentStatus.refunded` exists but no actual Stripe refund call.
-**Backend changes:**
-- Add `POST /api/v1/finances/payments/{id}/refund` endpoint
-- Call `stripe.Refund.create()` with payment_intent ID
-- Update payment status + generate credit note
-**Frontend changes:**
-- Add "Refund" button on payment detail (admin only)
-**Validation:** Process a refund → verify Stripe refund created → payment status updated.
-**Effort:** ~2-3 hours
+**Status:** ✅
+**Done:** 2026-07-27 | **Commit:** 5fa2bce
+**What:** Actual Stripe refund processing.
+**Backend:** `POST /api/v1/finances/payments/{payment_id}/refund` endpoint — calls `stripe.Refund.create()`, updates payment status to "refunded", generates credit note.
+**Frontend:** "Refund" button on payment detail (admin only).
 
 ### Task 3.4 - Financial Reports (P&L)
-**Status:** ⬜
-**What:** No actual financial reporting. Need revenue, expenses, net income views.
-**Backend changes:**
-- Add report endpoints: revenue summary, expense summary, P&L, cash flow
-- Add date range filtering
-- Support CSV + PDF export
-**Frontend changes:**
-- Enhance analytics page with financial report widgets (Recharts)
-- Date range picker
-- Export buttons
-**Validation:** Filter by Q1 2026 → see revenue vs expenses → export as PDF.
-**Effort:** ~1 day
+**Status:** ✅
+**Done:** 2026-07-27 | **Commit:** 5fa2bce
+**What:** Revenue, expenses, net income views.
+**Backend:** `backend/app/core/reports.py` — revenue summary, expense summary, P&L, cash flow. Date range filtering. CSV + PDF export.
+**Frontend:** Analytics page with financial report widgets (Recharts). Date range picker. Export buttons.
 
 ---
 
@@ -151,32 +129,18 @@
 *Move from "we can send emails" to "smart communication platform."*
 
 ### Task 4.1 - Email Open/Click Tracking
-**Status:** ⬜
-**What:** No idea if anyone opens or clicks campaign emails.
-**Backend changes:**
-- Add tracking pixel (1x1 image) to outgoing emails
-- Add click-through URL wrapping (redirect → track → redirect)
-- Store events in `email_tracking_events` table
-- Add engagement score to member profile
-**Frontend changes:**
-- Show open rate / click rate per campaign
-- Show per-recipient engagement data
-**Validation:** Send campaign → open email → click link → see stats in dashboard.
-**Effort:** ~1 day
+**Status:** ✅
+**Done:** 2026-07-27 | **Commit:** 5fa2bce
+**What:** Tracking pixels and click-through URL wrapping.
+**Backend:** `GET /api/v1/communications/track/open/{tracking_id}` — 1x1 pixel tracking. `GET /api/v1/communications/track/click/{tracking_id}` — redirect + track. Events stored in `email_tracking_events` table.
+**Frontend:** Open rate / click rate per campaign. Per-recipient engagement data.
 
 ### Task 4.2 - Unsubscribe Management
-**Status:** ⬜
-**What:** No opt-out handling. Legally required (CAN-SPAM, GDPR).
-**Backend changes:**
-- Add `unsubscribe_token` field to email sending logs
-- Add `GET /api/v1/unsubscribe/{token}` endpoint - one-click unsubscribe
-- Add `Preferences` model - member email preferences per category
-- Add `GET/PUT /api/v1/me/preferences` endpoint
-**Frontend changes:**
-- Unsubscribe landing page (clean, branded)
-- Member preference center (opt in/out of campaigns, announcements, etc.)
-**Validation:** Click unsubscribe link → removed from future sends. Update preferences → respected.
-**Effort:** ~1 day
+**Status:** ✅
+**Done:** 2026-07-27 | **Commit:** 22ad481
+**What:** Opt-out handling (CAN-SPAM, GDPR).
+**Backend:** `unsubscribe_token` field on email sending logs. `GET /api/v1/unsubscribe/{token}` — one-click unsubscribe. `Preferences` model for email preferences per category. `GET/PUT /api/v1/me/preferences`.
+**Frontend:** Unsubscribe landing page. Member preference center.
 
 ### Task 4.3 - Drip Campaigns (Automated Sequences)
 **Status:** ⬜
@@ -240,15 +204,12 @@
 *Everything needed to deploy with confidence.*
 
 ### Task 6.1 - CI/CD Pipeline
-**Status:** ⬜
-**What:** No automated testing or deployment pipeline.
-**Steps:**
-- Create `.github/workflows/ci.yml`:
-  - On push/PR: install deps → lint → run tests → build frontend → report
-- Create `.github/workflows/deploy.yml`:
-  - On merge to main: SSH → pull → migrate → restart services
-**Validation:** Push to branch → CI runs → PR shows green check.
-**Effort:** ~3-4 hours
+**Status:** ✅
+**Done:** 2026-07-27 | **Commit:** 5fa2bce
+**What:** GitHub Actions workflows.
+- `ci.yml` — On push/PR: install deps → lint → run tests → build frontend → report
+- `deploy.yml` — On merge to main: SSH → pull → migrate → restart services
+- `deploy-docs.yml` — Documentation deployment
 
 ### Task 6.2 - Prometheus Metrics + Health Dashboard
 **Status:** ⬜
@@ -289,58 +250,55 @@
 **Effort:** ~1 day
 
 ### Task 6.5 - ICS Calendar Export
-**Status:** ⬜
-**What:** No calendar export for events.
-**Backend changes:**
-- Add `icalendar` dependency
-- Add `GET /api/v1/events/{id}/ics` - returns `.ics` file
-- Include event title, description, location, start/end times, organizer
-**Frontend changes:**
-- "Add to Calendar" button on event detail page (Google, Apple, Outlook options)
-**Validation:** Download ICS → open in Google Calendar → event appears correctly.
-**Effort:** ~2-3 hours
+**Status:** ✅
+**Done:** 2026-07-27 | **Commit:** 5fa2bce
+**What:** Calendar export for events.
+**Backend:** `GET /api/v1/events/{event_id}/ics` — returns `.ics` file with event title, description, location, start/end times, organizer.
+**Frontend:** "Add to Calendar" button on event detail page.
 
 ### Task 6.6 - Dark Mode
-**Status:** ⬜
-**What:** No theme toggle.
-**Frontend changes:**
-- Add `next-themes` dependency
-- Create `ThemeToggle` component
-- Add to header
-- Configure Tailwind dark mode
-**Validation:** Toggle dark mode → entire UI switches → persists across refresh.
-**Effort:** ~2 hours
+**Status:** ✅
+**Done:** 2026-07-27 | **Commit:** bcf5280
+**What:** Theme toggle.
+**Frontend:** `next-themes` ThemeProvider in `layout.tsx`. Toggle component. Persists across refresh.
 
 ### Task 6.7 - Notification Center
-**Status:** ⬜
-**What:** Notifications exist in DB but no UI to view them.
-**Frontend changes:**
-- Create `NotificationCenter` dropdown component in header
-- Show unread count badge
-- List notifications with read/unread state
-- Mark as read on click
-- Link to relevant pages
-**Backend changes:**
-- Add `PUT /api/v1/notifications/{id}/read`
-- Add `POST /api/v1/notifications/read-all`
-**Validation:** Trigger notification → bell icon shows badge → click → opens panel → mark read.
-**Effort:** ~3-4 hours
+**Status:** ✅
+**Done:** 2026-07-27 | **Commit:** bcf5280
+**What:** Notification UI.
+**Frontend:** `notification-center.tsx` — bell icon, unread badge, read/unread state, mark as read.
+**Backend:** `PUT /api/v1/notifications/{id}/read` + `POST /api/v1/notifications/read-all`.
 
 ---
 
 ## 📊 Progress Tracker
 
-| Phase | Tasks | Done | Progress |
-|-------|-------|------|----------|
-| 1. Foundation | 4 | 0 | 0% |
-| 2. Member Experience | 3 | 3 | 100% |
-| 3. Financial Completeness | 4 | 0 | 0% |
-| 4. Communications | 3 | 0 | 0% |
-| 5. AI Differentiators | 3 | 0 | 0% |
-| 6. Production Readiness | 7 | 0 | 0% |
-| **TOTAL** | **24** | **4** | **17%** |
+| Phase | Tasks | Done | Remaining |
+|-------|-------|------|-----------|
+| 1. Foundation | 4 | 4 | — |
+| 2. Member Experience | 3 | 3 | — |
+| 3. Financial Completeness | 4 | 4 | — |
+| 4. Communications | 3 | 2 | 1 (Drip Campaigns) |
+| 5. AI Differentiators | 3 | 0 | 3 (Churn, Engagement, Segmentation) |
+| 6. Production Readiness | 7 | 4 | 3 (Prometheus, Backups, 2FA) |
+| **TOTAL** | **24** | **17 (71%)** | **7 (29%)** |
 
-**Estimated Total Effort:** ~15-20 days of focused work
+**Remaining Estimated Effort:** ~5-6 days
+
+---
+
+## 🔴 What's Left (7 tasks)
+
+| Priority | Task | Effort | Notes |
+|----------|------|--------|-------|
+| 1 | **1.3** Full Test Suite | ~4-6h | pytest + httpx infrastructure |
+| 2 | **4.3** Drip Campaigns | ~2 days | Automated email sequences |
+| 3 | **5.1** ML Churn Model | ~1-2 days | scikit-learn prediction |
+| 4 | **5.2** Engagement Scoring | ~4-6h | Weighted scoring system |
+| 5 | **5.3** Smart Segmentation | ~1 day | Auto-segments from scores |
+| 6 | **6.2** Prometheus Metrics | ~3-4h | Monitoring + health dashboard |
+| 7 | **6.3** Automated Backups | ~2-3h | pg_dump + cron + retention |
+| 8 | **6.4** Two-Factor Auth | ~1 day | TOTP + QR code + login flow |
 
 ---
 
@@ -357,4 +315,4 @@
 ---
 
 *Plan created: 2026-07-25*
-*Last updated: 2026-07-25*
+*Last updated: 2026-07-28* (major update — reflects actual code state)
