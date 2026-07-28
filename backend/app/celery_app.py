@@ -12,6 +12,7 @@ celery_app = Celery(
         "app.tasks.workflows",
         "app.tasks.analytics",
         "app.tasks.integrations",
+        "app.tasks.memberships",
     ],
 )
 
@@ -48,6 +49,19 @@ celery_app.conf.update(
         "cleanup-old-embeddings": {
             "task": "app.tasks.ai.cleanup_old_embeddings",
             "schedule": crontab(hour=3, minute=0, day_of_week=0),  # Weekly Sunday 3 AM
+        },
+        # Membership lifecycle tasks
+        "check-membership-renewals": {
+            "task": "app.tasks.memberships.check_membership_renewals",
+            "schedule": crontab(hour=8, minute=0),  # Daily at 8 AM UTC
+        },
+        "process-auto-renewals": {
+            "task": "app.tasks.memberships.process_auto_renewals",
+            "schedule": crontab(hour=9, minute=0),  # Daily at 9 AM UTC
+        },
+        "mark-lapsed-memberships": {
+            "task": "app.tasks.memberships.mark_lapsed_memberships",
+            "schedule": crontab(hour=10, minute=0),  # Daily at 10 AM UTC
         },
     },
 )

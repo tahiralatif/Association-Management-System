@@ -627,3 +627,75 @@ async def apply_discount_code(
     await db.flush()
 
     return True, discount, final, f"Code '{code_obj.code}' applied successfully"
+
+
+async def charge_auto_renewal(profile: "MemberProfile", user: "User") -> bool:
+    """Charge a stored payment method for membership auto-renewal.
+
+    Returns True if payment succeeded, False otherwise.
+    Uses Stripe to charge the customer's default payment method.
+    """
+    import logging
+    from app.core.config import settings
+
+    log = logging.getLogger(__name__)
+
+    # Get the membership fee for the member's tier
+    tier_fees = {
+        "basic": 50.00,
+        "premium": 100.00,
+        "professional": 150.00,
+        "student": 25.00,
+        "honorary": 0.00,
+    }
+    amount = tier_fees.get(profile.tier.value, 50.00) if profile.tier else 50.00
+
+    if amount == 0:
+        # Free tier, no charge needed
+        return True
+
+    if not settings.STRIPE_SECRET_KEY:
+        log.warning("Stripe not configured, skipping auto-renewal for %s", user.email)
+        return False
+
+    try:
+        import stripe
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+
+        # Find the customer by email
+        customers = stripe.Customer.list(email=user.email, limit=1)
+        if not customers.data:
+            log.warning("No Stripe customer found for %s", user.email)
+            return False
+
+        customer = customers.data[0]
+
+        # Charge the default payment method
+        intent = stripe.PaymentIntent.create(
+            amount=int(amount * 100),  # Stripe uses cents
+            currency="usd",
+            customer=customer.id,
+            confirm=True,
+            off_session=True,
+            description=f"Membership renewal — {profile.tier.value if profile.tier else 'basic'} tier",
+            metadata={
+                "user_id": user.id,
+                "profile_id": profile.id,
+                "tenant_id": profile.tenant_id,
+                "type": "membership_renewal",
+            },
+        )
+
+        if intent.status == "succeeded":
+            log.info("Auto-renewal payment succeeded for %s: $%.2f", user.email, amount)
+            return True
+        else:
+            log.warning("Auto-renewal payment not succeeded for %s: %s", user.email, intent.status)
+            return False
+
+    except stripe.error.CardError as e:
+        log.error("Card error for auto-renewal of %s: %s", user.email, e.user_message)
+        return False
+    except Exception:
+        log.exception("Unexpected error in auto-renewal for %s", user.email)
+        return False

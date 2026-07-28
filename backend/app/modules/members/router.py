@@ -770,3 +770,30 @@ async def update_group_member(
         if not membership:
             raise HTTPException(status_code=404, detail="Membership not found")
     return {"message": "Group membership updated"}
+
+
+# ── Membership Lifecycle (Admin triggers) ───────────────────────────────
+
+
+@router.post("/lifecycle/check-renewals")
+async def trigger_check_renewals(user: TokenPayload = Depends(require_admin)):
+    """Manually trigger membership renewal reminder checks."""
+    from app.tasks.memberships import check_membership_renewals
+    result = check_membership_renewals.delay()
+    return {"message": "Renewal check queued", "task_id": result.id}
+
+
+@router.post("/lifecycle/process-renewals")
+async def trigger_process_renewals(user: TokenPayload = Depends(require_admin)):
+    """Manually trigger auto-renewal processing."""
+    from app.tasks.memberships import process_auto_renewals
+    result = process_auto_renewals.delay()
+    return {"message": "Auto-renewal processing queued", "task_id": result.id}
+
+
+@router.post("/lifecycle/mark-lapsed")
+async def trigger_mark_lapsed(user: TokenPayload = Depends(require_admin)):
+    """Manually trigger lapse marking for expired memberships."""
+    from app.tasks.memberships import mark_lapsed_memberships
+    result = mark_lapsed_memberships.delay()
+    return {"message": "Lapse marking queued", "task_id": result.id}
