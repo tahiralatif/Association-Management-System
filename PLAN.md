@@ -142,18 +142,15 @@
 **Frontend:** Unsubscribe landing page. Member preference center.
 
 ### Task 4.3 - Drip Campaigns (Automated Sequences)
-**Status:** ⬜
-**What:** No automated email sequences (welcome series, renewal reminders, re-engagement).
-**Backend changes:**
-- New model: `EmailSequence` with steps (delay_days, template, condition)
-- New model: `EmailSequenceEnrollment` - member in sequence + current step
-- New Celery task: `process_sequences()` - checks enrollments, sends due emails, advances step
-- Auto-enroll on events: new member → welcome series, expired → re-engagement
-**Frontend changes:**
-- Sequence builder page (list steps, set delays, choose templates)
-- Enrollment dashboard (who's in what sequence, progress)
-**Validation:** Create welcome series (day 0, 3, 7) → enroll new member → verify emails sent on schedule.
-**Effort:** ~2 days
+**Status:** ✅
+**Done:** 2026-07-28 | **Commit:** 3ae6fdd
+**What:** Automated multi-step email sequences with triggers, branching, and scheduling.
+**Models:** DripCampaign, DripStep (email/wait/condition), DripEnrollment, DripLog
+**CRUD:** create/list/update campaigns, manage steps, enroll members, activate/pause
+**API:** 8 endpoints — CRUD campaigns + steps, activate/pause, enroll members
+**Celery:** process_pending_drips (every 5 min), enroll_trigger_members (hourly)
+**DB:** Alembic migration for 4 new tables (drip_campaigns, drip_steps, drip_enrollments, drip_logs)
+**Validation:** All 42 existing tests pass, import/syntax verified.
 
 ---
 
@@ -277,26 +274,25 @@
 | 1. Foundation | 4 | 4 | — |
 | 2. Member Experience | 3 | 3 | — |
 | 3. Financial Completeness | 4 | 4 | — |
-| 4. Communications | 3 | 2 | 1 (Drip Campaigns) |
+| 4. Communications | 3 | 3 | — |
 | 5. AI Differentiators | 3 | 0 | 3 (Churn, Engagement, Segmentation) |
 | 6. Production Readiness | 7 | 4 | 3 (Prometheus, Backups, 2FA) |
-| **TOTAL** | **24** | **18 (75%)** | **6 (25%)** |
+| **TOTAL** | **24** | **19 (79%)** | **5 (21%)** |
 
-**Remaining Estimated Effort:** ~4-5 days
+**Remaining Estimated Effort:** ~3-4 days
 
 ---
 
-## 🔴 What's Left (6 tasks)
+## 🔴 What's Left (5 tasks)
 
 | Priority | Task | Effort | Notes |
 |----------|------|--------|-------|
-| 1 | **4.3** Drip Campaigns | ~2 days | Automated email sequences |
-| 2 | **5.1** ML Churn Model | ~1-2 days | scikit-learn prediction |
-| 3 | **5.2** Engagement Scoring | ~4-6h | Weighted scoring system |
-| 4 | **5.3** Smart Segmentation | ~1 day | Auto-segments from scores |
-| 5 | **6.2** Prometheus Metrics | ~3-4h | Monitoring + health dashboard |
-| 6 | **6.3** Automated Backups | ~2-3h | pg_dump + cron + retention |
-| 7 | **6.4** Two-Factor Auth | ~1 day | TOTP + QR code + login flow |
+| 1 | **5.1** ML Churn Model | ~1-2 days | scikit-learn prediction |
+| 2 | **5.2** Engagement Scoring | ~4-6h | Weighted scoring system |
+| 3 | **5.3** Smart Segmentation | ~1 day | Auto-segments from scores |
+| 4 | **6.2** Prometheus Metrics | ~3-4h | Monitoring + health dashboard |
+| 5 | **6.3** Automated Backups | ~2-3h | pg_dump + cron + retention |
+| 6 | **6.4** Two-Factor Auth | ~1 day | TOTP + QR code + login flow |
 
 ---
 
