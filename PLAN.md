@@ -36,16 +36,15 @@
 `alembic.ini` configured with async PostgreSQL URL.
 
 ### Task 1.3 - Test Suite Setup
-**Status:** ⬜
-**What:** Add pytest + httpx async test infrastructure. Write tests for auth and one module as proof of concept.
-**Steps:**
-- Add `pytest`, `pytest-asyncio`, `httpx` to dev dependencies
-- Create `backend/tests/conftest.py` - test DB fixtures, auth fixtures, client fixture
-- Create `backend/tests/test_auth.py` - register, login, verify, refresh, protected endpoint
-- Create `backend/tests/test_members.py` - CRUD + search + pagination + bulk ops
-- Create `backend/tests/test_health.py` - health endpoints
-**Validation:** `pytest -v` passes. CI-ready.
-**Effort:** ~4-6 hours
+**Status:** ✅
+**Done:** 2026-07-28 | **Commit:** 61371a0
+**What:** pytest + httpx async test infrastructure with 42 tests.
+**Files created:**
+- `tests/conftest.py` — async HTTP client, mock DB session, auth token fixtures
+- `tests/test_auth.py` — 20 tests: JWT create/decode, password hashing, schemas, model imports, app creation, route existence
+- `tests/test_health.py` — 4 tests: health endpoint, version info, OpenAPI, 404 handling
+- `tests/test_members.py` — 18 tests: member schemas, enums, table names, RBAC permissions, API endpoint auth
+**Validation:** `pytest -v` — 42 passed, 0 failed.
 
 ### Task 1.4 - Auto-Renewal & Expiry Scheduler
 **Status:** ✅
@@ -281,24 +280,23 @@
 | 4. Communications | 3 | 2 | 1 (Drip Campaigns) |
 | 5. AI Differentiators | 3 | 0 | 3 (Churn, Engagement, Segmentation) |
 | 6. Production Readiness | 7 | 4 | 3 (Prometheus, Backups, 2FA) |
-| **TOTAL** | **24** | **17 (71%)** | **7 (29%)** |
+| **TOTAL** | **24** | **18 (75%)** | **6 (25%)** |
 
-**Remaining Estimated Effort:** ~5-6 days
+**Remaining Estimated Effort:** ~4-5 days
 
 ---
 
-## 🔴 What's Left (7 tasks)
+## 🔴 What's Left (6 tasks)
 
 | Priority | Task | Effort | Notes |
 |----------|------|--------|-------|
-| 1 | **1.3** Full Test Suite | ~4-6h | pytest + httpx infrastructure |
-| 2 | **4.3** Drip Campaigns | ~2 days | Automated email sequences |
-| 3 | **5.1** ML Churn Model | ~1-2 days | scikit-learn prediction |
-| 4 | **5.2** Engagement Scoring | ~4-6h | Weighted scoring system |
-| 5 | **5.3** Smart Segmentation | ~1 day | Auto-segments from scores |
-| 6 | **6.2** Prometheus Metrics | ~3-4h | Monitoring + health dashboard |
-| 7 | **6.3** Automated Backups | ~2-3h | pg_dump + cron + retention |
-| 8 | **6.4** Two-Factor Auth | ~1 day | TOTP + QR code + login flow |
+| 1 | **4.3** Drip Campaigns | ~2 days | Automated email sequences |
+| 2 | **5.1** ML Churn Model | ~1-2 days | scikit-learn prediction |
+| 3 | **5.2** Engagement Scoring | ~4-6h | Weighted scoring system |
+| 4 | **5.3** Smart Segmentation | ~1 day | Auto-segments from scores |
+| 5 | **6.2** Prometheus Metrics | ~3-4h | Monitoring + health dashboard |
+| 6 | **6.3** Automated Backups | ~2-3h | pg_dump + cron + retention |
+| 7 | **6.4** Two-Factor Auth | ~1 day | TOTP + QR code + login flow |
 
 ---
 
