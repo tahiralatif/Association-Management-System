@@ -217,6 +217,151 @@ class EmailTemplate(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+class DripCampaignStatus(str, enum.Enum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    ARCHIVED = "archived"
+
+
+class DripStepType(str, enum.Enum):
+    EMAIL = "email"
+    WAIT = "wait"
+    CONDITION = "condition"
+
+
+class DripEnrollmentStatus(str, enum.Enum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    UNSUBSCRIBED = "unsubscribed"
+    PAUSED = "paused"
+
+
+# ── Drip Campaign ───────────────────────────────────────────
+
+class DripCampaign(Base):
+    """Automated multi-step email sequences (drip campaigns)."""
+    __tablename__ = "drip_campaigns"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text)
+
+    # Targeting
+    trigger_event: Mapped[str] = mapped_column(String(50), default="manual")
+    # manual, member_joined, payment_received, event_registered, membership_expiring
+    target_segments: Mapped[list | None] = mapped_column(JSON, default=[])
+    target_group_ids: Mapped[list | None] = mapped_column(JSON, default=[])
+    target_all: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Status
+    status: Mapped[DripCampaignStatus] = mapped_column(Enum(DripCampaignStatus), default=DripCampaignStatus.DRAFT)
+
+    # Stats
+    total_enrolled: Mapped[int] = mapped_column(Integer, default=0)
+    total_completed: Mapped[int] = mapped_column(Integer, default=0)
+    total_unsubscribed: Mapped[int] = mapped_column(Integer, default=0)
+
+    # From
+    from_name: Mapped[str] = mapped_column(String(100))
+    from_email: Mapped[str] = mapped_column(String(200))
+
+    created_by: Mapped[str] = mapped_column(UUID(as_uuid=False))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+# ── Drip Step ───────────────────────────────────────────────
+
+class DripStep(Base):
+    """Individual steps in a drip campaign."""
+    __tablename__ = "drip_steps"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    campaign_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("drip_campaigns.id"), index=True)
+
+    step_order: Mapped[int] = mapped_column(Integer)
+    step_type: Mapped[DripStepType] = mapped_column(Enum(DripStepType), default=DripStepType.EMAIL)
+    name: Mapped[str] = mapped_column(String(200))
+
+    # Email step
+    subject: Mapped[str | None] = mapped_column(String(500))
+    html_body: Mapped[str | None] = mapped_column(Text)
+    plain_body: Mapped[str | None] = mapped_column(Text)
+
+    # Wait step — delay_days, delay_hours
+    delay_days: Mapped[int] = mapped_column(Integer, default=0)
+    delay_hours: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Condition step — condition_type, condition_value
+    condition_type: Mapped[str | None] = mapped_column(String(50))
+    # opened_previous, clicked_previous, is_active, has_paid
+    condition_value: Mapped[str | None] = mapped_column(String(200))
+    condition_branch_true: Mapped[int | None] = mapped_column(Integer)  # step_order to go to
+    condition_branch_false: Mapped[int | None] = mapped_column(Integer)
+
+    # Tracking
+    sent_count: Mapped[int] = mapped_column(Integer, default=0)
+    opened_count: Mapped[int] = mapped_column(Integer, default=0)
+    clicked_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+# ── Drip Enrollment ─────────────────────────────────────────
+
+class DripEnrollment(Base):
+    """Tracks a member's progress through a drip campaign."""
+    __tablename__ = "drip_enrollments"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    campaign_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("drip_campaigns.id"), index=True)
+    member_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), index=True)
+
+    current_step_order: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[DripEnrollmentStatus] = mapped_column(
+        Enum(DripEnrollmentStatus), default=DripEnrollmentStatus.ACTIVE
+    )
+
+    # Tracking
+    next_send_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    unsubscribed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    enrolled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+# ── Drip Log ────────────────────────────────────────────────
+
+class DripLog(Base):
+    """Log of every drip step execution."""
+    __tablename__ = "drip_logs"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    enrollment_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("drip_enrollments.id"), index=True)
+    step_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("drip_steps.id"))
+    campaign_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("drip_campaigns.id"))
+    member_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"))
+
+    action: Mapped[str] = mapped_column(String(30))  # sent, opened, clicked, skipped, condition_true, condition_false
+    tracking_id: Mapped[str | None] = mapped_column(String(100))
+
+    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 # ── Message Log ──────────────────────────────────────────────
 
 class MessageLog(Base):

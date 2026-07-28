@@ -649,3 +649,147 @@ async def track_click(
         pass
 
     return RedirectResponse(url=url, status_code=302)
+
+
+# ═══════════════════════════════════════════════════════════════
+# DRIP CAMPAIGNS
+# ═══════════════════════════════════════════════════════════════
+
+from app.modules.communications.schemas import (
+    DripCampaignCreate, DripCampaignUpdate, DripCampaignResponse,
+    DripCampaignDetailResponse, DripStepCreate, DripStepResponse,
+    DripEnrollMember, DripEnrollmentResponse,
+)
+from app.modules.communications import crud as drip_crud
+from app.modules.communications.models import DripCampaignStatus
+
+
+@router.get("/drip-campaigns", response_model=list[DripCampaignResponse])
+async def list_drip_campaigns(
+    status: str | None = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_staff),
+):
+    """List all drip campaigns."""
+    campaigns = await drip_crud.list_drip_campaigns(
+        db, user.tenant_id, skip=skip, limit=limit, status=status
+    )
+    return campaigns
+
+
+@router.post("/drip-campaigns", response_model=DripCampaignResponse, status_code=201)
+async def create_drip_campaign(
+    data: DripCampaignCreate,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin),
+):
+    """Create a new drip campaign with optional steps."""
+    campaign = await drip_crud.create_drip_campaign(
+        db, data, user.tenant_id, user.sub
+    )
+    return campaign
+
+
+@router.get("/drip-campaigns/{campaign_id}", response_model=DripCampaignDetailResponse)
+async def get_drip_campaign(
+    campaign_id: str,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_staff),
+):
+    """Get a drip campaign with all its steps."""
+    campaign = await drip_crud.get_drip_campaign(db, campaign_id, user.tenant_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Drip campaign not found")
+    steps = await drip_crud.get_drip_steps(db, campaign_id)
+    return DripCampaignDetailResponse(
+        **campaign.__dict__,
+        steps=[DripStepResponse.model_validate(s) for s in steps],
+    )
+
+
+@router.patch("/drip-campaigns/{campaign_id}", response_model=DripCampaignResponse)
+async def update_drip_campaign(
+    campaign_id: str,
+    data: DripCampaignUpdate,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin),
+):
+    """Update a drip campaign."""
+    campaign = await drip_crud.update_drip_campaign(
+        db, campaign_id, user.tenant_id, data
+    )
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Drip campaign not found")
+    return campaign
+
+
+@router.post("/drip-campaigns/{campaign_id}/steps", response_model=DripStepResponse, status_code=201)
+async def add_drip_step(
+    campaign_id: str,
+    data: DripStepCreate,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin),
+):
+    """Add a step to a drip campaign."""
+    # Verify campaign exists
+    campaign = await drip_crud.get_drip_campaign(db, campaign_id, user.tenant_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Drip campaign not found")
+    step = await drip_crud.add_drip_step(db, campaign_id, user.tenant_id, data)
+    return step
+
+
+@router.post("/drip-campaigns/{campaign_id}/activate")
+async def activate_drip_campaign(
+    campaign_id: str,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin),
+):
+    """Activate a drip campaign to start enrolling members."""
+    campaign = await drip_crud.get_drip_campaign(db, campaign_id, user.tenant_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Drip campaign not found")
+    steps = await drip_crud.get_drip_steps(db, campaign_id)
+    if not steps:
+        raise HTTPException(status_code=400, detail="Cannot activate campaign with no steps")
+
+    campaign.status = DripCampaignStatus.ACTIVE
+    await db.commit()
+    return {"message": "Campaign activated", "status": "active"}
+
+
+@router.post("/drip-campaigns/{campaign_id}/pause")
+async def pause_drip_campaign(
+    campaign_id: str,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin),
+):
+    """Pause a drip campaign."""
+    campaign = await drip_crud.get_drip_campaign(db, campaign_id, user.tenant_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Drip campaign not found")
+    campaign.status = DripCampaignStatus.PAUSED
+    await db.commit()
+    return {"message": "Campaign paused", "status": "paused"}
+
+
+@router.post("/drip-campaigns/{campaign_id}/enroll", response_model=list[DripEnrollmentResponse])
+async def enroll_members(
+    campaign_id: str,
+    data: DripEnrollMember,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_admin),
+):
+    """Enroll members in a drip campaign."""
+    campaign = await drip_crud.get_drip_campaign(db, campaign_id, user.tenant_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Drip campaign not found")
+    if not data.member_ids:
+        raise HTTPException(status_code=400, detail="No member IDs provided")
+
+    enrollments = await drip_crud.enroll_members_in_drip(
+        db, campaign_id, user.tenant_id, data.member_ids
+    )
+    return enrollments

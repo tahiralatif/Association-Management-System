@@ -13,6 +13,7 @@ celery_app = Celery(
         "app.tasks.analytics",
         "app.tasks.integrations",
         "app.tasks.memberships",
+        "app.tasks.drip",
     ],
 )
 
@@ -62,6 +63,15 @@ celery_app.conf.update(
         "mark-lapsed-memberships": {
             "task": "app.tasks.memberships.mark_lapsed_memberships",
             "schedule": crontab(hour=10, minute=0),  # Daily at 10 AM UTC
+        },
+        # Drip campaign tasks
+        "process-pending-drips": {
+            "task": "app.tasks.drip.process_pending_drips",
+            "schedule": crontab(minute="*/5"),  # Every 5 minutes
+        },
+        "enroll-trigger-members": {
+            "task": "app.tasks.drip.enroll_trigger_members",
+            "schedule": crontab(minute=0, hour="*/1"),  # Every hour
         },
     },
 )

@@ -182,6 +182,110 @@ class EmailTemplateResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Drip Campaign ───────────────────────────────────────────
+
+class DripStepCreate(BaseModel):
+    step_order: int
+    step_type: str = "email"  # email, wait, condition
+    name: str = Field(min_length=1, max_length=200)
+    subject: str | None = None
+    html_body: str | None = None
+    plain_body: str | None = None
+    delay_days: int = 0
+    delay_hours: int = 0
+    condition_type: str | None = None
+    condition_value: str | None = None
+    condition_branch_true: int | None = None
+    condition_branch_false: int | None = None
+
+
+class DripStepResponse(BaseModel):
+    id: str
+    campaign_id: str
+    step_order: int
+    step_type: str
+    name: str
+    subject: str | None = None
+    delay_days: int = 0
+    delay_hours: int = 0
+    sent_count: int = 0
+    opened_count: int = 0
+    clicked_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class DripCampaignCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+    trigger_event: str = "manual"
+    target_segments: list[str] = []
+    target_group_ids: list[str] = []
+    target_all: bool = False
+    from_name: str
+    from_email: str
+    steps: list[DripStepCreate] = []
+
+
+class DripCampaignUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    status: str | None = None
+    trigger_event: str | None = None
+    target_segments: list[str] | None = None
+
+
+class DripCampaignResponse(BaseModel):
+    id: str
+    name: str
+    description: str | None = None
+    trigger_event: str
+    status: str
+    total_enrolled: int = 0
+    total_completed: int = 0
+    total_unsubscribed: int = 0
+    from_name: str
+    from_email: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DripCampaignDetailResponse(BaseModel):
+    id: str
+    name: str
+    description: str | None = None
+    trigger_event: str
+    status: str
+    target_segments: list[str] = []
+    target_all: bool = False
+    total_enrolled: int = 0
+    total_completed: int = 0
+    total_unsubscribed: int = 0
+    from_name: str
+    from_email: str
+    steps: list[DripStepResponse] = []
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DripEnrollMember(BaseModel):
+    member_ids: list[str]
+
+
+class DripEnrollmentResponse(BaseModel):
+    id: str
+    campaign_id: str
+    member_id: str
+    current_step_order: int
+    status: str
+    next_send_at: datetime | None = None
+    enrolled_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 # ── Dashboard ────────────────────────────────────────────────
 
 class CommunicationsSummary(BaseModel):
