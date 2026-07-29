@@ -308,5 +308,35 @@
 
 ---
 
+## UI Redesign (2026-07-29)
+
+**Scope:** Full visual overhaul of all 22 frontend routes. Premium 3D teal+white SaaS design.
+
+### Commits
+- `d2ce938` — Fix false claims on /why and /marketing pages (Groq→OpenRouter, remove fake testimonials, etc.)
+- Previous commits (17 files) — Premium 3D teal+white redesign of all dashboard pages, login, shared components
+
+### What Changed
+- **Shared Components:** PageHeader (gradient teal), StatCard (3D hover), DataTable (gradient header), Modal (glass morphism), StatusBadge (dot indicator), Tabs (pill style), SearchInput, Pagination
+- **Layout:** Glass morphism header with backdrop blur, premium gradient background
+- **Sidebar:** Gradient active indicators, teal branding
+- **Dashboard:** Gradient stat cards, timeline activity, AI insights panel, financial summary
+- **Login:** Animated orbs, dark gradient background, glass card
+- **All Pages:** Teal gradient buttons, rounded-2xl cards, stagger animations, premium forms
+- **Notification Center:** Portal-based dropdown (fixes clipping by header), premium styling
+- **AI Page:** Fixed invisible chat input (custom color utilities added to globals.css)
+- **Marketing/Why:** Removed all false claims (Groq→OpenRouter, removed fake testimonials, fixed pricing claims)
+
+### Content Corrections (Honesty Pass)
+- ❌ "Groq AI" → ✅ "OpenRouter LLMs" (actual provider)
+- ❌ "~$29/mo managed" → ✅ "Free (self-hosted)" (no managed plan exists)
+- ❌ Fake testimonials → ✅ Removed, replaced with Open Source / Self-Hosted cards
+- ❌ "A/B Testing" claim → ✅ Removed (not implemented)
+- ❌ "Stripe Payments" → ✅ "Stripe Checkout" (configurable, not active)
+- ❌ "156 API endpoints" → ✅ "200+" (actual count)
+- ❌ README "Groq AI" → ✅ "OpenRouter LLMs"
+
+---
+
 *Plan created: 2026-07-25*
-*Last updated: 2026-07-28* (major update — reflects actual code state)
+*Last updated: 2026-07-29* (UI redesign + content honesty pass)
