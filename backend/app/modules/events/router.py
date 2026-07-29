@@ -103,8 +103,8 @@ async def create_event(
     from app.core.events import emit_event_event
     await emit_event_event(db, user.tenant_id, "create", {
         "event_id": str(event.id),
-        "title": event.title,
-        "date": str(event.event_date) if event.event_date else None,
+        "title": event.name,
+        "date": str(event.start_date) if event.start_date else None,
     })
 
     return EventResponse(**{c.key: getattr(event, c.key) for c in event.__table__.columns})
@@ -215,7 +215,7 @@ async def register_for_event(
             if db_user and event:
                 name = f"{db_user.first_name} {db_user.last_name}"
                 event_date = event.start_date.strftime("%B %d, %Y at %I:%M %p") if event.start_date else "TBD"
-                notify_event_registration(event.title, event_date, db_user.email, name)
+                notify_event_registration(event.name, event_date, db_user.email, name)
         except Exception:
             pass
 
@@ -378,9 +378,9 @@ PRODID:-//AssocHub//Event//EN
 BEGIN:VEVENT
 DTSTART:{start}
 DTEND:{end}
-SUMMARY:{event.title or 'Event'}
+SUMMARY:{event.name or 'Event'}
 DESCRIPTION:{(event.description or '').replace(chr(10), '\\n')}
-LOCATION:{event.location or ''}
+LOCATION:{event.venue_name or ''}
 UID:{event_id}@assochub
 END:VEVENT
 END:VCALENDAR"""
