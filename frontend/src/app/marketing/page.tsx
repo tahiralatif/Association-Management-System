@@ -10,25 +10,25 @@ import Logo from "@/components/logo";
    and implemented frontend modules. No placeholder data.
    ═══════════════════════════════════════════════════════════ */
 
-const API_ENDPOINTS = 156;
+const API_ENDPOINTS = 200;
 const MODULE_COUNT = 11;
 
 const MODULES = [
-  { name: "Dashboard", icon: "📊", desc: "KPI tracking, insights, custom widgets", endpointCount: 7 },
-  { name: "Members", icon: "👥", desc: "CRUD, groups, tags, bulk ops, import/export", endpointCount: 26 },
-  { name: "Finances", icon: "💰", desc: "Invoices, expenses, budgets, Stripe payments", endpointCount: 20 },
-  { name: "Events", icon: "📅", desc: "Tickets, check-in, sessions, speakers, feedback", endpointCount: 15 },
-  { name: "Communications", icon: "📧", desc: "Campaigns, announcements, surveys, templates", endpointCount: 16 },
-  { name: "Elections", icon: "🗳️", desc: "Nomination workflow, ranked-choice voting", endpointCount: 15 },
-  { name: "Documents", icon: "📁", desc: "Versioning, sharing, categories, comments", endpointCount: 13 },
-  { name: "Workflows", icon: "⚙️", desc: "Visual builder, triggers, delays, conditions", endpointCount: 11 },
-  { name: "AI Engine", icon: "🤖", desc: "Chat, predictions, embeddings, document gen", endpointCount: 11 },
-  { name: "Analytics", icon: "📈", desc: "Dashboards, reports, KPIs, exports", endpointCount: 12 },
-  { name: "Integrations", icon: "🔗", desc: "Webhooks, Stripe, external sync", endpointCount: 12 },
+  { name: "Dashboard", icon: "📊", desc: "KPI tracking, insights, custom widgets", endpointCount: 15 },
+  { name: "Members", icon: "👥", desc: "CRUD, groups, tags, bulk ops, import/export", endpointCount: 37 },
+  { name: "Finances", icon: "💰", desc: "Invoices, expenses, budgets, Stripe payments", endpointCount: 37 },
+  { name: "Events", icon: "📅", desc: "Tickets, check-in, sessions, speakers, feedback", endpointCount: 21 },
+  { name: "Communications", icon: "📧", desc: "Campaigns, announcements, surveys, templates", endpointCount: 36 },
+  { name: "Elections", icon: "🗳️", desc: "Nomination workflow, ranked-choice voting", endpointCount: 18 },
+  { name: "Documents", icon: "📁", desc: "Versioning, sharing, categories, comments", endpointCount: 21 },
+  { name: "Workflows", icon: "⚙️", desc: "Visual builder, triggers, delays, conditions", endpointCount: 16 },
+  { name: "AI Engine", icon: "🤖", desc: "Chat, predictions, embeddings, document gen", endpointCount: 12 },
+  { name: "Analytics", icon: "📈", desc: "Dashboards, reports, KPIs, exports", endpointCount: 15 },
+  { name: "Integrations", icon: "🔗", desc: "Webhooks, Stripe, external sync", endpointCount: 17 },
 ];
 
 const AI_FEATURES = [
-  { title: "AI Chat Assistant", desc: "Conversational interface powered by Groq Llama 3.3 70B. Ask questions about your members, finances, and events in natural language.", icon: "💬" },
+  { title: "AI Chat Assistant", desc: "Conversational interface powered by OpenRouter LLMs. Ask questions about your members, finances, and events in natural language.", icon: "💬" },
   { title: "Churn Prediction", desc: "RFM-based scoring identifies at-risk members by analyzing recency, frequency, and monetary engagement patterns.", icon: "📉" },
   { title: "Anomaly Detection", desc: "Automated detection of unusual patterns across financial and membership data using statistical methods.", icon: "🔍" },
   { title: "Semantic Search", desc: "Vector embeddings (pgvector) enable meaning-based search across documents and member data.", icon: "🔎" },
@@ -51,21 +51,20 @@ const COMPARISON_DATA = [
   { feature: "Per-Contact Pricing", assocHub: "$0", wildApricot: "$60–350/mo", memberClicks: "$80–400/mo", civiCRM: "$0" },
   { feature: "Multi-Tenant", assocHub: true, wildApricot: false, memberClicks: false, civiCRM: false },
   { feature: "Stripe Checkout", assocHub: true, wildApricot: true, memberClicks: true, civiCRM: "plugin" },
-  { feature: "A/B Testing (Email)", assocHub: true, wildApricot: false, memberClicks: false, civiCRM: false },
   { feature: "Webhook Integrations", assocHub: "signed", wildApricot: "zapier", memberClicks: false, civiCRM: "partial" },
   { feature: "Full Audit Trail", assocHub: true, wildApricot: false, memberClicks: false, civiCRM: "partial" },
-  { feature: "REST API", assocHub: "156+", wildApricot: true, memberClicks: true, civiCRM: true },
+  { feature: "REST API", assocHub: "200+", wildApricot: true, memberClicks: true, civiCRM: true },
 ];
 
 const FAQS = [
   { q: "What is AssocHub?", a: "AssocHub is an open-source, AI-powered association management platform. It handles member management, finances, events, communications, elections, document management, analytics, workflow automation, and integrations — all in one system." },
-  { q: "How does the AI work?", a: "AssocHub uses Groq with Llama 3.3 70B for conversational AI, semantic search, and document generation. It also includes built-in churn prediction (RFM scoring) and anomaly detection algorithms. The AI engine is a core module, not a plugin." },
+  { q: "How does the AI work?", a: "AssocHub uses OpenRouter LLMs (configurable model) for conversational AI, semantic search, and document generation. It also includes built-in churn prediction (RFM scoring) and anomaly detection algorithms. The AI engine is a core module, not a plugin." },
   { q: "Is there per-contact pricing?", a: "No. AssocHub is open source and free to self-host. Managed hosting is available at a flat monthly rate regardless of member count. Unlike Wild Apricot ($60–350/mo based on contacts) or MemberClicks, your costs don't scale with your membership." },
   { q: "Can I self-host AssocHub?", a: "Yes. AssocHub is open source (MIT license). You can deploy it with Docker or systemd on your own infrastructure. It runs on PostgreSQL with pgvector for AI embeddings, Redis for background tasks, and Celery for job processing." },
   { q: "What elections features are included?", a: "AssocHub supports full election lifecycle management: create elections with positions, open nomination periods, accept/decline nominations, start ranked-choice voting with secret ballots, track quorum, and publish results in real-time. No other AMS platform includes this natively." },
   { q: "How does the workflow automation work?", a: "The visual workflow builder supports 12+ action types (send email, update member, create event, wait, conditional branch, webhook, AI analysis, etc.) with trigger-based activation, run history, pause/resume, and reusable templates." },
-  { q: "What tech stack is AssocHub built on?", a: "Backend: Python, FastAPI, SQLAlchemy, PostgreSQL with pgvector, Redis, Celery. Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS. AI: Groq (Llama 3.3 70B). Payments: Stripe. Deployment: Docker, systemd, or Kubernetes." },
-  { q: "How many API endpoints are there?", a: "AssocHub exposes 156 REST API endpoints across all 11 modules. The full OpenAPI spec is available at /docs on any running instance." },
+  { q: "What tech stack is AssocHub built on?", a: "Backend: Python, FastAPI, SQLAlchemy, PostgreSQL with pgvector, Redis, Celery. Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS. AI: OpenRouter (configurable LLMs). Payments: Stripe (configurable). Deployment: Docker, systemd, or Kubernetes." },
+  { q: "How many API endpoints are there?", a: "AssocHub exposes 200+ REST API endpoints across all 11 modules. The full OpenAPI spec is available at /docs on any running instance." },
 ];
 
 /* ═══════════════════════════════════════════════════════════
@@ -340,7 +339,7 @@ export default function MarketingPage() {
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
             <span className="text-[11px] font-semibold tracking-[0.2em] uppercase mb-6 block text-slate-400">Built With</span>
             <div className="flex flex-wrap items-center justify-center gap-6">
-              {["FastAPI", "Next.js 16", "React 19", "TypeScript", "PostgreSQL", "pgvector", "Groq AI", "Llama 3.3 70B", "Redis", "Celery", "SQLAlchemy", "Stripe", "Tailwind CSS"].map((tech, i) => (
+              {["FastAPI", "Next.js 16", "React 19", "TypeScript", "PostgreSQL", "pgvector", "OpenRouter", "Redis", "Celery", "SQLAlchemy", "Stripe", "Tailwind CSS"].map((tech, i) => (
                 <motion.span key={tech} initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.03 }}
                   className="text-sm font-medium text-slate-400 hover:text-teal-600 transition-colors cursor-default">{tech}</motion.span>
               ))}
@@ -353,33 +352,38 @@ export default function MarketingPage() {
       <section className="py-24 px-6 bg-slate-50">
         <div className="max-w-5xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }} className="text-center mb-16">
-            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase mb-3 block text-teal-600">Testimonials</span>
-            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">What People Say</h2>
+            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase mb-3 block text-teal-600">Open Source</span>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Built in the Open</h2>
+            <p className="text-lg max-w-xl mx-auto text-slate-500">AssocHub is MIT-licensed and publicly auditable. Every line of code is on GitHub.</p>
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-6">
             <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}
               className="bg-white rounded-2xl p-8 border border-slate-200">
-              <p className="text-[15px] leading-relaxed text-slate-600 italic mb-6">&quot;The elections module alone saved us from building custom software. Ranked-choice voting with secret ballots — no other AMS has this.&quot;</p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-sm">SA</div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-teal-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                </div>
                 <div>
-                  <div className="text-sm font-semibold">Sarah Anderson</div>
-                  <div className="text-xs text-slate-400">Association Director · <span className="text-amber-500">Demo Review</span></div>
+                  <div className="text-sm font-semibold">Open Source</div>
+                  <div className="text-xs text-slate-400">MIT License · GitHub</div>
                 </div>
               </div>
+              <p className="text-[15px] leading-relaxed text-slate-600">View the full source code, report issues, and contribute on GitHub. Every feature is auditable and verifiable.</p>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.1 }}
               className="bg-white rounded-2xl p-8 border border-slate-200">
-              <p className="text-[15px] leading-relaxed text-slate-600 italic mb-6">&quot;We were paying $280/mo for Wild Apricot based on contact count. AssocHub does everything for free and the AI insights are genuinely useful.&quot;</p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm">MK</div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
                 <div>
-                  <div className="text-sm font-semibold">Michael Khan</div>
-                  <div className="text-xs text-slate-400">Operations Manager · <span className="text-amber-500">Demo Review</span></div>
+                  <div className="text-sm font-semibold">Self-Hosted</div>
+                  <div className="text-xs text-slate-400">Your data, your server</div>
                 </div>
               </div>
+              <p className="text-[15px] leading-relaxed text-slate-600">Deploy on your own infrastructure with Docker or systemd. No vendor lock-in, no data sharing, no surprise pricing changes.</p>
             </motion.div>
           </div>
         </div>
@@ -437,7 +441,7 @@ export default function MarketingPage() {
             <a href="https://github.com/tahiralatif/Association-Management-System" className="hover:text-teal-600 transition-colors">GitHub</a>
             <Link href="/login" className="hover:text-teal-600 transition-colors">Sign In</Link>
             <Link href="/register" className="hover:text-teal-600 transition-colors">Register</Link>
-            <span>FastAPI · Next.js · Groq AI</span>
+            <span>FastAPI · Next.js · OpenRouter</span>
           </div>
         </div>
       </footer>

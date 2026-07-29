@@ -113,36 +113,36 @@ const FEATURES = [
   { name: "Churn Prediction", assoc: true, wild: false, member: false, civi: false },
   { name: "Semantic Search (AI)", assoc: true, wild: false, member: false, civi: false },
   { name: "Custom Webhooks", assoc: true, wild: "zapier", member: false, civi: "partial" },
-  { name: "Stripe Payments", assoc: true, wild: true, member: true, civi: "ext" },
+  { name: "Stripe Checkout", assoc: true, wild: true, member: true, civi: "plugin" },
   { name: "Custom Dashboards", assoc: true, wild: "limited", member: "limited", civi: false },
   { name: "CSV/JSON Export", assoc: true, wild: "partial", member: "partial", civi: "partial" },
   { name: "Full Audit Trail", assoc: true, wild: false, member: false, civi: "partial" },
   { name: "AI Chat Assistant", assoc: true, wild: false, member: false, civi: false },
   { name: "Document Versioning", assoc: true, wild: "partial", member: "partial", civi: false },
   { name: "BG Worker Queue", assoc: true, wild: false, member: false, civi: false },
-  { name: "REST API", assoc: "199+", wild: true, member: true, civi: true },
+  { name: "REST API", assoc: "200+", wild: true, member: true, civi: true },
   { name: "Event Management", assoc: true, wild: true, member: true, civi: "partial" },
 ];
 
 const PRICING = [
-  { platform: "AssocHub", price: "Free / ~$29/mo", model: "Flat rate", free: true, highlight: true },
-  { platform: "Wild Apricot", price: "$60–$350/mo", model: "Per-contact", free: false },
-  { platform: "MemberClicks", price: "$80–$400/mo", model: "Per-contact", free: false },
-  { platform: "CiviCRM", price: "Free", model: "Self-hosted", free: true },
-  { platform: "GrowthZone", price: "$100–$500/mo", model: "Per-contact", free: false },
+  { platform: "AssocHub", price: "Free (self-hosted)", model: "No per-contact fees", free: true, highlight: true },
+  { platform: "Wild Apricot", price: "$60–$350/mo", model: "Per-contact pricing", free: false },
+  { platform: "MemberClicks", price: "$80–$400/mo", model: "Per-contact pricing", free: false },
+  { platform: "CiviCRM", price: "Free (self-hosted)", model: "Self-hosted only", free: true },
+  { platform: "GrowthZone", price: "$100–$500/mo", model: "Per-contact pricing", free: false },
 ];
 
 const WHY_REASONS = [
   {
     num: "01", title: "AI as a Core Engine",
     subtitle: "Not a chatbot widget. A brain.",
-    desc: "Every module is AI-enhanced. Churn prediction from member activity. Anomaly detection in finances. Semantic search through documents. AI-generated reports. A chat assistant that actually knows your data.",
+    desc: "Every module is AI-enhanced. Churn prediction from member activity. Anomaly detection in finances. Semantic search through documents. AI-generated reports. A chat assistant that understands your data via OpenRouter LLMs.",
     icon: "🧠",
   },
   {
     num: "02", title: "No Per-Contact Pricing",
     subtitle: "Scale without penalty.",
-    desc: "Wild Apricot charges $240/mo for 5,000 contacts. AssocHub is free to self-host or ~$29/mo managed — regardless of how many members you have. Your costs don't balloon as you grow.",
+    desc: "Wild Apricot charges $60–$350/mo based on contact count. AssocHub is free to self-host on your own infrastructure — regardless of how many members you have. Your costs don't balloon as you grow.",
     icon: "💰",
   },
   {
@@ -343,9 +343,9 @@ export default function WhyPage() {
                 <div className="text-[13px] mb-3" style={{ color: C.textMuted }}>{p.model}</div>
                 <div className="flex items-center gap-2">
                   {p.free ? (
-                    <span className="text-[12px] font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: C.tealPalest, color: C.teal }}>Free tier</span>
+                    <span className="text-[12px] font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: C.tealPalest, color: C.teal }}>Open source</span>
                   ) : (
-                    <span className="text-[12px] font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: C.redBg, color: C.red }}>No free tier</span>
+                    <span className="text-[12px] font-medium px-2.5 py-1 rounded-full" style={{ backgroundColor: C.redBg, color: C.red }}>Proprietary</span>
                   )}
                 </div>
               </motion.div>
@@ -362,8 +362,8 @@ export default function WhyPage() {
           >
             <h3 className="text-2xl font-bold mb-3">AssocHub: Free to Start, Scales Without Limits</h3>
             <p className="text-[15px] opacity-80 max-w-2xl mx-auto leading-relaxed">
-              Wild Apricot charges $240/mo for 5,000 contacts. AssocHub is free to self-host
-              or ~$29/mo managed — regardless of how many members you have.
+              AssocHub is free and open source (MIT license). Self-host on your own infrastructure
+              with no per-contact fees — regardless of how many members you have.
             </p>
           </motion.div>
         </div>
@@ -380,11 +380,11 @@ export default function WhyPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { icon: "💬", title: "Chat Assistant", desc: "Ask questions in natural language. 'How many members renewed this month?' — instant answer." },
+              { icon: "💬", title: "Chat Assistant", desc: "Ask questions in natural language. 'How many members renewed this month?' — instant answer. Powered by OpenRouter LLMs with your data as context." },
               { icon: "📊", title: "AI Insights", desc: "Cross-module intelligence. Spots trends across members, finances, and events simultaneously." },
               { icon: "🔍", title: "Semantic Search", desc: "Find documents by meaning, not keywords. Vector embeddings power concept-based retrieval." },
-              { icon: "📉", title: "Churn Prediction", desc: "RFM-based scoring identifies at-risk members before they leave. Take action proactively." },
-              { icon: "⚠️", title: "Anomaly Detection", desc: "Z-score and IQR analysis catches unusual financial transactions and attendance patterns." },
+              { icon: "📉", title: "Churn Prediction", desc: "RFM-based scoring identifies at-risk members before they leave. Take action proactively based on real engagement data." },
+              { icon: "⚠️", title: "Anomaly Detection", desc: "Z-score and IQR analysis catches unusual financial transactions and attendance patterns automatically." },
               { icon: "📝", title: "Document Generation", desc: "AI-polished reports, minutes, and letters. Structured output from your association data." },
             ].map((f, i) => (
               <motion.div
@@ -473,7 +473,7 @@ export default function WhyPage() {
             <span className="text-[13px]" style={{ color: C.textMuted }}>·</span>
             <span className="text-[13px]" style={{ color: C.textMuted }}>AI-Powered Association Management</span>
           </div>
-          <div className="text-[12px]" style={{ color: C.textMuted }}>FastAPI · Next.js · Groq AI</div>
+          <div className="text-[12px]" style={{ color: C.textMuted }}>FastAPI · Next.js · PostgreSQL · OpenRouter</div>
         </div>
       </footer>
     </div>
