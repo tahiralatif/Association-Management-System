@@ -277,7 +277,7 @@ export default function AIPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHeader
         title="AI Assistant"
         description="Ask anything about your association — the AI knows your data"
@@ -364,7 +364,7 @@ export default function AIPage() {
 
       {/* ════════════════════════════ HEALTH ════════════════════════════ */}
       {tab === "health" && (
-        <div className="space-y-6">
+        <div className="space-y-6 page-enter">
           {healthLoading ? <LoadingSpinner /> : health ? (
             <>
               <div className="rounded-2xl border-2 p-6 bg-gradient-to-r from-teal-50/60 to-white border-teal-200 shadow-sm">
@@ -560,7 +560,7 @@ export default function AIPage() {
 
       {/* ════════════════════════════ DOC GENERATION ════════════════════════════ */}
       {tab === "generation" && (
-        <div className="space-y-6">
+        <div className="space-y-6 page-enter">
           <div className="bg-white rounded-2xl border border-teal/10 p-6 shadow-sm">
             <h3 className="text-sm font-bold text-text mb-4">Choose Document Type</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">

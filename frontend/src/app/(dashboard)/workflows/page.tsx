@@ -240,7 +240,7 @@ export default function WorkflowsPage() {
   if (selected) {
     const successRate = selected.total_runs ? Math.round((selected.successful_runs / selected.total_runs) * 100) : 0;
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 page-enter">
         <button onClick={() => { setSelected(null); setSelectedRun(null); }} className="text-sm text-muted-foreground hover:text-foreground">
           ← Back to Workflows
         </button>
@@ -252,13 +252,13 @@ export default function WorkflowsPage() {
               <button
                 onClick={handleTrigger}
                 disabled={triggering}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2 bg-[#0d9488] text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-all hover:bg-[#0f766e]"
               >
                 {triggering ? "Triggering..." : "▶ Trigger"}
               </button>
               <button
                 onClick={handlePauseResume}
-                className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all"
               >
                 {selected.status === "active" ? "⏸ Pause" : "▶ Resume"}
               </button>
@@ -396,7 +396,7 @@ export default function WorkflowsPage() {
 
   // ── List View ──
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHeader
         title="Workflows"
         description="Automated workflows and processes"
@@ -411,7 +411,7 @@ export default function WorkflowsPage() {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
         <StatCard label="Total Workflows" value={stats?.total_workflows ?? workflows.length} icon="⚙️" />
         <StatCard label="Active" value={stats?.active_workflows ?? 0} icon="✅" />
         <StatCard label="Total Runs" value={stats?.total_runs ?? 0} icon="🏃" />
@@ -476,8 +476,8 @@ export default function WorkflowsPage() {
             <p className="text-xs text-muted-foreground mt-1">JSON array of step objects with type and config</p>
           </FormField>
           <div className="flex justify-end gap-2 pt-2">
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted" disabled={creating}>Cancel</button>
-            <button onClick={handleCreate} disabled={creating || !form.name.trim()} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50">
+            <button onClick={() => setShowCreate(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all" disabled={creating}>Cancel</button>
+            <button onClick={handleCreate} disabled={creating || !form.name.trim()} className="px-4 py-2 bg-[#0d9488] text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-all hover:bg-[#0f766e]">
               {creating ? "Creating..." : "Create Workflow"}
             </button>
           </div>
@@ -521,8 +521,8 @@ export default function WorkflowsPage() {
             />
           </FormField>
           <div className="flex justify-end gap-2 pt-2">
-            <button onClick={() => setShowTemplateModal(false)} className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted" disabled={templateCreating}>Cancel</button>
-            <button onClick={handleCreateTemplate} disabled={templateCreating || !templateForm.name.trim()} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50">
+            <button onClick={() => setShowTemplateModal(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all" disabled={templateCreating}>Cancel</button>
+            <button onClick={handleCreateTemplate} disabled={templateCreating || !templateForm.name.trim()} className="px-4 py-2 bg-[#0d9488] text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-all hover:bg-[#0f766e]">
               {templateCreating ? "Creating..." : "Create Template"}
             </button>
           </div>

@@ -166,7 +166,7 @@ export default function CommunicationsPage() {
 
   // ── Render ────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHeader title="Communications" description="Announcements, campaigns, surveys and templates" />
 
       <Tabs
@@ -184,7 +184,7 @@ export default function CommunicationsPage() {
       {tab === "announcements" && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowCreateAnn(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+            <button onClick={() => setShowCreateAnn(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               <Plus className="h-4 w-4" /> New Announcement
             </button>
           </div>
@@ -221,7 +221,7 @@ export default function CommunicationsPage() {
       {tab === "campaigns" && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowCreateCamp(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+            <button onClick={() => setShowCreateCamp(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               <Plus className="h-4 w-4" /> New Campaign
             </button>
           </div>
@@ -289,7 +289,7 @@ export default function CommunicationsPage() {
       {tab === "templates" && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowCreateTmpl(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+            <button onClick={() => setShowCreateTmpl(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               <Plus className="h-4 w-4" /> New Template
             </button>
           </div>
@@ -323,7 +323,7 @@ export default function CommunicationsPage() {
           ) : (
             <div className="space-y-2">
               {notifs.map((n) => (
-                <div key={n.id} className={`border rounded-lg p-4 ${n.is_read ? "bg-white" : "bg-blue-50 border-blue-200"}`}>
+                <div key={n.id} className={`border rounded-xl p-4 transition-all ${n.is_read ? "bg-white border-slate-100" : "bg-teal-50/50 border-teal-200 border-l-3"}`}>
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className={`text-sm ${n.is_read ? "" : "font-medium"}`}>{n.title}</h3>
@@ -350,8 +350,8 @@ export default function CommunicationsPage() {
             ]} />
           </FormField>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowCreateAnn(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleCreateAnn} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <button onClick={() => setShowCreateAnn(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleCreateAnn} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Create</button>
           </div>
         </div>
       </Modal>
@@ -362,8 +362,8 @@ export default function CommunicationsPage() {
           <FormField label="Subject"><Input value={campForm.subject} onChange={(e) => setCampForm({ ...campForm, subject: e.target.value })} /></FormField>
           <FormField label="Content"><Textarea value={campForm.html_body} onChange={(e) => setCampForm({ ...campForm, html_body: e.target.value })} /></FormField>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowCreateCamp(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleCreateCamp} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <button onClick={() => setShowCreateCamp(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleCreateCamp} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Create</button>
           </div>
         </div>
       </Modal>
@@ -380,8 +380,8 @@ export default function CommunicationsPage() {
           <FormField label="Subject"><Input value={tmplForm.subject} onChange={(e) => setTmplForm({ ...tmplForm, subject: e.target.value })} /></FormField>
           <FormField label="Body"><Textarea value={tmplForm.body} onChange={(e) => setTmplForm({ ...tmplForm, body: e.target.value })} /></FormField>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowCreateTmpl(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleCreateTmpl} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <button onClick={() => setShowCreateTmpl(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleCreateTmpl} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Create</button>
           </div>
         </div>
       </Modal>

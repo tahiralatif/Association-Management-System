@@ -287,7 +287,7 @@ export default function AnalyticsPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHeader
         title="Analytics & Reports"
         description="Comprehensive insights into your association's performance"
@@ -299,9 +299,9 @@ export default function AnalyticsPage() {
         <>
           {/* ═══════════════════ OVERVIEW TAB ═══════════════════ */}
           {tab === "overview" && (
-            <div className="space-y-6">
+            <div className="space-y-6 page-enter">
               {/* KPI Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
                 <KPICard icon={Users} label="Total Members" value={totalMembers} color={C.teal} sub={`${activeMembers} active`} />
                 <KPICard icon={Calendar} label="Total Events" value={totalEvents} color={C.violet} sub={eventStats?.upcoming_events ? `${eventStats.upcoming_events} upcoming` : undefined} />
                 <KPICard icon={DollarSign} label="Total Revenue" value={`$${totalRevenue.toLocaleString()}`} color={C.emerald} sub={`$${outstandingInvoices.toLocaleString()} outstanding`} />

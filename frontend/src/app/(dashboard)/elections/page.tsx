@@ -125,7 +125,7 @@ function ElectionForm({
         </FormField>
       </div>
       <div className="flex justify-end gap-2 pt-4 border-t">
-        <button type="button" onClick={onCancel} className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted" disabled={loading}>Cancel</button>
+        <button type="button" onClick={onCancel} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all" disabled={loading}>Cancel</button>
         <button type="submit" disabled={loading} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
           {loading ? "Saving..." : initial?.id ? "Update" : "Create Election"}
         </button>
@@ -289,7 +289,7 @@ function ElectionDetail({
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <button onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
         ← Back to Elections
       </button>
@@ -317,7 +317,7 @@ function ElectionDetail({
       {/* Status Workflow Buttons */}
       <div className="flex flex-wrap gap-2">
         {election.status === "draft" && (
-          <button onClick={() => statusAction("open-nominations")} className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">
+          <button onClick={() => statusAction("open-nominations")} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
             Open Nominations
           </button>
         )}
@@ -627,7 +627,7 @@ export default function ElectionsPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHeader
         title="Elections"
         description="Manage elections, nominations, and voting"
@@ -640,7 +640,7 @@ export default function ElectionsPage() {
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 stagger-children">
           <StatCard label="Total Elections" value={stats.total_elections} icon="🗳️" />
           <StatCard label="Active" value={stats.active_elections} icon="⏳" />
           <StatCard label="Total Votes Cast" value={stats.total_votes_cast} icon="✅" />

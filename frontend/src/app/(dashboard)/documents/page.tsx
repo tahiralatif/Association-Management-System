@@ -393,7 +393,7 @@ export default function DocumentsPage() {
   // ── Detail View ──
   if (selected) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 page-enter">
         <button onClick={() => setSelected(null)} className="text-sm text-muted-foreground hover:text-foreground">
           ← Back to Documents
         </button>
@@ -537,7 +537,7 @@ export default function DocumentsPage() {
                     <button
                       onClick={handleAddComment}
                       disabled={commentLoading || !commentText.trim()}
-                      className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
+                      className="px-4 py-2 bg-[#0d9488] text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-all hover:bg-[#0f766e]"
                     >
                       {commentLoading ? "Posting..." : "Post Comment"}
                     </button>
@@ -633,7 +633,7 @@ export default function DocumentsPage() {
 
   // ── List View ──
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHeader
         title="Documents"
         description="Manage association documents, policies, and files"
@@ -656,7 +656,7 @@ export default function DocumentsPage() {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
         <StatCard label="Total Documents" value={stats?.total_documents ?? documents.length} icon="📄" />
         <StatCard label="Total Categories" value={stats?.total_categories ?? categories.length} icon="📁" />
       </div>
@@ -790,7 +790,7 @@ export default function DocumentsPage() {
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={() => setShowCreate(false)}
-              className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all"
               disabled={creating}
             >
               Cancel
@@ -798,7 +798,7 @@ export default function DocumentsPage() {
             <button
               onClick={handleCreate}
               disabled={creating || !form.title.trim()}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
+              className="px-4 py-2 bg-[#0d9488] text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-all hover:bg-[#0f766e]"
             >
               {creating ? "Creating..." : "Create Document"}
             </button>
@@ -843,7 +843,7 @@ export default function DocumentsPage() {
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={() => setShowCatModal(false)}
-              className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all"
               disabled={catCreating}
             >
               Cancel
@@ -851,7 +851,7 @@ export default function DocumentsPage() {
             <button
               onClick={handleCreateCategory}
               disabled={catCreating || !catForm.name.trim()}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
+              className="px-4 py-2 bg-[#0d9488] text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-all hover:bg-[#0f766e]"
             >
               {catCreating ? "Creating..." : "Create Category"}
             </button>
@@ -920,7 +920,7 @@ export default function DocumentsPage() {
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={() => { setShowUpload(false); setUploadFile(null); setUploadTitle(""); }}
-              className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all"
               disabled={uploading}
             >
               Cancel

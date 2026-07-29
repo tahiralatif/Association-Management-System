@@ -241,7 +241,7 @@ export default function FinancesPage() {
 
   // ── Render ────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHeader title="Finances" description="Manage invoices, payments, expenses and budgets"
         actions={
           <button onClick={async () => {
@@ -290,7 +290,7 @@ export default function FinancesPage() {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <SearchInput value={invSearch} onChange={() => {}} placeholder="Search invoices..." />
-            <button onClick={() => setShowCreateInv(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+            <button onClick={() => setShowCreateInv(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               <Plus className="h-4 w-4" /> New Invoice
             </button>
           </div>
@@ -348,7 +348,7 @@ export default function FinancesPage() {
       {tab === "expenses" && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowCreateExp(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+            <button onClick={() => setShowCreateExp(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               <Plus className="h-4 w-4" /> New Expense
             </button>
           </div>
@@ -376,7 +376,7 @@ export default function FinancesPage() {
                         <td className="p-3"><StatusBadge status={exp.status || "draft"} /></td>
                         <td className="p-3">
                           {exp.status === "draft" && (
-                            <button onClick={() => handleExpenseAction(exp.id, "submit")} className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700">Submit</button>
+                            <button onClick={() => handleExpenseAction(exp.id, "submit")} className="text-xs bg-teal-500 text-white px-3 py-1 rounded-lg font-semibold hover:bg-teal-600 transition-all">Submit</button>
                           )}
                           {(exp.status === "submitted" || exp.status === "pending_approval") && (
                             <button onClick={() => handleExpenseAction(exp.id, "approve")} className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700">Approve</button>
@@ -397,7 +397,7 @@ export default function FinancesPage() {
       {tab === "budgets" && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowCreateBud(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+            <button onClick={() => setShowCreateBud(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               <Plus className="h-4 w-4" /> New Budget
             </button>
           </div>
@@ -415,7 +415,7 @@ export default function FinancesPage() {
                       <span>{fmt$(b.planned_amount || b.amount || 0)}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${Math.min(100, b.utilization_pct || ((b.actual_amount || b.spent || 0) / ((b.planned_amount || b.amount || 1)) * 100))}%` }} />
+                      <div className="bg-teal-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(100, b.utilization_pct || ((b.actual_amount || b.spent || 0) / ((b.planned_amount || b.amount || 1)) * 100))}%` }} />
                     </div>
                   </div>
                   <p className="text-xs text-gray-400 mt-2">{fmtDate(b.start_date)} — {fmtDate(b.end_date)}</p>
@@ -430,14 +430,14 @@ export default function FinancesPage() {
       {tab === "dues" && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowCreateDues(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+            <button onClick={() => setShowCreateDues(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               <Plus className="h-4 w-4" /> New Dues Structure
             </button>
           </div>
           {duesLoading ? <LoadingSpinner /> : dues.length === 0 ? (
             <EmptyState title="No dues structures" />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 stagger-children">
               {dues.map((d) => (
                 <div key={d.id} className="border rounded-lg p-4">
                   <h3 className="font-medium">{d.name}</h3>
@@ -485,8 +485,8 @@ export default function FinancesPage() {
           </div>
           <FormField label="Notes"><Textarea value={invForm.notes} onChange={(e) => setInvForm({ ...invForm, notes: e.target.value })} /></FormField>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowCreateInv(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleCreateInv} disabled={invSubmitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={() => setShowCreateInv(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleCreateInv} disabled={invSubmitting} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               {invSubmitting ? "Creating..." : "Create Invoice"}
             </button>
           </div>
@@ -509,7 +509,7 @@ export default function FinancesPage() {
             </select>
           </FormField>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setPayInv(null)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
+            <button onClick={() => setPayInv(null)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
             <button onClick={handleRecordPayment} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">Record Payment</button>
           </div>
         </div>
@@ -530,8 +530,8 @@ export default function FinancesPage() {
           </FormField>
           <FormField label="Description"><Textarea value={expForm.description} onChange={(e) => setExpForm({ ...expForm, description: e.target.value })} /></FormField>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowCreateExp(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleCreateExp} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <button onClick={() => setShowCreateExp(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleCreateExp} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Create</button>
           </div>
         </div>
       </Modal>
@@ -560,8 +560,8 @@ export default function FinancesPage() {
             <FormField label="End Date"><Input value={budForm.end_date} onChange={(e) => setBudForm({ ...budForm, end_date: e.target.value })} type="date" /></FormField>
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowCreateBud(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleCreateBud} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <button onClick={() => setShowCreateBud(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleCreateBud} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Create</button>
           </div>
         </div>
       </Modal>
@@ -583,8 +583,8 @@ export default function FinancesPage() {
           </FormField>
           <FormField label="Description"><Textarea value={duesForm.description} onChange={(e) => setDuesForm({ ...duesForm, description: e.target.value })} /></FormField>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowCreateDues(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleCreateDues} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <button onClick={() => setShowCreateDues(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleCreateDues} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Create</button>
           </div>
         </div>
       </Modal>

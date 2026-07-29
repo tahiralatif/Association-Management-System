@@ -290,13 +290,13 @@ export default function MembersPage() {
 
   // ── Render ───────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHeader
         title="Members"
         description="Manage association members"
         actions={
           <div className="flex gap-2">
-            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               <UserPlus className="h-4 w-4" /> Add Member
             </button>
             <button onClick={() => window.open("/api/v1/members/export/csv", "_blank")} className="flex items-center gap-2 border px-4 py-2 rounded-lg hover:bg-gray-50 text-sm">
@@ -422,17 +422,17 @@ export default function MembersPage() {
       {tab === "groups" && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowCreateGroup(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+            <button onClick={() => setShowCreateGroup(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               <UserPlus className="h-4 w-4" /> New Group
             </button>
           </div>
           {groups.length === 0 ? (
             <EmptyState title="No groups" description="Create your first group" />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 stagger-children">
               {groups.map((g) => (
-                <Card key={g.id} className={`cursor-pointer hover:border-blue-400 transition ${selectedGroup?.id === g.id ? "border-blue-500" : ""}`} onClick={() => loadGroupMembers(g)}>
-                  <CardHeader className="pb-2"><CardTitle className="text-base">{g.name}</CardTitle></CardHeader>
+                <Card key={g.id} className={`cursor-pointer hover:border-teal-400 transition-all duration-200 ${selectedGroup?.id === g.id ? "border-teal-500" : ""}`} onClick={() => loadGroupMembers(g)}>
+                  <CardHeader className="pb-2"><CardTitle className="text-base text-slate-800">{g.name}</CardTitle></CardHeader>
                   <CardContent>
                     <p className="text-sm text-gray-500">{g.description || "No description"}</p>
                     <p className="text-xs mt-2 text-gray-400">{g.member_count || 0} members</p>
@@ -442,8 +442,8 @@ export default function MembersPage() {
             </div>
           )}
           {selectedGroup && groupMembers.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle className="text-base">{selectedGroup.name} — Members</CardTitle></CardHeader>
+            <Card className="rounded-2xl border-slate-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+              <CardHeader><CardTitle className="text-base text-slate-800">{selectedGroup.name} — Members</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {groupMembers.map((m) => (
@@ -463,7 +463,7 @@ export default function MembersPage() {
       {tab === "tags" && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowCreateTag(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+            <button onClick={() => setShowCreateTag(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               <Tag className="h-4 w-4" /> New Tag
             </button>
           </div>
@@ -505,8 +505,8 @@ export default function MembersPage() {
             <Input value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} type="password" autoComplete="new-password" />
           </FormField>
           <div className="flex justify-end gap-2 pt-2">
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleCreate} disabled={creating} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={() => setShowCreate(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleCreate} disabled={creating} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               {creating ? "Creating..." : "Create Member"}
             </button>
           </div>
@@ -537,8 +537,8 @@ export default function MembersPage() {
               <div><span className="text-gray-500">Score:</span> {getScore(selected) ?? "—"}</div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowDetail(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-              <button onClick={handleUpdate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Save Changes</button>
+              <button onClick={() => setShowDetail(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+              <button onClick={handleUpdate} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Save Changes</button>
             </div>
           </div>
         )}
@@ -554,8 +554,8 @@ export default function MembersPage() {
             <Textarea value={groupForm.description} onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })} />
           </FormField>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowCreateGroup(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleCreateGroup} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <button onClick={() => setShowCreateGroup(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleCreateGroup} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Create</button>
           </div>
         </div>
       </Modal>
@@ -570,8 +570,8 @@ export default function MembersPage() {
             <input type="color" value={tagForm.color} onChange={(e) => setTagForm({ ...tagForm, color: e.target.value })} className="h-10 w-20 rounded border" />
           </FormField>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowCreateTag(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleCreateTag} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <button onClick={() => setShowCreateTag(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleCreateTag} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Create</button>
           </div>
         </div>
       </Modal>

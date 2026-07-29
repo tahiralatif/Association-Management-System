@@ -164,10 +164,10 @@ export default function EventsPage() {
 
   // ── Render ────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHeader title="Events" description="Manage association events"
         actions={
-          <button onClick={() => { resetForm(); setShowCreate(true); }} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+          <button onClick={() => { resetForm(); setShowCreate(true); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
             <Plus className="h-4 w-4" /> New Event
           </button>
         }
@@ -185,10 +185,10 @@ export default function EventsPage() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {events.map((ev) => (
-                  <Card key={ev.id} className="cursor-pointer hover:border-blue-300 transition" onClick={() => loadDetail(ev)}>
+                  <Card key={ev.id} className="cursor-pointer hover:border-teal-300 transition-all duration-300 hover:shadow-lg rounded-2xl border border-black/5" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }} onClick={() => loadDetail(ev)}>
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-base">{ev.title || ev.name}</CardTitle>
+                        <CardTitle className="text-base text-slate-800">{ev.title || ev.name}</CardTitle>
                         <StatusBadge status={ev.status || "draft"} />
                       </div>
                     </CardHeader>
@@ -262,7 +262,7 @@ export default function EventsPage() {
                         <div className="flex items-center gap-2">
                           <StatusBadge status={reg.status || "confirmed"} />
                           {!reg.checked_in && (
-                            <button onClick={() => handleCheckin(reg)} className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700">Check In</button>
+                            <button onClick={() => handleCheckin(reg)} className="text-xs bg-emerald-500 text-white px-3 py-1 rounded-lg font-semibold hover:bg-emerald-600 transition-all">Check In</button>
                           )}
                           {reg.checked_in && <CheckCircle className="h-4 w-4 text-green-500" />}
                         </div>
@@ -274,7 +274,7 @@ export default function EventsPage() {
 
               {detailTab === "sessions" && (
                 <div className="space-y-2">
-                  <button onClick={() => setShowAddSession(true)} className="text-blue-600 text-sm hover:underline mb-2">+ Add Session</button>
+                  <button onClick={() => setShowAddSession(true)} className="text-[#0d9488] text-sm font-semibold hover:underline mb-2">+ Add Session</button>
                   {sessions.length === 0 ? <p className="text-sm text-gray-400">No sessions</p> :
                     sessions.map((s) => (
                       <div key={s.id} className="p-3 border rounded-lg">
@@ -288,7 +288,7 @@ export default function EventsPage() {
 
               {detailTab === "speakers" && (
                 <div className="space-y-2">
-                  <button onClick={() => setShowAddSpeaker(true)} className="text-blue-600 text-sm hover:underline mb-2">+ Add Speaker</button>
+                  <button onClick={() => setShowAddSpeaker(true)} className="text-[#0d9488] text-sm font-semibold hover:underline mb-2">+ Add Speaker</button>
                   {speakers.length === 0 ? <p className="text-sm text-gray-400">No speakers</p> :
                     speakers.map((sp) => (
                       <div key={sp.id} className="p-3 border rounded-lg">
@@ -342,8 +342,8 @@ export default function EventsPage() {
           <FormField label="Location"><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></FormField>
           <FormField label="Capacity"><Input value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} type="number" /></FormField>
           <div className="flex justify-end gap-2">
-            <button onClick={() => { setShowCreate(false); setEditEvent(null); }} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={editEvent ? handleUpdate : handleCreate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+            <button onClick={() => { setShowCreate(false); setEditEvent(null); }} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={editEvent ? handleUpdate : handleCreate} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               {editEvent ? "Update" : "Create"}
             </button>
           </div>
@@ -356,8 +356,8 @@ export default function EventsPage() {
           <FormField label="Title"><Input value={speakerForm.title} onChange={(e) => setSpeakerForm({ ...speakerForm, title: e.target.value })} /></FormField>
           <FormField label="Bio"><Textarea value={speakerForm.bio} onChange={(e) => setSpeakerForm({ ...speakerForm, bio: e.target.value })} /></FormField>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowAddSpeaker(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleAddSpeaker} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Add</button>
+            <button onClick={() => setShowAddSpeaker(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleAddSpeaker} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Add</button>
           </div>
         </div>
       </Modal>
@@ -371,8 +371,8 @@ export default function EventsPage() {
             <FormField label="End"><Input value={sessionForm.end_time} onChange={(e) => setSessionForm({ ...sessionForm, end_time: e.target.value })} type="datetime-local" /></FormField>
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowAddSession(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
-            <button onClick={handleAddSession} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Add</button>
+            <button onClick={() => setShowAddSession(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleAddSession} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Add</button>
           </div>
         </div>
       </Modal>

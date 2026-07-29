@@ -459,7 +459,7 @@ export default function IntegrationsPage() {
   // ──────────────────────────── Render ──────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHeader
         title="Integrations"
         description="Connect third-party services, manage webhooks, and monitor events"
@@ -940,7 +940,7 @@ export default function IntegrationsPage() {
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={() => setShowCreateInt(false)}
-              className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all"
               disabled={intCreating}
             >
               Cancel
@@ -948,7 +948,7 @@ export default function IntegrationsPage() {
             <button
               onClick={handleCreateIntegration}
               disabled={intCreating || !intForm.name.trim()}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
+              className="px-4 py-2 bg-[#0d9488] text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-all hover:bg-[#0f766e]"
             >
               {intCreating ? "Creating..." : "Create Integration"}
             </button>
@@ -1004,7 +1004,7 @@ export default function IntegrationsPage() {
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={() => setShowCreateWh(false)}
-              className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all"
               disabled={whCreating}
             >
               Cancel
@@ -1012,7 +1012,7 @@ export default function IntegrationsPage() {
             <button
               onClick={handleCreateWebhook}
               disabled={whCreating || !whForm.name.trim() || !whForm.url.trim()}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
+              className="px-4 py-2 bg-[#0d9488] text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-all hover:bg-[#0f766e]"
             >
               {whCreating ? "Creating..." : "Create Webhook"}
             </button>
@@ -1050,7 +1050,7 @@ export default function IntegrationsPage() {
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={() => { setShowTestWhModal(false); setTestWhId(null); }}
-              className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all"
               disabled={testingWhId === testWhId}
             >
               Cancel
@@ -1101,7 +1101,7 @@ export default function IntegrationsPage() {
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={() => setShowEmitEvent(false)}
-              className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-muted"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all"
               disabled={emitting}
             >
               Cancel

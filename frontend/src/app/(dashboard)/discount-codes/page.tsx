@@ -125,7 +125,7 @@ export default function DiscountCodesPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHeader
         title="Discount Codes"
         description="Manage promotional discount codes for events and memberships"
@@ -137,7 +137,7 @@ export default function DiscountCodesPage() {
       />
 
       {showForm && (
-        <Card>
+        <Card className="rounded-2xl border-slate-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <CardHeader>
             <CardTitle>{editing ? "Edit" : "Create"} Discount Code</CardTitle>
           </CardHeader>
@@ -192,7 +192,7 @@ export default function DiscountCodesPage() {
         </Card>
       )}
 
-      <Card>
+      <Card className="rounded-2xl border-slate-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Tag className="h-5 w-5" /> Active Codes
