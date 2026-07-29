@@ -7,7 +7,7 @@ title: API Reference
 
 ## Overview
 
-AssocHub exposes **161 REST API endpoints** across 12 modules.
+AssocHub exposes **200+ REST API endpoints** across 11 modules.
 
 - **Base URL:** `http://localhost:8002/api/v1` (local) or `https://ams.14.jugaar.ai/api/v1` (live)
 - **Authentication:** JWT Bearer token in `Authorization` header

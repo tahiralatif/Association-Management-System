@@ -115,18 +115,18 @@ echo "═══ RESULTS: $PASS/$TOTAL passed, $FAIL failed ═══"
 | # | Module | Endpoints | Status |
 |---|---|---|---|
 | 1 | Auth | 7 | ✅ |
-| 2 | Members | 26 | ✅ |
-| 3 | Finances | 20 | ✅ |
-| 4 | Events | 15 | ✅ |
-| 5 | Communications | 16 | ✅ |
-| 6 | Elections | 15 | ✅ |
-| 7 | Documents | 13 | ✅ |
-| 8 | Workflows | 11 | ✅ |
-| 9 | AI Engine | 11 | ✅ |
-| 10 | Analytics | 12 | ✅ |
-| 11 | Integrations | 12 | ✅ |
+| 2 | Members | 37 | ✅ |
+| 3 | Finances | 37 | ✅ |
+| 4 | Events | 21 | ✅ |
+| 5 | Communications | 36 | ✅ |
+| 6 | Elections | 18 | ✅ |
+| 7 | Documents | 21 | ✅ |
+| 8 | Workflows | 16 | ✅ |
+| 9 | AI Engine | 12 | ✅ |
+| 10 | Analytics | 15 | ✅ |
+| 11 | Integrations | 17 | ✅ |
 | 12 | Health | 3 | ✅ |
-| | **Total** | **161** | **✅** |
+| | **Total** | **200+** | **✅** |
 
 </TabItem>
 </Tabs>

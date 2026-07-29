@@ -20,7 +20,7 @@ title: FAQ
 AssocHub is an open-source, AI-powered Association Management System (AMS). It handles memberships, finances, events, communications, elections, documents, workflows, and analytics — all in one platform.
 
 ### Is it free?
-Yes. AssocHub is open-source and free to self-host. There's also a managed cloud option starting at ~$29/month.
+Yes. AssocHub is open-source and free to self-host. No per-contact fees.
 
 ### What technology does it use?
 - **Backend:** Python + FastAPI + PostgreSQL
@@ -29,7 +29,7 @@ Yes. AssocHub is open-source and free to self-host. There's also a managed cloud
 - **Queue:** Redis + Celery
 
 ### How many modules are there?
-11 integrated modules with 199 REST API endpoints.
+11 integrated modules with 200+ REST API endpoints.
 
 ---
 

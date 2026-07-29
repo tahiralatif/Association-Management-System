@@ -60,7 +60,8 @@ sudo systemctl status ams-backend
 DATABASE_URL=postgresql://assochub:***@localhost:5432/assochub
 REDIS_URL=redis://localhost:6379/0
 SECRET_KEY=your-secret-key-here
-GROQ_API_KEY=gsk_your-groq-key
+OPENROUTER_API_KEY=sk-or-your-openrouter-key
+GROQ_API_KEY=gsk_your-groq-key  # fallback only
 STRIPE_SECRET_KEY=sk_test_your-stripe-key
 STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
 ENVIRONMENT=development

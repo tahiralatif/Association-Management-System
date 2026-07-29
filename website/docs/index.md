@@ -50,32 +50,32 @@ Every page has a **difficulty toggle** at the top:
 | **First time here?** | [Getting Started](./getting-started) — login and explore in 2 minutes |
 | **What does each module do?** | [Modules Overview](./modules/dashboard) — plain-English feature descriptions |
 | **Test every feature** | [Testing Guide](./testing/overview) — step-by-step verification |
-| **API reference** | [API Reference](./api-reference) — all 199 endpoints |
+| **API reference** | [API Reference](./api-reference) — all 200+ endpoints |
 | **Something broken?** | [Troubleshooting](./troubleshooting) — common issues and fixes |
 
 ## What's Inside AssocHub
 
-AssocHub has **11 integrated modules** with **199 REST API endpoints**:
+AssocHub has **11 integrated modules** with **200+ REST API endpoints**:
 
 | Module | What it does (plain English) | Endpoints |
 |---|---|---|
-| **Dashboard** | See everything at a glance — members, money, events | 7 |
-| **Members** | Add people, organize them into groups, track who's active | 26 |
-| **Finances** | Send invoices, track payments, manage budgets | 20 |
-| **Events** | Create events, sell tickets, check people in | 15 |
-| **Communications** | Send email campaigns, post announcements, run surveys | 16 |
-| **Elections** | Run elections with ranked-choice voting and secret ballots | 15 |
-| **Documents** | Upload files, organize them, control who sees what | 13 |
-| **Workflows** | Automate tasks — "when X happens, do Y" | 11 |
-| **AI Engine** | Ask your data questions in plain English, get predictions | 11 |
-| **Analytics** | Charts, reports, and trends about your association | 12 |
-| **Integrations** | Connect to Stripe, webhooks, and external services | 12 |
+| **Dashboard** | See everything at a glance — members, money, events | 15 |
+| **Members** | Add people, organize them into groups, track who's active | 37 |
+| **Finances** | Send invoices, track payments, manage budgets | 37 |
+| **Events** | Create events, sell tickets, check people in | 21 |
+| **Communications** | Send email campaigns, post announcements, run surveys | 36 |
+| **Elections** | Run elections with ranked-choice voting and secret ballots | 18 |
+| **Documents** | Upload files, organize them, control who sees what | 21 |
+| **Workflows** | Automate tasks — "when X happens, do Y" | 16 |
+| **AI Engine** | Ask your data questions in plain English, get predictions | 12 |
+| **Analytics** | Charts, reports, and trends about your association | 15 |
+| **Integrations** | Connect to Stripe, webhooks, and external services | 17 |
 
 ## Tech Stack
 
 - **Backend:** Python + FastAPI + PostgreSQL
 - **Frontend:** Next.js + TypeScript + Tailwind CSS
-- **AI:** Llama models via OpenRouter
+- **AI:** OpenRouter LLMs (configurable — Groq as fallback)
 - **Queue:** Redis + Celery for background tasks
 - **Payments:** Stripe
 
