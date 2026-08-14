@@ -59,6 +59,7 @@ def create_app() -> FastAPI:
         version=settings.VERSION,
         docs_url="/api/docs" if settings.DEBUG else None,
         redoc_url="/api/redoc" if settings.DEBUG else None,
+        redirect_slashes=True,
         lifespan=lifespan,
         openapi_tags=[
             {"name": "Health", "description": "Service health and readiness probes"},

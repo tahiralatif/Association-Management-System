@@ -45,7 +45,7 @@ export default function DiscountCodesPage() {
 
   async function loadCodes() {
     try {
-      const data = await apiFetch<{ items: DiscountCode[] }>("/api/v1/finances/finances/discount-codes");
+      const data = await apiFetch<{ items: DiscountCode[] }>("/api/v1/finances/discount-codes");
       setCodes(data.items || []);
     } catch {
       toast("error", "Failed to load discount codes");
@@ -73,12 +73,12 @@ export default function DiscountCodesPage() {
       if (validTo) body.valid_to = validTo;
 
       if (editing) {
-        await apiFetch(`/api/v1/finances/finances/discount-codes/${editing.id}`, {
+        await apiFetch(`/api/v1/finances/discount-codes/${editing.id}`, {
           method: "PATCH", body: JSON.stringify(body),
         });
         toast("success", "Discount code updated");
       } else {
-        await apiFetch("/api/v1/finances/finances/discount-codes", {
+        await apiFetch("/api/v1/finances/discount-codes", {
           method: "POST", body: JSON.stringify(body),
         });
         toast("success", "Discount code created");
@@ -95,7 +95,7 @@ export default function DiscountCodesPage() {
   async function deleteCode(id: string) {
     if (!confirm("Delete this discount code?")) return;
     try {
-      await apiFetch(`/api/v1/finances/finances/discount-codes/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/v1/finances/discount-codes/${id}`, { method: "DELETE" });
       toast("success", "Deleted");
       loadCodes();
     } catch {

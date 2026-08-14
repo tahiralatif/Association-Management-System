@@ -16,7 +16,7 @@ import {
   Plus, Trash2, Download, Send, CheckCircle,
 } from "lucide-react";
 
-const F = "/api/v1/finances/finances";
+const F = "/api/v1/finances";
 
 function fmt$(n: number) {
   return `$${Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

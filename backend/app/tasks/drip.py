@@ -19,6 +19,7 @@ from app.core.database import async_session_factory
 logger = logging.getLogger(__name__)
 
 
+@shared_task
 def process_pending_drips():
     """Process all drip campaign enrollments that are due.
 
@@ -130,6 +131,7 @@ async def _process_pending_drips() -> dict:
         return {"processed": processed, "total": len(enrollments)}
 
 
+@shared_task
 def enroll_trigger_members():
     """Enroll members in drip campaigns based on trigger events.
 

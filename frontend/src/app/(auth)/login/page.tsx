@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Logo from "@/components/logo";
 import { login as apiLogin, API_BASE } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
 export default function LoginPage() {
   const { login: ctxLogin } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [tenantId, setTenantId] = useState("demo-association");
@@ -29,7 +31,7 @@ export default function LoginPage() {
       ctxLogin(storedUser, data.access_token);
       const roles = storedUser.roles || [];
       const isStaff = roles.includes("super_admin") || roles.includes("tenant_admin") || roles.includes("staff");
-      window.location.href = isStaff ? "/dashboard" : "/profile";
+      router.push(isStaff ? "/dashboard" : "/profile");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Login failed";
       if (msg.toLowerCase().includes("verify")) {

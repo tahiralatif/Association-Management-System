@@ -142,8 +142,8 @@ export default function AnalyticsPage() {
         apiFetch<AnalyticsOverview>("/api/v1/analytics/overview"),
         apiFetch<MemberStats>("/api/v1/members/stats"),
         apiFetch<EventStats>("/api/v1/events/stats"),
-        apiFetch<FinanceDashboard>("/api/v1/finances/finances/dashboard"),
-        apiFetch("/api/v1/finances/finances/invoices/stats"),
+        apiFetch<FinanceDashboard>("/api/v1/finances/dashboard"),
+        apiFetch("/api/v1/finances/invoices/stats"),
       ]);
       if (o.status === "fulfilled") setOverview(o.value);
       if (m.status === "fulfilled") setMemberStats(m.value);

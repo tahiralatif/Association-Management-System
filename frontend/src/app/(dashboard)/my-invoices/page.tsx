@@ -38,7 +38,7 @@ export default function MyInvoicesPage() {
     setLoading(true);
     try {
       const data = await apiFetch<{ items: Invoice[]; total: number }>(
-        `/api/v1/finances/finances/my/invoices?page=${page}&per_page=${perPage}`
+        `/api/v1/finances/my/invoices?page=${page}&per_page=${perPage}`
       );
       setInvoices(data.items || []);
       setTotal(data.total || 0);
@@ -51,7 +51,7 @@ export default function MyInvoicesPage() {
 
   async function downloadPdf(invoiceId: string, invoiceNumber: string) {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/finances/finances/my/invoices/${invoiceId}/pdf`, {
+      const res = await fetch(`${API_BASE}/api/v1/finances/my/invoices/${invoiceId}/pdf`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       if (!res.ok) throw new Error("Failed to download PDF");

@@ -33,7 +33,7 @@ from app.modules.finances.schemas import (
 )
 from app.core.auth import get_current_user, require_admin, require_member, require_staff, TokenPayload
 
-router = APIRouter(prefix="/finances", tags=["finances"])
+router = APIRouter(tags=["finances"])
 
 
 # ── Dues Structures ──────────────────────────────────────────
