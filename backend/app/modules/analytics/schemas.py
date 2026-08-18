@@ -131,11 +131,15 @@ class InsightResponse(BaseModel):
 class AnalyticsOverview(BaseModel):
     total_members: int
     active_members: int
+    new_members_this_month: int = 0
     total_revenue: float
+    outstanding: float = 0.0
+    expenses: float = 0.0
     monthly_recurring: float
     total_events: int
     upcoming_events: int
     total_registrations: int
+    total_documents: int = 0
     emails_sent: int
     open_rate: float
     member_growth: list[dict] = []

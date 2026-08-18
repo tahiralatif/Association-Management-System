@@ -30,6 +30,8 @@ from app.modules.workflows.router import router as workflows_router
 from app.modules.ai.router import router as ai_router
 from app.modules.integrations.router import router as integrations_router
 from app.modules.notifications.router import router as notifications_router
+from app.modules.organizations.router import router as organizations_router
+from app.modules.org_requests.router import router as org_requests_router
 
 
 @asynccontextmanager
@@ -118,6 +120,8 @@ def create_app() -> FastAPI:
     app.include_router(ai_router, prefix="/api/v1/ai", tags=["AI"])
     app.include_router(integrations_router, prefix="/api/v1/integrations", tags=["Integrations"])
     app.include_router(notifications_router, prefix="/api/v1/notifications", tags=["Notifications"])
+    app.include_router(organizations_router, prefix="/api/v1/organizations", tags=["Organizations"])
+    app.include_router(org_requests_router, prefix="/api/v1/org-requests", tags=["Organization Requests"])
 
     return app
 

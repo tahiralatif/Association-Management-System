@@ -140,7 +140,7 @@ async def get_survey(db: AsyncSession, survey_id: str, tenant_id: str) -> Survey
 
 
 async def submit_survey_response(
-    db: AsyncSession, survey_id: str, respondent_id: str | None, answers: list[dict]
+    db: AsyncSession, survey_id: str, respondent_id: str | None, answers: list[dict], tenant_id: str | None = None
 ) -> SurveyResponse:
     response = SurveyResponse(
         survey_id=survey_id,
@@ -151,7 +151,10 @@ async def submit_survey_response(
     db.add(response)
 
     # Update response count
-    result = await db.execute(select(Survey).where(Survey.id == survey_id))
+    query = select(Survey).where(Survey.id == survey_id)
+    if tenant_id:
+        query = query.where(Survey.tenant_id == tenant_id)
+    result = await db.execute(query)
     survey = result.scalar_one_or_none()
     if survey:
         survey.response_count += 1

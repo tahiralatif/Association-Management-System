@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = "noreply@assochub.com"
     EMAIL_FROM_NAME: str = "AssocHub"
     EMAIL_PROVIDER: str = "smtp"  # smtp, sendgrid, ses, resend
+    RESEND_API_KEY: str = ""
     # EMAIL_MAX_RETRIES: int = 3  # For future use
 
     model_config = {"env_file": "../.env", "env_file_encoding": "utf-8", "extra": "ignore"}

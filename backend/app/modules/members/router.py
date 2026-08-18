@@ -16,6 +16,7 @@ from app.core.auth import (
 )
 from app.core.database import get_db
 from app.modules.members import crud
+from app.modules.members.models import User
 from app.modules.members.schemas import (
     BulkStatusUpdate,
     SingleStatusUpdate,
@@ -56,10 +57,34 @@ async def get_my_profile(
     db: AsyncSession = Depends(get_db),
 ):
     """Get current user's own profile."""
-    member = await crud.get_user_by_id(db, user.sub, user.tenant_id)
+    from sqlalchemy import select as _sel
+    from sqlalchemy.orm import selectinload as _sload
+    from app.modules.members.models import MemberProfile, MemberGroupMembership
+
+    # Load user with member_profile
+    result = await db.execute(
+        _sel(User)
+        .options(
+            _sload(User.member_profile)
+            .selectinload(MemberProfile.group_memberships)
+            .selectinload(MemberGroupMembership.group)
+        )
+        .where(User.id == user.sub, User.tenant_id == user.tenant_id)
+    )
+    member = result.scalar_one_or_none()
     if not member:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return UserWithProfile.model_validate(member)
+
+    # Build response with groups
+    resp = UserWithProfile.model_validate(member)
+    if resp.member_profile and member.member_profile:
+        groups = []
+        for gm in (member.member_profile.group_memberships or []):
+            if gm.is_active and gm.group:
+                groups.append(gm.group.name)
+        resp.member_profile.groups = groups
+
+    return resp
 
 
 @router.patch("/me", response_model=UserWithProfile)
@@ -69,11 +94,40 @@ async def update_my_profile(
     db: AsyncSession = Depends(get_db),
 ):
     """Update current user's own profile."""
+    from datetime import datetime, timezone
+    from app.modules.members.models import MemberProfile as MemberProfileModel, MemberStatus
+
     member = await crud.get_user_by_id(db, user.sub, user.tenant_id)
+    if not member:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Auto-create profile if missing (defensive — should exist for all users)
+    if not member.member_profile:
+        profile = MemberProfileModel(
+            user_id=member.id,
+            tenant_id=user.tenant_id,
+            status=MemberStatus.ACTIVE,
+            tier="FREE",
+            joined_at=datetime.now(timezone.utc),
+        )
+        db.add(profile)
+        await db.flush()
+        member = await crud.get_user_by_id(db, user.sub, user.tenant_id)
+
     if not member or not member.member_profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
+    # Update User-level fields (first_name, last_name) if provided
     updates = data.model_dump(exclude_unset=True)
+    user_updates = {}
+    for field in ("first_name", "last_name"):
+        if field in updates:
+            user_updates[field] = updates.pop(field)
+    if user_updates:
+        for k, v in user_updates.items():
+            if v is not None:
+                setattr(member, k, v)
+
     await crud.update_member_profile(db, member.member_profile.id, user.tenant_id, updates)
 
     # Refresh
@@ -176,34 +230,44 @@ async def get_my_events(
 ):
     """Browse upcoming events (member portal)."""
     from sqlalchemy import select
-    from app.modules.events.models import Event, EventRegistration
+    from app.modules.events.models import Event, EventRegistration, EventStatus, RegistrationStatus
+    from app.modules.members.models import MemberProfile
+
+    # Resolve member_profile ID for the current user
+    mp_result = await db.execute(
+        select(MemberProfile.id)
+        .where(MemberProfile.user_id == user.sub, MemberProfile.tenant_id == user.tenant_id)
+    )
+    member_profile_id = mp_result.scalar_one_or_none()
 
     result = await db.execute(
         select(Event)
-        .where(Event.status == "published")
+        .where(Event.status == EventStatus.PUBLISHED, Event.tenant_id == user.tenant_id)
         .order_by(Event.start_date.asc())
         .limit(50)
     )
     events = result.scalars().all()
 
-    reg_result = await db.execute(
-        select(EventRegistration.event_id)
-        .where(
-            EventRegistration.member_id == user.sub,
-            EventRegistration.tenant_id == user.tenant_id,
-            EventRegistration.status != "cancelled",
+    registered_ids: set = set()
+    if member_profile_id:
+        reg_result = await db.execute(
+            select(EventRegistration.event_id)
+            .where(
+                EventRegistration.member_id == member_profile_id,
+                EventRegistration.tenant_id == user.tenant_id,
+                EventRegistration.status != RegistrationStatus.CANCELLED,
+            )
         )
-    )
-    registered_ids = {r[0] for r in reg_result.all()}
+        registered_ids = {r[0] for r in reg_result.all()}
 
     return [
         {
             "id": e.id,
-            "title": e.title,
+            "title": e.name,
             "description": e.description,
             "start_date": e.start_date.isoformat() if e.start_date else None,
             "end_date": e.end_date.isoformat() if e.end_date else None,
-            "location": e.location,
+            "location": e.venue_name,
             "event_type": str(e.event_type),
             "is_registered": e.id in registered_ids,
         }

@@ -1,32 +1,107 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "@/components/logo";
 import { login as apiLogin, API_BASE } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
-export default function LoginPage() {
+interface Org {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+}
+
+function LoginForm() {
   const { login: ctxLogin } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedSlug = searchParams.get("org") || "";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [tenantId, setTenantId] = useState("demo-association");
+  const [orgSlug, setOrgSlug] = useState(preselectedSlug);
+  const [orgSearch, setOrgSearch] = useState("");
+  const [selectedOrg, setSelectedOrg] = useState<Org | null>(null);
+  const [orgResults, setOrgResults] = useState<Org[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSent, setResendSent] = useState(false);
 
+  useEffect(() => {
+    if (preselectedSlug) {
+      fetch(`/api/v1/organizations/by-slug/${preselectedSlug}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((org: Org | null) => {
+          if (org) {
+            setSelectedOrg(org);
+            setOrgSlug(org.slug);
+            setOrgSearch(org.name);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [preselectedSlug]);
+
+  const searchOrgs = useCallback(async (query: string) => {
+    if (!query || query.length < 2) {
+      setOrgResults([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/v1/organizations?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setOrgResults(data);
+      }
+    } catch {
+      setOrgResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => searchOrgs(orgSearch), 300);
+    return () => clearTimeout(timer);
+  }, [orgSearch, searchOrgs]);
+
+  const handleOrgSelect = (org: Org) => {
+    setSelectedOrg(org);
+    setOrgSlug(org.slug);
+    setOrgSearch(org.name);
+    setShowDropdown(false);
+    setOrgResults([]);
+  };
+
+  const handleOrgSearchChange = (value: string) => {
+    setOrgSearch(value);
+    setSelectedOrg(null);
+    setOrgSlug("");
+    setShowDropdown(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setNeedsVerification(false);
     setResendSent(false);
+
+    if (!selectedOrg || !orgSlug) {
+      setError("Please select your association from the list");
+      return;
+    }
+
     setLoading(true);
     try {
-      const data = await apiLogin(email, password, tenantId);
+      const data = await apiLogin(email, password, orgSlug);
       const storedUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
       ctxLogin(storedUser, data.access_token);
       const roles = storedUser.roles || [];
@@ -49,7 +124,7 @@ export default function LoginPage() {
       const res = await fetch(`${API_BASE}/api/v1/auth/resend-verification`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, tenant_id: tenantId }),
+        body: JSON.stringify({ email, org_slug: orgSlug }),
       });
       if (res.ok) setResendSent(true);
     } catch { /* ignore */ }
@@ -97,17 +172,76 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-slate-700">Tenant ID</label>
-              <input id="tenant_id" placeholder="demo-association" value={tenantId} onChange={(e) => setTenantId(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0d9488]/20 focus:border-[#0d9488] transition-all bg-white" />
+            {/* Organization Search */}
+            <div className="space-y-1.5 relative">
+              <label className="text-sm font-semibold text-slate-700">Your Association</label>
+              <div className="relative">
+                <input
+                  id="org_search"
+                  placeholder="Search by name..."
+                  value={orgSearch}
+                  onChange={(e) => handleOrgSearchChange(e.target.value)}
+                  onFocus={() => orgResults.length > 0 && setShowDropdown(true)}
+                  autoComplete="off"
+                  required
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0d9488]/20 focus:border-[#0d9488] transition-all bg-white text-slate-900"
+                />
+                {searching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                    searching...
+                  </div>
+                )}
+              </div>
+
+              {showDropdown && orgResults.length > 0 && (
+                <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-xl shadow-lg mt-1 max-h-60 overflow-y-auto">
+                  {orgResults.map((org) => (
+                    <button
+                      key={org.id}
+                      type="button"
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors"
+                      onClick={() => handleOrgSelect(org)}
+                    >
+                      <div className="font-medium text-slate-900">{org.name}</div>
+                      <div className="text-xs text-slate-500 truncate">{org.slug}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {selectedOrg && (
+                <div className="flex items-center gap-2 p-2 bg-teal-50 border border-teal-200 rounded-xl">
+                  <span className="text-teal-600">✓</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm text-teal-900">{selectedOrg.name}</div>
+                    {selectedOrg.description && (
+                      <div className="text-xs text-teal-700 truncate">{selectedOrg.description}</div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedOrg(null); setOrgSlug(""); setOrgSearch(""); }}
+                    className="text-teal-400 hover:text-teal-600 text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {showDropdown && !searching && orgResults.length === 0 && orgSearch.length >= 2 && (
+                <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-xl shadow-lg mt-1 p-4 text-center">
+                  <p className="text-slate-500 text-sm">No associations found for &quot;{orgSearch}&quot;</p>
+                </div>
+              )}
             </div>
+
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-slate-700">Email</label>
-              <input id="email" type="email" placeholder="demo@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0d9488]/20 focus:border-[#0d9488] transition-all bg-white" />
+              <input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0d9488]/20 focus:border-[#0d9488] transition-all bg-white text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-slate-700">Password</label>
-              <input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0d9488]/20 focus:border-[#0d9488] transition-all bg-white" />
+              <input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0d9488]/20 focus:border-[#0d9488] transition-all bg-white text-slate-900" />
             </div>
             <button type="submit" disabled={loading} className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-70 disabled:translate-y-0" style={{ background: 'linear-gradient(135deg, #0d9488, #065f46)', boxShadow: '0 4px 16px rgba(13,148,136,0.35)' }}>
               {loading ? (
@@ -123,6 +257,9 @@ export default function LoginPage() {
             Don&apos;t have an account?{" "}
             <Link href="/register" className="text-[#0d9488] font-semibold hover:underline">Create one</Link>
           </p>
+          <p className="text-center text-xs text-slate-400 mt-2">
+            <Link href="/register-association" className="hover:text-[#0d9488] hover:underline">Register your association</Link>
+          </p>
 
           {/* Demo Credentials */}
           <div className="mt-6 p-4 rounded-xl border border-teal-100" style={{ background: 'linear-gradient(135deg, #f0fdfa, #ecfdf5)' }}>
@@ -130,11 +267,19 @@ export default function LoginPage() {
             <div className="space-y-1.5 text-xs text-teal-700">
               <p className="text-center"><strong>Admin:</strong> daniel.harris@example.com / Demo1234!</p>
               <p className="text-center"><strong>User:</strong> demo@gmail.com / Demo1234!</p>
-              <p className="text-center font-medium opacity-70">Tenant: demo-association</p>
+              <p className="text-center font-medium opacity-70">Search: &quot;Demo Association&quot;</p>
             </div>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-slate-400">Loading...</span></div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

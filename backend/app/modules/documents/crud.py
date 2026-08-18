@@ -155,12 +155,15 @@ async def create_version(db: AsyncSession, document_id: str, tenant_id: str, cre
     return version
 
 
-async def list_versions(db: AsyncSession, document_id: str) -> list[DocumentVersion]:
-    result = await db.execute(
+async def list_versions(db: AsyncSession, document_id: str, tenant_id: str | None = None) -> list[DocumentVersion]:
+    query = (
         select(DocumentVersion)
         .where(DocumentVersion.document_id == document_id)
-        .order_by(DocumentVersion.version.desc())
     )
+    if tenant_id:
+        query = query.where(DocumentVersion.tenant_id == tenant_id)
+    query = query.order_by(DocumentVersion.version.desc())
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 
@@ -175,12 +178,15 @@ async def add_comment(
     return comment
 
 
-async def list_comments(db: AsyncSession, document_id: str) -> list[DocumentComment]:
-    result = await db.execute(
+async def list_comments(db: AsyncSession, document_id: str, tenant_id: str | None = None) -> list[DocumentComment]:
+    query = (
         select(DocumentComment)
         .where(DocumentComment.document_id == document_id, DocumentComment.parent_id == None)
-        .order_by(DocumentComment.created_at.desc())
     )
+    if tenant_id:
+        query = query.where(DocumentComment.tenant_id == tenant_id)
+    query = query.order_by(DocumentComment.created_at.desc())
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 
@@ -201,15 +207,22 @@ async def share_document(
     return share
 
 
-async def list_shares(db: AsyncSession, document_id: str) -> list[DocumentShare]:
-    result = await db.execute(
-        select(DocumentShare).where(DocumentShare.document_id == document_id)
+async def list_shares(db: AsyncSession, document_id: str, tenant_id: str | None = None) -> list[DocumentShare]:
+    query = (
+        select(DocumentShare)
+        .where(DocumentShare.document_id == document_id)
     )
+    if tenant_id:
+        query = query.where(DocumentShare.tenant_id == tenant_id)
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 
-async def revoke_share(db: AsyncSession, share_id: str) -> bool:
-    result = await db.execute(select(DocumentShare).where(DocumentShare.id == share_id))
+async def revoke_share(db: AsyncSession, share_id: str, tenant_id: str | None = None) -> bool:
+    query = select(DocumentShare).where(DocumentShare.id == share_id)
+    if tenant_id:
+        query = query.where(DocumentShare.tenant_id == tenant_id)
+    result = await db.execute(query)
     share = result.scalar_one_or_none()
     if not share:
         return False
@@ -230,7 +243,9 @@ async def log_activity(
     db.add(activity)
 
     # Update counters
-    doc_result = await db.execute(select(Document).where(Document.id == document_id))
+    doc_result = await db.execute(
+        select(Document).where(Document.id == document_id, Document.tenant_id == tenant_id)
+    )
     doc = doc_result.scalar_one_or_none()
     if doc:
         if action == "view":

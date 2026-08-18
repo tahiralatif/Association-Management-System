@@ -7,6 +7,7 @@ from functools import lru_cache
 
 from .base import EmailProvider
 from .smtp_provider import SMTPEmailProvider
+from .resend_provider import ResendEmailProvider
 
 log = logging.getLogger(__name__)
 
@@ -32,16 +33,12 @@ def get_email_provider() -> EmailProvider:
             from_email=settings.EMAIL_FROM,
             from_name=getattr(settings, "EMAIL_FROM_NAME", ""),
         )
-    # Future providers:
-    # elif provider_name == "sendgrid":
-    #     from .sendgrid_provider import SendGridEmailProvider
-    #     _provider = SendGridEmailProvider(api_key=settings.SENDGRID_API_KEY)
-    # elif provider_name == "ses":
-    #     from .ses_provider import SESEmailProvider
-    #     _provider = SESEmailProvider(region=settings.SES_REGION)
-    # elif provider_name == "resend":
-    #     from .resend_provider import ResendEmailProvider
-    #     _provider = ResendEmailProvider(api_key=settings.RESEND_API_KEY)
+    elif provider_name == "resend":
+        _provider = ResendEmailProvider(
+            api_key=settings.RESEND_API_KEY,
+            from_email=settings.EMAIL_FROM,
+            from_name=getattr(settings, "EMAIL_FROM_NAME", ""),
+        )
     else:
         raise ValueError(f"Unknown email provider: {provider_name!r}. Supported: smtp")
 

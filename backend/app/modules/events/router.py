@@ -317,7 +317,7 @@ async def list_feedback(
     user: TokenPayload = Depends(require_staff),
     db: AsyncSession = Depends(get_db),
 ):
-    feedback = await crud.get_event_feedback(db, event_id)
+    feedback = await crud.get_event_feedback(db, event_id, tenant_id=user.tenant_id)
     return [FeedbackResponse.model_validate(f) for f in feedback]
 
 

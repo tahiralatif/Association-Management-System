@@ -6,7 +6,7 @@ import secrets
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,7 +37,8 @@ class RegisterRequest(BaseModel):
     password: str
     first_name: str
     last_name: str
-    tenant_id: str
+    org_slug: str | None = None   # preferred: resolved from Organization table
+    tenant_id: str | None = None  # fallback for backward compat
 
     @field_validator("first_name", "last_name")
     @classmethod
@@ -50,11 +51,24 @@ class RegisterRequest(BaseModel):
         validate_password_strength(v)
         return v
 
+    @model_validator(mode="after")
+    def require_org_or_tenant(cls, values):
+        if not values.org_slug and not values.tenant_id:
+            raise ValueError("Either org_slug or tenant_id is required")
+        return values
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-    tenant_id: str
+    org_slug: str | None = None
+    tenant_id: str | None = None
+
+    @model_validator(mode="after")
+    def require_org_or_tenant(cls, values):
+        if not values.org_slug and not values.tenant_id:
+            raise ValueError("Either org_slug or tenant_id is required")
+        return values
 
 
 class RefreshRequest(BaseModel):
@@ -116,9 +130,26 @@ async def register(req: RegisterRequest, request: Request, background_tasks: Bac
     """Register a new user (self-service member registration)."""
     from app.modules.members.models import User
 
+    # Resolve tenant_id from org_slug if provided
+    tenant_id = req.tenant_id
+    if req.org_slug:
+        from app.modules.organizations.models import Organization
+        org_result = await db.execute(
+            select(Organization).where(
+                Organization.slug == req.org_slug,
+                Organization.is_active == True,
+            )
+        )
+        org = org_result.scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
+        tenant_id = org.tenant_id
+    if not tenant_id:
+        raise HTTPException(status_code=422, detail="Either org_slug or tenant_id is required")
+
     # Check existing
     existing = await db.execute(
-        select(User).where(User.email == req.email, User.tenant_id == req.tenant_id)
+        select(User).where(User.email == req.email, User.tenant_id == tenant_id)
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -131,7 +162,7 @@ async def register(req: RegisterRequest, request: Request, background_tasks: Bac
         hashed_password=hash_password(req.password),
         first_name=req.first_name,
         last_name=req.last_name,
-        tenant_id=req.tenant_id,
+        tenant_id=tenant_id,
         roles=["member"],
         is_active=True,
         email_verified=False,
@@ -143,11 +174,16 @@ async def register(req: RegisterRequest, request: Request, background_tasks: Bac
 
     # Create member profile automatically
     from app.modules.members.models import MemberProfile, MemberStatus
+    from datetime import timedelta
+    member_number = f"MEM-{uuid.uuid4().hex[:8].upper()}"
+    now = datetime.now(timezone.utc)
     profile = MemberProfile(
         user_id=user.id,
-        tenant_id=req.tenant_id,
+        tenant_id=tenant_id,
         status=MemberStatus.ACTIVE,
-        joined_at=datetime.now(timezone.utc),
+        joined_at=now,
+        expires_at=now + timedelta(days=365),
+        member_number=member_number,
     )
     db.add(profile)
     await db.flush()
@@ -156,7 +192,7 @@ async def register(req: RegisterRequest, request: Request, background_tasks: Bac
     refresh = create_refresh_token(user.id, user.tenant_id)
 
     ip = request.client.host if request.client else None
-    await log_auth_event(db, req.tenant_id, user.id, "register", {"email": req.email}, ip)
+    await log_auth_event(db, tenant_id, user.id, "register", {"email": req.email}, ip)
 
     verify_url = f"{BASE_URL}/verify-email?token={verification_token}"
     first_name_escaped = req.first_name.replace("<", "&lt;").replace(">", "&gt;")
@@ -185,7 +221,7 @@ async def register(req: RegisterRequest, request: Request, background_tasks: Bac
                         <p style="color: #94a3b8; font-size: 12px;">AssocHub — Open Source Association Management</p>
                     </div>
                     """,
-                    tenant_id=req.tenant_id,
+                    tenant_id=tenant_id,
                     db=email_db,
                     max_retries=2,
                 )
@@ -296,14 +332,31 @@ async def login(req: LoginRequest, request: Request, background_tasks: Backgroun
     """Login with email and password."""
     from app.modules.members.models import User
 
+    # Resolve tenant_id from org_slug if provided
+    tenant_id = req.tenant_id
+    if req.org_slug:
+        from app.modules.organizations.models import Organization
+        org_result = await db.execute(
+            select(Organization).where(
+                Organization.slug == req.org_slug,
+                Organization.is_active == True,
+            )
+        )
+        org = org_result.scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
+        tenant_id = org.tenant_id
+    if not tenant_id:
+        raise HTTPException(status_code=422, detail="Either org_slug or tenant_id is required")
+
     result = await db.execute(
-        select(User).where(User.email == req.email, User.tenant_id == req.tenant_id)
+        select(User).where(User.email == req.email, User.tenant_id == tenant_id)
     )
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(req.password, user.hashed_password):
         if user:
-            await log_auth_event(db, req.tenant_id, user.id, "login_failed", {"reason": "bad_password"})
+            await log_auth_event(db, tenant_id, user.id, "login_failed", {"reason": "bad_password"})
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_active:
@@ -319,7 +372,7 @@ async def login(req: LoginRequest, request: Request, background_tasks: Backgroun
     refresh = create_refresh_token(user.id, user.tenant_id)
 
     ip = request.client.host if request.client else None
-    await log_auth_event(db, req.tenant_id, user.id, "login", {}, ip)
+    await log_auth_event(db, tenant_id, user.id, "login", {}, ip)
 
     # Send login notification
     async def _send_login_notification():
@@ -341,7 +394,7 @@ async def login(req: LoginRequest, request: Request, background_tasks: Backgroun
                         <ul>
                             <li>Time: {now_str}</li>
                             <li>Email: {req.email}</li>
-                            <li>Tenant: {req.tenant_id}</li>
+                            <li>Tenant: {tenant_id}</li>
                         </ul>
                         <p>If this was you, no action is needed.</p>
                         <p style="color: #dc2626;">If you did NOT log in, please change your password immediately and contact your admin.</p>
@@ -349,7 +402,7 @@ async def login(req: LoginRequest, request: Request, background_tasks: Backgroun
                         <p style="color: #94a3b8; font-size: 12px;">AssocHub — Open Source Association Management</p>
                     </div>
                     """,
-                    tenant_id=req.tenant_id,
+                    tenant_id=tenant_id,
                     db=email_db,
                     max_retries=1,
                 )
@@ -365,14 +418,26 @@ async def login(req: LoginRequest, request: Request, background_tasks: Backgroun
 
 @router.post("/refresh", response_model=TokenPair)
 @limiter.limit("30/minute")
-async def refresh_token(req: RefreshRequest, request: Request):
-    """Refresh an access token."""
+async def refresh_token(req: RefreshRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    """Refresh an access token — fetches fresh roles from DB."""
     payload = decode_token(req.refresh_token)
     if payload.type != "refresh":
         raise HTTPException(status_code=401, detail="Invalid token type")
 
-    access = create_access_token(payload.sub, payload.tenant_id, payload.roles, getattr(payload, 'permissions', None))
-    refresh = create_refresh_token(payload.sub, payload.tenant_id)
+    # Look up user from DB to get current roles (refresh tokens store roles: [])
+    from app.modules.members.models import User
+    result = await db.execute(select(User).where(User.id == payload.sub))
+    db_user = result.scalar_one_or_none()
+    if not db_user:
+        raise HTTPException(status_code=401, detail="User not found")
+    if not db_user.is_active:
+        raise HTTPException(status_code=403, detail="Account is deactivated")
+
+    roles = db_user.roles or []
+    permissions = getattr(db_user, 'custom_permissions', None)
+
+    access = create_access_token(db_user.id, db_user.tenant_id, roles, permissions)
+    refresh = create_refresh_token(db_user.id, db_user.tenant_id)
 
     return TokenPair(access_token=access, refresh_token=refresh)
 

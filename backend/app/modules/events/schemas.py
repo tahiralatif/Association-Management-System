@@ -1,7 +1,7 @@
 """Events schemas."""
 
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ── Event ────────────────────────────────────────────────────
@@ -15,8 +15,8 @@ class EventCreate(BaseModel):
     is_hybrid: bool = False
     virtual_link: str | None = None
     virtual_platform: str | None = None
-    start_date: datetime
-    end_date: datetime
+    start_date: datetime | None = None
+    end_date: datetime | None = None
     registration_open: datetime | None = None
     registration_close: datetime | None = None
     venue_name: str | None = None
@@ -29,6 +29,13 @@ class EventCreate(BaseModel):
     currency: str = "USD"
     tags: list[str] = []
     contact_email: str | None = None
+
+    @field_validator("start_date", "end_date", "registration_open", "registration_close", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
 
 
 class EventUpdate(BaseModel):

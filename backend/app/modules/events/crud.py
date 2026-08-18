@@ -3,6 +3,7 @@
 import re
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +32,26 @@ def slugify(text: str) -> str:
 
 # ── Events ───────────────────────────────────────────────────
 
+def _parse_datetime(value: Any) -> datetime | None:
+    """Convert string dates to datetime, pass through None/already-datetime."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
 async def create_event(db: AsyncSession, tenant_id: str, creator_id: str, data: dict) -> Event:
+    # Ensure datetime fields are proper datetime objects
+    for field in ("start_date", "end_date", "registration_open", "registration_close"):
+        if field in data:
+            data[field] = _parse_datetime(data[field])
+
     event = Event(
         tenant_id=tenant_id,
         created_by=creator_id,
@@ -106,12 +126,15 @@ async def create_ticket(db: AsyncSession, event_id: str, tenant_id: str, data: d
     return ticket
 
 
-async def list_tickets(db: AsyncSession, event_id: str) -> list[EventTicket]:
-    result = await db.execute(
+async def list_tickets(db: AsyncSession, event_id: str, tenant_id: str | None = None) -> list[EventTicket]:
+    query = (
         select(EventTicket)
         .where(EventTicket.event_id == event_id, EventTicket.is_active == True)
-        .order_by(EventTicket.price)
     )
+    if tenant_id:
+        query = query.where(EventTicket.tenant_id == tenant_id)
+    query = query.order_by(EventTicket.price)
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 
@@ -203,11 +226,12 @@ async def cancel_registration(
 
 
 async def check_in(
-    db: AsyncSession, registration_id: str, method: str = "manual"
+    db: AsyncSession, registration_id: str, tenant_id: str | None = None, method: str = "manual"
 ) -> EventRegistration | None:
-    result = await db.execute(
-        select(EventRegistration).where(EventRegistration.id == registration_id)
-    )
+    query = select(EventRegistration).where(EventRegistration.id == registration_id)
+    if tenant_id:
+        query = query.where(EventRegistration.tenant_id == tenant_id)
+    result = await db.execute(query)
     reg = result.scalar_one_or_none()
     if not reg or reg.status != RegistrationStatus.CONFIRMED:
         return None
@@ -219,7 +243,7 @@ async def check_in(
 
 
 async def list_registrations(
-    db: AsyncSession, event_id: str, status: str | None = None, page: int = 1, per_page: int = 50
+    db: AsyncSession, event_id: str, tenant_id: str | None = None, status: str | None = None, page: int = 1, per_page: int = 50
 ) -> tuple[list[dict], int]:
     query = (
         select(EventRegistration)
@@ -229,6 +253,8 @@ async def list_registrations(
         )
         .where(EventRegistration.event_id == event_id)
     )
+    if tenant_id:
+        query = query.where(EventRegistration.tenant_id == tenant_id)
     if status:
         query = query.where(EventRegistration.status == status)
 
@@ -280,10 +306,12 @@ async def submit_feedback(
     return feedback
 
 
-async def get_event_feedback(db: AsyncSession, event_id: str) -> list[EventFeedback]:
-    result = await db.execute(
-        select(EventFeedback).where(EventFeedback.event_id == event_id).order_by(EventFeedback.created_at.desc())
-    )
+async def get_event_feedback(db: AsyncSession, event_id: str, tenant_id: str | None = None) -> list[EventFeedback]:
+    query = select(EventFeedback).where(EventFeedback.event_id == event_id)
+    if tenant_id:
+        query = query.where(EventFeedback.tenant_id == tenant_id)
+    query = query.order_by(EventFeedback.created_at.desc())
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 

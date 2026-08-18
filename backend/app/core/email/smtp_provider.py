@@ -1,4 +1,8 @@
-"""SMTP email provider — sends via standard SMTP (Gmail, etc.)."""
+"""SMTP email provider — sends via standard SMTP (Gmail, etc.).
+
+Includes anti-spam headers required by Gmail/Yahoo/Outlook for
+deliverability (List-Unsubscribe, Message-ID, Date, etc.).
+"""
 
 from __future__ import annotations
 
@@ -48,14 +52,28 @@ class SMTPEmailProvider(EmailProvider):
         return email
 
     def _build_mime(self, message: EmailMessage) -> MIMEMultipart:
-        """Convert EmailMessage to MIME."""
+        """Convert EmailMessage to MIME with anti-spam headers."""
+        from email.utils import formatdate, make_msgid
+        import platform
+
         msg = MIMEMultipart("alternative")
         msg["From"] = self._build_from(message)
         msg["To"] = message.to
         msg["Subject"] = message.subject
 
+        # Anti-spam / deliverability headers
+        msg["Date"] = formatdate(localtime=False)
+        msg["Message-ID"] = make_msgid(domain=self._from_email.split("@")[-1] if "@" in self._from_email else "localhost")
+        msg["X-Mailer"] = f"AssocHub/1.0"
+        msg["Precedence"] = "bulk"
+        msg["X-Auto-Response-Suppress"] = "All"
+        msg["List-Unsubscribe"] = f"<mailto:{self._from_email}?subject=unsubscribe>"
+        msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+
         if message.reply_to:
             msg["Reply-To"] = message.reply_to
+        else:
+            msg["Reply-To"] = self._from_email
         if message.cc:
             msg["Cc"] = ", ".join(message.cc)
 

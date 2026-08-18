@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
@@ -14,16 +14,23 @@ import {
 } from "lucide-react";
 
 interface Overview {
-  members?: { total: number; active: number; new_this_month: number };
-  finances?: { total_revenue: number; outstanding: number; expenses: number };
-  events?: { upcoming: number; total_attendees: number };
-  documents?: { total: number };
+  total_members?: number;
+  active_members?: number;
+  new_members_this_month?: number;
+  total_revenue?: number;
+  outstanding?: number;
+  expenses?: number;
+  total_events?: number;
+  upcoming_events?: number;
+  total_registrations?: number;
+  emails_sent?: number;
   recent_activity?: { action: string; description: string; timestamp: string }[];
+  [key: string]: unknown;
 }
 
 interface Insight {
-  id: string; type: string; title: string; description: string;
-  priority?: string; created_at?: string; is_read?: boolean;
+  id: string; insight_type: string; title: string; summary: string;
+  confidence?: number; created_at?: string; is_read?: boolean; action_url?: string;
 }
 
 function fmt$(n: number) {
@@ -64,9 +71,22 @@ export default function DashboardPage() {
 
   if (loading) return <LoadingSpinner />;
 
-  const m = overview?.members;
-  const f = overview?.finances;
-  const ev = overview?.events;
+  // Map flat backend response to local variables
+  const m = {
+    total: overview?.total_members ?? 0,
+    active: overview?.active_members ?? 0,
+    new_this_month: overview?.new_members_this_month ?? 0,
+  };
+  const f = {
+    total_revenue: overview?.total_revenue ?? 0,
+    outstanding: overview?.outstanding ?? 0,
+    expenses: overview?.expenses ?? 0,
+  };
+  const ev = {
+    upcoming: overview?.upcoming_events ?? 0,
+    total_attendees: overview?.total_registrations ?? 0,
+  };
+  const hasData = overview !== null;
 
   return (
     <div className="space-y-6 page-enter">
@@ -82,10 +102,10 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 stagger-children">
-        <StatCard label="Total Members" value={m?.total ?? "—"} accent="green" iconElement={<Users className="h-5 w-5 text-emerald-600" />} trend={m ? `${m.active} active, ${m.new_this_month} new this month` : ""} trendUp={true} />
-        <StatCard label="Revenue" value={f ? fmt$(f.total_revenue) : "—"} accent="teal" iconElement={<DollarSign className="h-5 w-5 text-teal-600" />} trend={f ? `${fmt$(f.outstanding)} outstanding` : ""} trendUp={true} />
-        <StatCard label="Upcoming Events" value={ev?.upcoming ?? "—"} accent="blue" iconElement={<Calendar className="h-5 w-5 text-blue-600" />} trend={ev ? `${ev.total_attendees} total attendees` : ""} />
-        <StatCard label="Documents" value={overview?.documents?.total ?? "—"} accent="purple" iconElement={<FileText className="h-5 w-5 text-purple-600" />} trend="All stored securely" />
+        <StatCard label="Total Members" value={hasData ? m.total : "—"} accent="green" iconElement={<Users className="h-5 w-5 text-emerald-600" />} trend={hasData ? `${m.active} active, ${m.new_this_month} new this month` : ""} trendUp={true} />
+        <StatCard label="Revenue" value={hasData ? fmt$(f.total_revenue) : "—"} accent="teal" iconElement={<DollarSign className="h-5 w-5 text-teal-600" />} trend={hasData ? `${fmt$(f.outstanding)} outstanding` : ""} trendUp={true} />
+        <StatCard label="Upcoming Events" value={hasData ? ev.upcoming : "—"} accent="blue" iconElement={<Calendar className="h-5 w-5 text-blue-600" />} trend={hasData ? `${ev.total_attendees} total attendees` : ""} />
+        <StatCard label="Registrations" value={hasData ? (overview?.total_registrations ?? "—") : "—"} accent="purple" iconElement={<FileText className="h-5 w-5 text-purple-600" />} trend={hasData ? `${overview?.emails_sent ?? 0} emails sent` : ""} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 stagger-children">
@@ -173,7 +193,7 @@ export default function DashboardPage() {
               {insights.slice(0, 5).map((ins) => (
                 <div key={ins.id} className={cn("p-3 rounded-xl border text-sm transition-all duration-200 hover:shadow-sm", ins.is_read ? "bg-white border-slate-100" : "border-l-3 bg-gradient-to-r from-amber-50/80 to-white border-amber-200")} style={ins.is_read ? {} : { borderLeftWidth: '3px' }}>
                   <p className="font-semibold text-slate-800">{ins.title}</p>
-                  <p className="text-slate-500 text-xs mt-1 line-clamp-2">{ins.description}</p>
+                  <p className="text-slate-500 text-xs mt-1 line-clamp-2">{ins.summary}</p>
                 </div>
               ))}
               <a href="/ai" className="flex items-center justify-center gap-1.5 text-xs font-semibold text-[#0d9488] hover:text-[#0f766e] py-2 rounded-xl hover:bg-teal-50 transition-all">
@@ -185,7 +205,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Finance Summary */}
-      {f && (
+      {hasData && (
         <div className="bg-white rounded-2xl border border-black/5 p-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
           <div className="flex items-center gap-2.5 mb-5">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg" style={{ background: 'linear-gradient(135deg, #0d9488, #14b8a6)' }}>

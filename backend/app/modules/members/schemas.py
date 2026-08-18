@@ -127,7 +127,8 @@ class MemberProfileResponse(MemberProfileBase):
     expires_at: datetime | None = None
     renewal_date: datetime | None = None
     avatar_url: str | None = None
-    tags: list[str] = []
+    tags: list[str] | None = None
+    groups: list[str] = []
     engagement_score: float = 0.0
     churn_risk: float = 0.0
     lifetime_value: float = 0.0
@@ -135,6 +136,12 @@ class MemberProfileResponse(MemberProfileBase):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode='after')
+    def coerce_none_lists(self):
+        if self.tags is None:
+            self.tags = []
+        return self
 
 
 class UserWithProfile(UserResponse):
@@ -145,6 +152,8 @@ class UserWithProfile(UserResponse):
 
 class SelfServiceProfileUpdate(BaseModel):
     """Members can only update their own profile fields."""
+    first_name: str | None = None
+    last_name: str | None = None
     phone: str | None = None
     organization: str | None = None
     job_title: str | None = None

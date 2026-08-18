@@ -217,6 +217,9 @@ function Navbar() {
               >
                 Get Started
               </Link>
+              <Link href="/register-association" className="text-[13px] font-medium px-4 py-2 transition-colors duration-300" style={{ color: C.textSecondary }}>
+                Register Association
+              </Link>
             </>
           )}
         </div>
@@ -355,6 +358,13 @@ export default function HomePage() {
                   style={{ color: C.textSecondary, border: `1px solid ${C.border}`, backgroundColor: C.bg }}
                 >
                   Demo Login →
+                </Link>
+                <Link
+                  href="/register-association"
+                  className="font-medium px-6 py-3.5 rounded-xl text-[15px] transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ color: C.teal, border: `1px solid ${C.tealPale}`, backgroundColor: C.tealPalest }}
+                >
+                  Register Association →
                 </Link>
               </>
             )}

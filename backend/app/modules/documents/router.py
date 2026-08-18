@@ -142,7 +142,7 @@ async def list_versions(
     user: TokenPayload = Depends(require_staff),
     db: AsyncSession = Depends(get_db),
 ):
-    versions = await crud.list_versions(db, document_id)
+    versions = await crud.list_versions(db, document_id, tenant_id=user.tenant_id)
     return [VersionResponse.model_validate(v) for v in versions]
 
 
@@ -168,7 +168,7 @@ async def list_comments(
     user: TokenPayload = Depends(require_staff),
     db: AsyncSession = Depends(get_db),
 ):
-    comments = await crud.list_comments(db, document_id)
+    comments = await crud.list_comments(db, document_id, tenant_id=user.tenant_id)
     return [CommentResponse.model_validate(c) for c in comments]
 
 
@@ -196,7 +196,7 @@ async def list_shares(
     user: TokenPayload = Depends(require_staff),
     db: AsyncSession = Depends(get_db),
 ):
-    shares = await crud.list_shares(db, document_id)
+    shares = await crud.list_shares(db, document_id, tenant_id=user.tenant_id)
     return [ShareResponse.model_validate(s) for s in shares]
 
 
@@ -218,7 +218,7 @@ async def revoke_share(
     user: TokenPayload = Depends(require_staff),
     db: AsyncSession = Depends(get_db),
 ):
-    ok = await crud.revoke_share(db, share_id)
+    ok = await crud.revoke_share(db, share_id, tenant_id=user.tenant_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Share not found")
     return {"message": "Share revoked"}

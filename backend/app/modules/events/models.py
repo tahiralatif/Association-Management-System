@@ -70,8 +70,8 @@ class Event(Base):
     virtual_platform: Mapped[str | None] = mapped_column(String(50))  # zoom, teams, meet
 
     # Dates
-    start_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    end_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    start_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     registration_open: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     registration_close: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

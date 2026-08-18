@@ -226,6 +226,7 @@ async def get_analytics_overview(db: AsyncSession, tenant_id: str) -> dict:
     from datetime import timedelta
 
     now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     # Members
     total_result = await db.execute(
@@ -236,16 +237,44 @@ async def get_analytics_overview(db: AsyncSession, tenant_id: str) -> dict:
             MemberProfile.tenant_id == tenant_id, MemberProfile.status == MemberStatus.ACTIVE
         )
     )
+    new_this_month_result = await db.execute(
+        select(func.count()).select_from(MemberProfile).where(
+            MemberProfile.tenant_id == tenant_id,
+            MemberProfile.joined_at >= month_start,
+        )
+    )
     total_members = total_result.scalar() or 0
     active_members = active_result.scalar() or 0
+    new_members_this_month = new_this_month_result.scalar() or 0
 
-    # Revenue
+    # Revenue (paid invoices)
     revenue_result = await db.execute(
         select(func.coalesce(func.sum(Payment.amount), 0))
         .join(Invoice)
-        .where(Invoice.tenant_id == tenant_id)
+        .where(Invoice.tenant_id == tenant_id, Payment.status == "completed")
     )
     total_revenue = float(revenue_result.scalar())
+
+    # Outstanding (unpaid invoices: total amount minus amount paid, for non-cancelled/non-refunded)
+    outstanding_result = await db.execute(
+        select(func.coalesce(
+            func.sum(Invoice.total - Invoice.amount_paid), 0
+        )).where(
+            Invoice.tenant_id == tenant_id,
+            Invoice.status.in_([InvoiceStatus.PENDING, InvoiceStatus.OVERDUE]),
+        )
+    )
+    outstanding = float(outstanding_result.scalar())
+
+    # Expenses (approved or reimbursed)
+    from app.modules.finances.models import ExpenseStatus
+    expenses_result = await db.execute(
+        select(func.coalesce(func.sum(Expense.amount), 0)).where(
+            Expense.tenant_id == tenant_id,
+            Expense.status.in_([ExpenseStatus.APPROVED, ExpenseStatus.REIMBURSED]),
+        )
+    )
+    expenses = float(expenses_result.scalar())
 
     # Events
     events_total = await db.execute(
@@ -259,12 +288,19 @@ async def get_analytics_overview(db: AsyncSession, tenant_id: str) -> dict:
     total_events = events_total.scalar() or 0
     upcoming_events = events_upcoming.scalar() or 0
 
-    # Registrations
+    # Registrations (total attendees across all events)
     reg_result = await db.execute(
         select(func.count()).select_from(EventRegistration)
         .join(Event).where(Event.tenant_id == tenant_id, EventRegistration.status != RegistrationStatus.CANCELLED)
     )
     total_registrations = reg_result.scalar() or 0
+
+    # Documents
+    from app.modules.documents.models import Document
+    docs_result = await db.execute(
+        select(func.count()).select_from(Document).where(Document.tenant_id == tenant_id)
+    )
+    total_documents = docs_result.scalar() or 0
 
     # Emails
     email_result = await db.execute(
@@ -276,11 +312,15 @@ async def get_analytics_overview(db: AsyncSession, tenant_id: str) -> dict:
     return {
         "total_members": total_members,
         "active_members": active_members,
+        "new_members_this_month": new_members_this_month,
         "total_revenue": total_revenue,
+        "outstanding": outstanding,
+        "expenses": expenses,
         "monthly_recurring": 0,
         "total_events": total_events,
         "upcoming_events": upcoming_events,
         "total_registrations": total_registrations,
+        "total_documents": total_documents,
         "emails_sent": emails_sent,
         "open_rate": 0,
         "member_growth": [],

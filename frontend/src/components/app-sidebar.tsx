@@ -21,6 +21,7 @@ import {
   Receipt,
   CalendarCheck,
   Tag,
+  Building,
 } from "lucide-react";
 import {
   Sidebar,
@@ -160,6 +161,36 @@ export function AppSidebar() {
                     </SidebarMenuItem>
                   );
                 })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Platform admin (super_admin only) */}
+        {user?.roles?.includes("super_admin") && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-bold px-3 mt-2">
+              Platform
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<Link href="/admin/org-requests" />}
+                    isActive={pathname.startsWith("/admin/org-requests")}
+                    tooltip="Org Requests"
+                    className={cn(
+                      "rounded-xl transition-all duration-200 mx-1.5 mb-0.5",
+                      pathname.startsWith("/admin/org-requests")
+                        ? "bg-gradient-to-r from-teal-50 to-teal-50/50 text-[#0d9488] font-semibold relative"
+                        : "hover:bg-slate-50 text-slate-600 hover:text-slate-900"
+                    )}
+                  >
+                    {pathname.startsWith("/admin/org-requests") && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[60%] rounded-r-full" style={{ background: 'linear-gradient(180deg, #0d9488, #14b8a6)', boxShadow: '0 0 8px rgba(13,148,136,0.4)' }} />}
+                    <Building className={cn("h-4 w-4", pathname.startsWith("/admin/org-requests") ? "text-[#0d9488]" : "text-slate-400")} />
+                    <span>Org Requests</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

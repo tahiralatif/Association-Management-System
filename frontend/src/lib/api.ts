@@ -873,11 +873,11 @@ async function fetchMe(token: string): Promise<MeResponse> {
 export async function login(
   email: string,
   password: string,
-  tenant_id: string
+  org_slug: string
 ): Promise<LoginResponse> {
   const data = await apiFetch<LoginResponse>("/api/v1/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password, tenant_id }),
+    body: JSON.stringify({ email, password, org_slug }),
   });
 
   setToken(data.access_token);
@@ -886,9 +886,9 @@ export async function login(
   // Fetch real user profile from /me
   try {
     const me = await fetchMe(data.access_token);
-    setUser({ email: me.email, roles: me.roles, permissions: me.permissions ?? [], token_type: data.token_type, tenant_id: me.tenant_id || tenant_id });
+    setUser({ email: me.email, roles: me.roles, permissions: me.permissions ?? [], token_type: data.token_type, tenant_id: me.tenant_id });
   } catch {
-    setUser({ email, roles: ["member"], permissions: [], token_type: data.token_type, tenant_id });
+    setUser({ email, roles: ["member"], permissions: [], token_type: data.token_type, tenant_id: "" });
   }
 
   return data;
@@ -899,11 +899,11 @@ export async function register(
   password: string,
   first_name: string,
   last_name: string,
-  tenant_id: string
+  org_slug: string
 ): Promise<LoginResponse> {
   const data = await apiFetch<LoginResponse>("/api/v1/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password, first_name, last_name, tenant_id }),
+    body: JSON.stringify({ email, password, first_name, last_name, org_slug }),
   });
 
   setToken(data.access_token);
@@ -912,9 +912,9 @@ export async function register(
   // Fetch real user profile from /me
   try {
     const me = await fetchMe(data.access_token);
-    setUser({ email: me.email, roles: me.roles, permissions: me.permissions ?? [], token_type: data.token_type, tenant_id: me.tenant_id || tenant_id });
+    setUser({ email: me.email, roles: me.roles, permissions: me.permissions ?? [], token_type: data.token_type, tenant_id: me.tenant_id });
   } catch {
-    setUser({ email, roles: ["member"], permissions: [], token_type: data.token_type, tenant_id });
+    setUser({ email, roles: ["member"], permissions: [], token_type: data.token_type, tenant_id: "" });
   }
 
   return data;
@@ -925,4 +925,63 @@ export function logout() {
   if (typeof window !== "undefined") {
     window.location.href = "/login";
   }
+}
+
+// ── Organization Requests ─────────────────────────────────────
+
+export interface OrgRequest {
+  id: string;
+  org_name: string;
+  contact_person: string;
+  contact_email: string;
+  phone?: string;
+  description?: string;
+  website?: string;
+  expected_members?: string;
+  status: string;
+  rejection_reason?: string;
+  tenant_id?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  setup_token_used: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function submitOrgRequest(data: {
+  org_name: string;
+  contact_person: string;
+  contact_email: string;
+  phone?: string;
+  description?: string;
+  website?: string;
+  expected_members?: string;
+}): Promise<{ id: string; org_name: string; status: string; message: string }> {
+  return apiFetch("/api/v1/org-requests", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function listOrgRequests(params?: {
+  status?: string;
+  page?: number;
+  per_page?: number;
+}): Promise<{ items: OrgRequest[]; total: number; page: number; per_page: number }> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set("status", params.status);
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.per_page) qs.set("per_page", String(params.per_page));
+  return apiFetch(`/api/v1/org-requests?${qs}`);
+}
+
+export async function approveOrgRequest(id: string): Promise<OrgRequest> {
+  return apiFetch(`/api/v1/org-requests/${id}/approve`, { method: "PATCH" });
+}
+
+export async function rejectOrgRequest(id: string, reason: string): Promise<OrgRequest> {
+  return apiFetch(`/api/v1/org-requests/${id}/reject`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason }),
+  });
 }
