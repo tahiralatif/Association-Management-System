@@ -94,14 +94,13 @@ function LoginForm() {
     setNeedsVerification(false);
     setResendSent(false);
 
-    if (!selectedOrg || !orgSlug) {
-      setError("Please select your association from the list");
-      return;
+    if (!selectedOrg && !orgSlug) {
+      // Allow empty org — backend super_admin fallback handles platform admins
     }
 
     setLoading(true);
     try {
-      const data = await apiLogin(email, password, orgSlug);
+      const data = await apiLogin(email, password, orgSlug || undefined);
       const storedUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
       ctxLogin(storedUser, data.access_token);
       const roles = storedUser.roles || [];
@@ -183,7 +182,7 @@ function LoginForm() {
                   onChange={(e) => handleOrgSearchChange(e.target.value)}
                   onFocus={() => orgResults.length > 0 && setShowDropdown(true)}
                   autoComplete="off"
-                  required
+                  required={false}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0d9488]/20 focus:border-[#0d9488] transition-all bg-white text-slate-900"
                 />
                 {searching && (
@@ -265,8 +264,9 @@ function LoginForm() {
           <div className="mt-6 p-4 rounded-xl border border-teal-100" style={{ background: 'linear-gradient(135deg, #f0fdfa, #ecfdf5)' }}>
             <p className="text-xs text-teal-800 text-center font-bold mb-2">🔑 Demo Credentials</p>
             <div className="space-y-1.5 text-xs text-teal-700">
-              <p className="text-center"><strong>Admin:</strong> daniel.harris@example.com / Demo1234!</p>
-              <p className="text-center"><strong>User:</strong> demo@gmail.com / Demo1234!</p>
+              <p className="text-center"><strong>Super Admin:</strong> daniel.harris@example.com / Demo1234!</p>
+              <p className="text-center opacity-70">(leave association blank)</p>
+              <p className="text-center"><strong>Member:</strong> demo@gmail.com / Demo1234!</p>
               <p className="text-center font-medium opacity-70">Search: &quot;Demo Association&quot;</p>
             </div>
           </div>

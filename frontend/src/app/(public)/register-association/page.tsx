@@ -11,6 +11,7 @@ interface FormData {
   phone: string;
   description: string;
   website: string;
+  linkedin_profile: string;
   expected_members: string;
 }
 
@@ -22,10 +23,12 @@ export default function RegisterAssociationPage() {
     phone: "",
     description: "",
     website: "",
+    linkedin_profile: "",
     expected_members: "",
   });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
   const [error, setError] = useState("");
 
   const update = (field: keyof FormData, value: string) =>
@@ -36,15 +39,17 @@ export default function RegisterAssociationPage() {
     setError("");
     setLoading(true);
     try {
-      await submitOrgRequest({
+      const result = await submitOrgRequest({
         org_name: form.org_name,
         contact_person: form.contact_person,
         contact_email: form.contact_email,
         phone: form.phone || undefined,
         description: form.description || undefined,
         website: form.website || undefined,
+        linkedin_profile: form.linkedin_profile || undefined,
         expected_members: form.expected_members || undefined,
       });
+      setSubmittedEmail(form.contact_email);
       setSubmitted(true);
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");
@@ -63,22 +68,37 @@ export default function RegisterAssociationPage() {
         <div className="w-full max-w-lg relative z-10">
           <div className="rounded-3xl p-10 text-center" style={{ background: "rgba(255,255,255,0.95)", backdropFilter: "blur(20px) saturate(180%)", boxShadow: "0 25px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1)" }}>
             <div className="w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-6" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 8px 24px rgba(13,148,136,0.35)" }}>
-              <span className="text-white text-4xl">✓</span>
+              <span className="text-white text-4xl">✉️</span>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-2">Request Submitted</h1>
-            <p className="text-slate-500 text-sm leading-relaxed mb-2">
-              Thank you for your interest in AssocHub. Your organization registration request has been submitted and is pending review.
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-2">Check Your Email</h1>
+            <p className="text-slate-500 text-sm leading-relaxed mb-4">
+              We&apos;ve sent a verification link to<br />
+              <span className="font-semibold text-slate-700">{submittedEmail}</span>
+            </p>
+            <p className="text-slate-400 text-xs mb-2">
+              Click the link in the email to verify your address and submit your registration for review.
             </p>
             <p className="text-slate-400 text-xs mb-8">
-              We&apos;ll review your request and send you an email with next steps within 24–48 hours.
+              The link expires in 24 hours. Check your spam folder if you don&apos;t see it.
             </p>
-            <Link
-              href="/"
-              className="inline-block px-8 py-3 rounded-xl text-white font-bold text-sm transition-all duration-300 hover:-translate-y-0.5"
-              style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 16px rgba(13,148,136,0.35)" }}
-            >
-              Back to Home
-            </Link>
+            <div className="flex flex-col gap-3">
+              <Link
+                href="/"
+                className="inline-block px-8 py-3 rounded-xl text-white font-bold text-sm transition-all duration-300 hover:-translate-y-0.5"
+                style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 16px rgba(13,148,136,0.35)" }}
+              >
+                Back to Home
+              </Link>
+              <p className="text-xs text-slate-400">
+                Didn&apos;t get it?{" "}
+                <button
+                  onClick={() => { setSubmitted(false); setError(""); }}
+                  className="text-[#0d9488] font-semibold hover:underline"
+                >
+                  Try a different email
+                </button>
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -86,7 +106,7 @@ export default function RegisterAssociationPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #020c1b 0%, #0a192f 30%, #064e3b 70%, #0d9488 100%)" }}>
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #020c1b 0%, #0a192f 30%, #064e3b 70%, #0d9488 100%)" }}>
       {/* Animated orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute w-[500px] h-[500px] rounded-full orb-1" style={{ top: "-10%", right: "-5%", background: "radial-gradient(circle, rgba(13,148,136,0.15) 0%, transparent 70%)", filter: "blur(40px)" }} />
@@ -180,7 +200,10 @@ export default function RegisterAssociationPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-slate-700">Website</label>
+              <label className="text-sm font-semibold text-slate-700">
+                Website or Social Media Page
+                <span className="text-slate-400 font-normal ml-1">(recommended)</span>
+              </label>
               <input
                 type="url"
                 value={form.website}
@@ -188,6 +211,22 @@ export default function RegisterAssociationPage() {
                 placeholder="https://yourassociation.org"
                 className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0d9488]/20 focus:border-[#0d9488] transition-all bg-white text-slate-900 placeholder:text-slate-400"
               />
+              <p className="text-xs text-slate-400">Helps us verify your organization&apos;s online presence.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-slate-700">
+                LinkedIn Profile
+                <span className="text-slate-400 font-normal ml-1">(recommended)</span>
+              </label>
+              <input
+                type="url"
+                value={form.linkedin_profile}
+                onChange={(e) => update("linkedin_profile", e.target.value)}
+                placeholder="https://linkedin.com/in/your-profile"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0d9488]/20 focus:border-[#0d9488] transition-all bg-white text-slate-900 placeholder:text-slate-400"
+              />
+              <p className="text-xs text-slate-400">Your LinkedIn profile helps us verify you as a real representative of this organization.</p>
             </div>
 
             <div className="space-y-1.5">

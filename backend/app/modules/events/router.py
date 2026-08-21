@@ -196,13 +196,25 @@ async def register_for_event(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        # Resolve user to member_profile id
+        # Resolve the authenticated user's MemberProfile.id
         from app.modules.members.models import MemberProfile
-        from sqlalchemy import select as sel
-        mp_result = await db.execute(sel(MemberProfile).where(MemberProfile.user_id == user.sub, MemberProfile.tenant_id == user.tenant_id))
+        from sqlalchemy import select as sel, or_
+
+        # Super admins (tenant_id="platform") may have profiles with tenant_id=None
+        if user.tenant_id == "platform":
+            mp_result = await db.execute(sel(MemberProfile).where(
+                MemberProfile.user_id == user.sub,
+            ))
+        else:
+            mp_result = await db.execute(sel(MemberProfile).where(
+                MemberProfile.user_id == user.sub,
+                MemberProfile.tenant_id == user.tenant_id,
+            ))
         mp = mp_result.scalar_one_or_none()
-        member_id = mp.id if mp else user.sub
-        reg = await crud.register_member(db, event_id, member_id, user.tenant_id, data.model_dump())
+        if not mp:
+            raise HTTPException(status_code=400, detail="No member profile found. Create a member profile first.")
+        target_member_id = mp.id
+        reg = await crud.register_member(db, event_id, target_member_id, user.tenant_id, data.model_dump())
 
         # Send registration confirmation email
         try:
@@ -329,10 +341,18 @@ async def submit_feedback(
     db: AsyncSession = Depends(get_db),
 ):
     from app.modules.members.models import MemberProfile
-    from sqlalchemy import select
-    result = await db.execute(select(MemberProfile).where(MemberProfile.user_id == user.sub, MemberProfile.tenant_id == user.tenant_id))
+    from sqlalchemy import select, or_
+    if user.tenant_id == "platform":
+        result = await db.execute(select(MemberProfile).where(MemberProfile.user_id == user.sub))
+    else:
+        result = await db.execute(select(MemberProfile).where(
+            MemberProfile.user_id == user.sub,
+            MemberProfile.tenant_id == user.tenant_id,
+        ))
     mp = result.scalar_one_or_none()
-    member_id = mp.id if mp else user.sub
+    if not mp:
+        raise HTTPException(status_code=400, detail="No member profile found")
+    member_id = mp.id
     fb = await crud.submit_feedback(db, event_id, member_id, user.tenant_id, data.model_dump())
     return FeedbackResponse.model_validate(fb)
 
@@ -367,7 +387,7 @@ async def export_event_ics(
         raise HTTPException(status_code=404, detail="Event not found")
 
     # Build ICS content
-    from datetime import datetime
+    from datetime import datetime, timezone
     now = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     start = event.start_date.strftime("%Y%m%dT%H%M%SZ") if event.start_date else now
     end = event.end_date.strftime("%Y%m%dT%H%M%SZ") if event.end_date else start

@@ -636,7 +636,7 @@ async def charge_auto_renewal(profile: "MemberProfile", user: "User") -> bool:
     Uses Stripe to charge the customer's default payment method.
     """
     import logging
-    from app.core.config import settings
+    from app.config import settings
 
     log = logging.getLogger(__name__)
 

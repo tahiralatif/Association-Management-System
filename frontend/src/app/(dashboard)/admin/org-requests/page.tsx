@@ -5,7 +5,7 @@ import { listOrgRequests, approveOrgRequest, rejectOrgRequest, type OrgRequest }
 import { useToast } from "@/components/ui/toast";
 import { PageHeader, StatusBadge, Pagination, SearchInput, Modal, ConfirmDialog } from "@/components/ui/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, Building, Mail, Phone, Globe, Users, ExternalLink } from "lucide-react";
+import { CheckCircle, XCircle, Building, Mail, Phone, Globe, Users, ExternalLink, Link, ShieldCheck } from "lucide-react";
 
 function fmtDate(d?: string) {
   if (!d) return "—";
@@ -127,6 +127,7 @@ export default function OrgRequestsPage() {
                 <div className="flex flex-wrap gap-4 text-xs text-gray-500">
                   <span className="flex items-center gap-1"><Building className="h-3 w-3" /> {req.org_name}</span>
                   {req.expected_members && <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {req.expected_members} members</span>}
+                  {req.email_verified && <span className="flex items-center gap-1 text-emerald-600"><ShieldCheck className="h-3 w-3" /> Verified</span>}
                   <span>Submitted {fmtDate(req.created_at)}</span>
                 </div>
                 {req.description && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{req.description}</p>}
@@ -190,7 +191,21 @@ export default function OrgRequestsPage() {
                       <a href={detail.website} target="_blank" rel="noopener noreferrer" className="text-teal-600 hover:underline">{detail.website}</a>
                     </div>
                   )}
+                  {detail.linkedin_profile && (
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Link className="h-4 w-4 text-gray-400" />
+                      <a href={detail.linkedin_profile} target="_blank" rel="noopener noreferrer" className="text-teal-600 hover:underline">LinkedIn Profile</a>
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* Email Verification Badge */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100">
+                <ShieldCheck className={`h-4 w-4 ${detail.email_verified ? 'text-emerald-500' : 'text-slate-300'}`} />
+                <span className={`text-sm font-medium ${detail.email_verified ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  {detail.email_verified ? 'Email Verified' : 'Email Not Verified'}
+                </span>
               </div>
 
               {detail.expected_members && (

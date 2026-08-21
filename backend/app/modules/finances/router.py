@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_admin, require_staff, TokenPayload
+from app.config import settings
 from app.core.database import get_db
 from app.modules.finances import crud
 from app.modules.finances.schemas import (
@@ -327,7 +328,7 @@ async def download_invoice_pdf(
         "currency": invoice.currency or "USD",
         "currency_symbol": "$",
         "notes": invoice.notes or "",
-        "payment_instructions": "Payment is due within 30 days of the invoice date. Pay online at https://ams.14.jugaar.ai/finances",
+        "payment_instructions": f"Payment is due within 30 days of the invoice date. Pay online at {settings.APP_BASE_URL}/finances",
         "generated_at": datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC"),
     })
 
@@ -737,7 +738,7 @@ async def download_my_invoice_pdf(
         "currency": invoice.currency or "USD",
         "currency_symbol": "$",
         "notes": invoice.notes or "",
-        "payment_instructions": "Payment is due within 30 days. Pay online at https://ams.14.jugaar.ai/finances",
+        "payment_instructions": f"Payment is due within 30 days. Pay online at {settings.APP_BASE_URL}/finances",
         "generated_at": datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC"),
     })
 

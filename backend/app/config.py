@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     EMAIL_FROM_NAME: str = "AssocHub"
     EMAIL_PROVIDER: str = "smtp"  # smtp, sendgrid, ses, resend
     RESEND_API_KEY: str = ""
+
+    # Platform
+    APP_BASE_URL: str = "https://ams.14.jugaar.ai"
+    ADMIN_NOTIFICATION_EMAIL: str = "admin@jugaar.ai"
     # EMAIL_MAX_RETRIES: int = 3  # For future use
 
     model_config = {"env_file": "../.env", "env_file_encoding": "utf-8", "extra": "ignore"}

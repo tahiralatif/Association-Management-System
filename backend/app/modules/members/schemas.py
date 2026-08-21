@@ -1,6 +1,7 @@
 """Member schemas — complete Pydantic models."""
 
 from datetime import datetime
+import html
 import re
 from typing import Annotated
 from pydantic import BaseModel, EmailStr, Field, model_validator
@@ -13,12 +14,45 @@ PhoneNumber = Annotated[str, Field(
 )]
 
 
+# ── Input Sanitization ───────────────────────────────────────
+
+def _sanitize(value: str | None) -> str | None:
+    """Strip HTML tags, null bytes, control chars, and extra whitespace."""
+    if value is None:
+        return None
+    # Remove null bytes
+    value = value.replace("\x00", "")
+    # Remove control characters except newline/tab
+    value = re.sub(r"[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]", "", value)
+    # Strip HTML tags
+    value = re.sub(r"<[^>]+>", "", value)
+    # Unescape any HTML entities
+    value = html.unescape(value)
+    # Collapse multiple spaces
+    value = re.sub(r"\s+", " ", value).strip()
+    return value
+
+
+def _sanitize_url(value: str | None) -> str | None:
+    """Sanitize URL fields — strip HTML, enforce scheme allowlist."""
+    value = _sanitize(value)
+    if value and not re.match(r"^(https?://|/|#|data:)", value, re.IGNORECASE):
+        value = ""  # reject non-http schemes like javascript:
+    return value
+
+
 # ── User Schemas ─────────────────────────────────────────────
 
 class UserBase(BaseModel):
     email: EmailStr
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(default="", max_length=100)
+
+    @model_validator(mode="after")
+    def sanitize_names(self) -> "UserBase":
+        self.first_name = _sanitize(self.first_name) or "User"
+        self.last_name = _sanitize(self.last_name) or ""
+        return self
 
 
 class UserCreate(UserBase):
@@ -29,19 +63,21 @@ class UserCreate(UserBase):
     job_title: str | None = Field(None, max_length=100)
 
     @model_validator(mode="after")
-    def validate_phone(self) -> "UserCreate":
-        """Clean and validate phone — ignore non-phone garbage (browser autofill)."""
+    def validate_and_sanitize(self) -> "UserCreate":
+        # Sanitize names (parent validator is overridden by this child)
+        self.first_name = _sanitize(self.first_name) or "User"
+        self.last_name = _sanitize(self.last_name) or ""
+        self.organization = _sanitize(self.organization)
+        self.job_title = _sanitize(self.job_title)
+        # Validate phone
         if self.phone is not None:
             import re
             self.phone = self.phone.strip()
-            # If it doesn't contain enough digits, it's not a phone number — clear it
             digits = re.sub(r"[^\d]", "", self.phone)
             if len(digits) < 7:
                 self.phone = None
-            # If it contains no plus and no digits, it's garbage — clear it
             elif not re.search(r"\d", self.phone):
                 self.phone = None
-            # Validate format if still present
             elif not re.match(r"^\+?[\d\s\-()]{7,20}$", self.phone):
                 self.phone = None
         return self
@@ -52,6 +88,14 @@ class UserUpdate(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     is_active: bool | None = None
+
+    @model_validator(mode="after")
+    def sanitize_names(self) -> "UserUpdate":
+        if self.first_name is not None:
+            self.first_name = _sanitize(self.first_name)
+        if self.last_name is not None:
+            self.last_name = _sanitize(self.last_name)
+        return self
 
 
 class UserResponse(UserBase):
@@ -80,13 +124,37 @@ class MemberProfileBase(BaseModel):
     auto_renew: bool = False
     custom_fields: dict | None = None
 
+    @model_validator(mode="after")
+    def sanitize_fields(self) -> "MemberProfileBase":
+        self.organization = _sanitize(self.organization)
+        self.job_title = _sanitize(self.job_title)
+        self.bio = _sanitize(self.bio)
+        if self.social_links:
+            self.social_links = {k: _sanitize_url(v) for k, v in self.social_links.items() if isinstance(v, str)}
+        if self.address:
+            self.address = {k: _sanitize(v) for k, v in self.address.items() if isinstance(v, str)}
+        if self.interests:
+            self.interests = [_sanitize(i) for i in self.interests if i]
+        return self
+
 
 class MemberProfileCreate(MemberProfileBase):
     user_id: str
     tier: str = Field(default="basic", pattern="^(free|basic|premium|corporate|lifetime)$")
 
     @model_validator(mode="after")
-    def validate_tier(self) -> "MemberProfileCreate":
+    def validate_and_sanitize(self) -> "MemberProfileCreate":
+        # Sanitize (parent validator is overridden)
+        self.organization = _sanitize(self.organization)
+        self.job_title = _sanitize(self.job_title)
+        self.bio = _sanitize(self.bio)
+        if self.social_links:
+            self.social_links = {k: _sanitize_url(v) for k, v in self.social_links.items() if isinstance(v, str)}
+        if self.address:
+            self.address = {k: _sanitize(v) for k, v in self.address.items() if isinstance(v, str)}
+        if self.interests:
+            self.interests = [_sanitize(i) for i in self.interests if i]
+        # Validate tier
         valid_tiers = {"free", "basic", "premium", "corporate", "lifetime"}
         if self.tier not in valid_tiers:
             raise ValueError(f"Invalid tier '{self.tier}'. Must be one of: {', '.join(sorted(valid_tiers))}")
@@ -109,7 +177,19 @@ class MemberProfileUpdate(BaseModel):
     custom_fields: dict | None = None
 
     @model_validator(mode="after")
-    def validate_tier(self) -> "MemberProfileUpdate":
+    def sanitize_and_validate(self) -> "MemberProfileUpdate":
+        # Sanitize
+        self.organization = _sanitize(self.organization)
+        self.job_title = _sanitize(self.job_title)
+        self.bio = _sanitize(self.bio)
+        self.avatar_url = _sanitize_url(self.avatar_url)
+        if self.social_links:
+            self.social_links = {k: _sanitize_url(v) for k, v in self.social_links.items() if isinstance(v, str)}
+        if self.address:
+            self.address = {k: _sanitize(v) for k, v in self.address.items() if isinstance(v, str)}
+        if self.interests:
+            self.interests = [_sanitize(i) for i in self.interests if i]
+        # Validate tier
         if self.tier is not None:
             valid_tiers = {"free", "basic", "premium", "corporate", "lifetime"}
             if self.tier not in valid_tiers:
@@ -165,6 +245,22 @@ class SelfServiceProfileUpdate(BaseModel):
     email_opt_in: bool | None = None
     sms_opt_in: bool | None = None
     auto_renew: bool | None = None
+
+    @model_validator(mode="after")
+    def sanitize_fields(self) -> "SelfServiceProfileUpdate":
+        self.first_name = _sanitize(self.first_name)
+        self.last_name = _sanitize(self.last_name)
+        self.organization = _sanitize(self.organization)
+        self.job_title = _sanitize(self.job_title)
+        self.bio = _sanitize(self.bio)
+        self.avatar_url = _sanitize_url(self.avatar_url)
+        if self.social_links:
+            self.social_links = {k: _sanitize_url(v) for k, v in self.social_links.items() if isinstance(v, str)}
+        if self.address:
+            self.address = {k: _sanitize(v) for k, v in self.address.items() if isinstance(v, str)}
+        if self.interests:
+            self.interests = [_sanitize(i) for i in self.interests if i]
+        return self
 
 
 class ChangePasswordRequest(BaseModel):
@@ -367,6 +463,7 @@ class MemberStatsResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     total: int
+    total_all: int = 0  # all users including inactive
     active: int
     pending: int
     lapsed: int

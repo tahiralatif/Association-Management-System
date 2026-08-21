@@ -12,6 +12,10 @@ import { NotificationCenter } from "@/components/notification-center";
 import { LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
 
+// Routes a super_admin may access (platform dashboard)
+const PLATFORM_ROUTES = ["/admin", "/admin/analytics", "/admin/organizations", "/admin/org-requests", "/admin/users"];
+
+// Routes association admin/staff may access
 const ADMIN_ROUTES = ["/dashboard", "/members", "/finances", "/events", "/communications", "/elections", "/documents", "/analytics", "/workflows", "/ai", "/integrations", "/marketing"];
 
 // Pages non-staff (member) users can access
@@ -23,12 +27,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const isDark = theme === "dark";
+  const isSuperAdmin = user?.roles?.includes("super_admin") ?? false;
 
   useEffect(() => {
-    if (!loading && user && !isStaff && !MEMBER_ROUTES.includes(pathname)) {
+    if (loading || !user) return;
+
+    // Super admin: redirect from association routes to /admin
+    if (isSuperAdmin && !PLATFORM_ROUTES.includes(pathname) && !MEMBER_ROUTES.includes(pathname)) {
+      router.replace("/admin");
+      return;
+    }
+
+    // Non-super-admin staff: redirect from platform routes to /dashboard
+    if (!isSuperAdmin && isStaff && PLATFORM_ROUTES.includes(pathname)) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    // Members: redirect from admin routes to /profile
+    if (!isStaff && !MEMBER_ROUTES.includes(pathname)) {
       router.replace("/profile");
     }
-  }, [loading, user, isStaff, pathname, router]);
+  }, [loading, user, isStaff, isSuperAdmin, pathname, router]);
 
   if (loading) {
     return (
@@ -95,6 +115,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <ThemeToggle />
             <NotificationCenter />
             <div className="flex items-center gap-3 pl-3 border-l border-slate-200/50">
+              {isSuperAdmin && (
+                <span className="text-[10px] bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2.5 py-1 rounded-full font-bold tracking-wide" style={{ boxShadow: '0 2px 8px rgba(99,102,241,0.3)' }}>
+                  PLATFORM
+                </span>
+              )}
               <div className="flex items-center justify-center w-9 h-9 rounded-xl text-white text-sm font-bold" style={{ background: isDark ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'linear-gradient(135deg, #0d9488, #065f46)', boxShadow: isDark ? '0 2px 10px rgba(59,130,246,0.3)' : '0 2px 10px rgba(13,148,136,0.3)' }}>
                 {(user?.email?.[0] || "U").toUpperCase()}
               </div>

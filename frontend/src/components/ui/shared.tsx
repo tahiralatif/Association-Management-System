@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 // ── Page Header ──────────────────────────────────────────────
@@ -115,10 +116,10 @@ export function ConfirmDialog({ open, onOpenChange, title, description, confirmT
   open: boolean; onOpenChange: (open: boolean) => void; title: string; description?: string; confirmText?: string; variant?: "destructive" | "default"; onConfirm: () => void; loading?: boolean;
 }) {
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-xl" onClick={() => onOpenChange(false)} />
-      <div className="relative bg-white rounded-2xl p-6 max-w-md w-full mx-4" style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)' }}>
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center" onClick={() => onOpenChange(false)}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-xl" />
+      <div className="relative z-10 bg-white rounded-2xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()} style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)' }}>
         <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl" style={{ background: 'linear-gradient(90deg, #0d9488, #065f46)' }} />
         <h3 className="text-lg font-bold text-slate-900">{title}</h3>
         {description && <p className="text-slate-500 mt-2 text-sm">{description}</p>}
@@ -129,7 +130,8 @@ export function ConfirmDialog({ open, onOpenChange, title, description, confirmT
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -139,10 +141,10 @@ export function Modal({ open, onOpenChange, title, children, maxWidth = "max-w-l
   open: boolean; onOpenChange: (open: boolean) => void; title: string; children: React.ReactNode; maxWidth?: string;
 }) {
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-xl" onClick={() => onOpenChange(false)} />
-      <div className={cn("relative bg-white rounded-2xl mx-4 max-h-[90vh] overflow-y-auto w-full", maxWidth)} style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)' }}>
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center" onClick={() => onOpenChange(false)}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-xl" />
+      <div className={cn("relative z-10 bg-white rounded-2xl mx-4 max-h-[90vh] overflow-y-auto w-full", maxWidth)} onClick={(e) => e.stopPropagation()} style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)' }}>
         <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl" style={{ background: 'linear-gradient(90deg, #0d9488, #065f46)' }} />
         <div className="flex items-center justify-between p-6 pb-0">
           <h3 className="text-lg font-bold text-slate-900">{title}</h3>
@@ -150,7 +152,8 @@ export function Modal({ open, onOpenChange, title, children, maxWidth = "max-w-l
         </div>
         <div className="p-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -243,8 +246,8 @@ const ACCENT_STYLES: Record<AccentColor, { gradient: string; iconBg: string; ico
   slate:  { gradient: "linear-gradient(90deg, #94a3b8, #cbd5e1)",  iconBg: "bg-slate-50",    iconText: "text-slate-500",    trendUp: "text-emerald-600", trendDown: "text-red-500" },
 };
 
-export function StatCard({ label, value, icon, trend, trendUp, accent = "slate", iconElement }: {
-  label: string; value: string | number; icon?: string; trend?: string; trendUp?: boolean; accent?: AccentColor; iconElement?: React.ReactNode;
+export function StatCard({ label, value, icon, trend, trendUp, accent = "slate", iconElement, subtitle }: {
+  label: string; value: string | number; icon?: string; trend?: string; trendUp?: boolean; accent?: AccentColor; iconElement?: React.ReactNode; subtitle?: string;
 }) {
   const styles = ACCENT_STYLES[accent] || ACCENT_STYLES.slate;
   return (
@@ -265,14 +268,17 @@ export function StatCard({ label, value, icon, trend, trendUp, accent = "slate",
           ) : null}
         </div>
         <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
-        {trend && (
+        {(subtitle || trend) && (
           <div className="flex items-center gap-1 mt-2">
-            {trendUp !== undefined && (
+            {subtitle && <span className="text-xs text-slate-400 font-medium">{subtitle}</span>}
+            {trend && trendUp !== undefined && (
               <span className={cn("text-xs font-bold", trendUp ? styles.trendUp : styles.trendDown)}>
-                {trendUp ? "↑" : "↓"}
+                {trendUp ? "↑" : "↓"} {trend}
               </span>
             )}
-            <span className="text-xs text-slate-400 font-medium">{trend}</span>
+            {trend && trendUp === undefined && (
+              <span className="text-xs text-slate-400 font-medium">{trend}</span>
+            )}
           </div>
         )}
       </div>

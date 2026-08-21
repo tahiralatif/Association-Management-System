@@ -373,42 +373,42 @@ def test_finances(client: APIClient, suite: TestSuite):
     """Finances module."""
 
     def list_invoices():
-        r = client.get("/finances/finances/invoices")
+        r = client.get("/finances/invoices")
         return r.status_code, r.status_code == 200
-    run_test(suite, "GET /finances/finances/invoices", "finances", list_invoices)
+    run_test(suite, "GET /finances/invoices", "finances", list_invoices)
 
     def invoice_stats():
-        r = client.get("/finances/finances/invoices/stats")
+        r = client.get("/finances/invoices/stats")
         return r.status_code, r.status_code == 200
-    run_test(suite, "GET /finances/finances/invoices/stats", "finances", invoice_stats)
+    run_test(suite, "GET /finances/invoices/stats", "finances", invoice_stats)
 
     def list_expenses():
-        r = client.get("/finances/finances/expenses")
+        r = client.get("/finances/expenses")
         return r.status_code, r.status_code == 200
-    run_test(suite, "GET /finances/finances/expenses", "finances", list_expenses)
+    run_test(suite, "GET /finances/expenses", "finances", list_expenses)
 
     def list_budgets():
-        r = client.get("/finances/finances/budgets")
+        r = client.get("/finances/budgets")
         return r.status_code, r.status_code == 200
-    run_test(suite, "GET /finances/finances/budgets", "finances", list_budgets)
+    run_test(suite, "GET /finances/budgets", "finances", list_budgets)
 
     def create_invoice():
-        r = client.post("/finances/finances/invoices", json={
+        r = client.post("/finances/invoices", json={
             "member_id": str(uuid.uuid4()),
             "line_items": [{"description": "E2E Test", "amount": 99.99}],
         })
         # 422 = validation error (member doesn't exist) — endpoint responds correctly
         return r.status_code, r.status_code in (200, 201, 422)
-    run_test(suite, "POST /finances/finances/invoices — create", "finances", create_invoice)
+    run_test(suite, "POST /finances/invoices — create", "finances", create_invoice)
 
     def create_expense():
-        r = client.post("/finances/finances/expenses", json={
+        r = client.post("/finances/expenses", json={
             "title": "E2E Test Expense",
             "amount": 50.00,
             "expense_date": "2026-07-29",
         })
         return r.status_code, r.status_code in (200, 201, 422)
-    run_test(suite, "POST /finances/finances/expenses — create", "finances", create_expense)
+    run_test(suite, "POST /finances/expenses — create", "finances", create_expense)
 
 
 def test_events(client: APIClient, suite: TestSuite):

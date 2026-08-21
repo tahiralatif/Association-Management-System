@@ -24,10 +24,11 @@ from app.core.auth import (
 from app.core.auth.permissions import get_permissions_for_roles
 from app.core.password import validate_password_strength, PasswordValidationError
 from app.core.audit import log_auth_event
+from app.config import settings
 from app.core.middleware.rate_limit import limiter
 
 router = APIRouter()
-BASE_URL = "https://ams.14.jugaar.ai"
+BASE_URL = settings.APP_BASE_URL
 
 
 # ── Schemas ──────────────────────────────────────────────────
@@ -63,12 +64,6 @@ class LoginRequest(BaseModel):
     password: str
     org_slug: str | None = None
     tenant_id: str | None = None
-
-    @model_validator(mode="after")
-    def require_org_or_tenant(cls, values):
-        if not values.org_slug and not values.tenant_id:
-            raise ValueError("Either org_slug or tenant_id is required")
-        return values
 
 
 class RefreshRequest(BaseModel):
@@ -346,6 +341,24 @@ async def login(req: LoginRequest, request: Request, background_tasks: Backgroun
         if not org:
             raise HTTPException(status_code=404, detail="Organization not found")
         tenant_id = org.tenant_id
+
+    # No org_slug — super_admin can log in without specifying an org
+    if not tenant_id:
+        fallback = await db.execute(
+            select(User).where(User.email == req.email)
+        )
+        for candidate in fallback.scalars().all():
+            roles = candidate.roles or []
+            if isinstance(roles, str):
+                import json as _json
+                try:
+                    roles = _json.loads(roles)
+                except Exception:
+                    roles = []
+            if isinstance(roles, list) and "super_admin" in roles:
+                tenant_id = candidate.tenant_id
+                break
+
     if not tenant_id:
         raise HTTPException(status_code=422, detail="Either org_slug or tenant_id is required")
 
@@ -353,6 +366,25 @@ async def login(req: LoginRequest, request: Request, background_tasks: Backgroun
         select(User).where(User.email == req.email, User.tenant_id == tenant_id)
     )
     user = result.scalar_one_or_none()
+
+    # Super admin fallback: if user not found in this tenant, check if they're a
+    # super_admin in any tenant (handles cross-tenant super_admin login)
+    if not user:
+        fallback = await db.execute(
+            select(User).where(User.email == req.email)
+        )
+        for candidate in fallback.scalars().all():
+            roles = candidate.roles or []
+            if isinstance(roles, str):
+                import json as _json
+                try:
+                    roles = _json.loads(roles)
+                except Exception:
+                    roles = []
+            if isinstance(roles, list) and "super_admin" in roles:
+                user = candidate
+                tenant_id = candidate.tenant_id
+                break
 
     if not user or not verify_password(req.password, user.hashed_password):
         if user:

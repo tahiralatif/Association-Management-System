@@ -193,18 +193,29 @@ async def update_member_profile(
 
 
 async def get_member_stats(db: AsyncSession, tenant_id: str) -> dict:
-    """Get comprehensive member statistics."""
+    """Get member statistics — counts from users (same base as list_members).
+    
+    Total/active count from User records (is_active=true) so it matches
+    the member list. Profile-based counts (lapsed, suspended, etc.) are
+    kept for visibility into non-active members.
+    """
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
-    # Total (active only — deleted/inactive members excluded)
+    # Total active users (matches list_members which filters is_active=True)
     total = await db.execute(
-        select(func.count()).select_from(MemberProfile).where(
-            MemberProfile.tenant_id == tenant_id,
-            MemberProfile.status == "active",
+        select(func.count()).select_from(User).where(
+            User.tenant_id == tenant_id, User.is_active == True,
         )
     )
 
-    # By status
+    # All users (including inactive) for reference
+    total_all = await db.execute(
+        select(func.count()).select_from(User).where(
+            User.tenant_id == tenant_id,
+        )
+    )
+
+    # Profile-based status breakdown (for lapsed/suspended visibility)
     status_counts = await db.execute(
         select(MemberProfile.status, func.count())
         .where(MemberProfile.tenant_id == tenant_id)
@@ -218,11 +229,11 @@ async def get_member_stats(db: AsyncSession, tenant_id: str) -> dict:
         .group_by(MemberProfile.tier)
     )
 
-    # Recent joins
+    # Recent joins (active users created in last 30 days)
     recent = await db.execute(
         select(func.count())
-        .select_from(MemberProfile)
-        .where(MemberProfile.tenant_id == tenant_id, MemberProfile.joined_at >= thirty_days_ago)
+        .select_from(User)
+        .where(User.tenant_id == tenant_id, User.is_active == True, User.created_at >= thirty_days_ago)
     )
 
     # Average engagement
@@ -252,9 +263,15 @@ async def get_member_stats(db: AsyncSession, tenant_id: str) -> dict:
     for s, c in status_counts.all():
         key = s.value.lower() if hasattr(s, 'value') else str(s).lower()
         status_map[key] = c
+
+    # Extract scalar values before returning (result objects can only be consumed once)
+    total_count = total.scalar() or 0
+    total_all_count = total_all.scalar() or 0
+
     return {
-        "total": total.scalar() or 0,
-        "active": status_map.get("active", 0),
+        "total": total_count,
+        "total_all": total_all_count,
+        "active": total_count,
         "pending": status_map.get("pending", 0),
         "lapsed": status_map.get("lapsed", 0),
         "cancelled": status_map.get("cancelled", 0),

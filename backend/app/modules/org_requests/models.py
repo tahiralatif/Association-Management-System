@@ -31,7 +31,11 @@ class OrganizationRequest(Base):
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     website: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    linkedin_profile: Mapped[str | None] = mapped_column(String(512), nullable=True)
     expected_members: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    # Email verification
+    email_verified: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     # Status
     status: Mapped[str] = mapped_column(

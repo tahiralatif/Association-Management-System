@@ -146,6 +146,7 @@ class RoleChecker:
 
 
 # Pre-defined role checkers
+require_super_admin = RoleChecker(["super_admin"])
 require_admin = RoleChecker(["super_admin", "tenant_admin"])
 require_staff = RoleChecker(["super_admin", "tenant_admin", "staff"])
 require_member = RoleChecker(["super_admin", "tenant_admin", "staff", "member"])

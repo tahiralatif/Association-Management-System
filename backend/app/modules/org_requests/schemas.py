@@ -14,6 +14,7 @@ class OrgRequestCreate(BaseModel):
     phone: str | None = Field(None, max_length=64)
     description: str | None = None
     website: str | None = None
+    linkedin_profile: str | None = None
     expected_members: str | None = None
 
 
@@ -36,7 +37,9 @@ class OrgRequestResponse(BaseModel):
     phone: str | None = None
     description: str | None = None
     website: str | None = None
+    linkedin_profile: str | None = None
     expected_members: str | None = None
+    email_verified: bool = False
     status: str
     rejection_reason: str | None = None
     tenant_id: str | None = None

@@ -22,6 +22,9 @@ import {
   CalendarCheck,
   Tag,
   Building,
+  Globe,
+  ClipboardList,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -53,7 +56,7 @@ const memberNavItems: NavItem[] = [
   { title: "My Events", href: "/my-events", icon: CalendarCheck },
 ];
 
-const navItems: NavItem[] = [
+const associationNavItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Members", href: "/members", icon: Users, permission: "members:read" },
   { title: "Finances", href: "/finances", icon: DollarSign, permission: "finances:read" },
@@ -66,20 +69,38 @@ const navItems: NavItem[] = [
   { title: "AI Engine", href: "/ai", icon: Brain, permission: "ai:chat" },
   { title: "Integrations", href: "/integrations", icon: Plug, permission: "integrations:read" },
   { title: "Discount Codes", href: "/discount-codes", icon: Tag, permission: "finances:write" },
-  { title: "Marketing Page", href: "/marketing", icon: Megaphone, badge: "NEW" },
+
+  { title: "My Org Profile", href: "/dashboard/org-profile", icon: Globe },
   { title: "Documentation", href: "https://tahiralatif.github.io/Association-Management-System/", icon: BookOpen, external: true },
+];
+
+const platformNavItems: NavItem[] = [
+  { title: "Overview", href: "/admin", icon: Globe },
+  { title: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+  { title: "Organizations", href: "/admin/organizations", icon: Building },
+  { title: "Org Requests", href: "/admin/org-requests", icon: ClipboardList },
+  { title: "Platform Users", href: "/admin/users", icon: Shield },
+  { title: "Marketing Page", href: "/marketing", icon: Megaphone },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, hasPermission } = useAuth();
+  const isSuperAdmin = user?.roles?.includes("super_admin") ?? false;
+  const isMember = !user?.roles?.some(r => ["super_admin", "tenant_admin", "staff"].includes(r));
 
-  const visibleNavItems = navItems.filter(item => {
+  // Determine which nav set to show
+  const visibleAssociationItems = associationNavItems.filter(item => {
     if (!item.permission) return true;
     return hasPermission(item.permission);
   });
 
-  const hasAdminItems = visibleNavItems.length > 0;
+  const showMemberNav = isMember;
+  const showAssociationNav = !isSuperAdmin && !isMember && visibleAssociationItems.length > 0;
+  const showPlatformNav = isSuperAdmin;
+
+  // Member role: show member nav + platform link for super_admin fallback
+  const showMemberPlusPlatform = isMember && isSuperAdmin;
 
   return (
     <Sidebar collapsible="icon">
@@ -92,48 +113,87 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {/* Member self-service */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-bold px-3 mt-2">
-            My Account
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {memberNavItems.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      render={<Link href={item.href} />}
-                      isActive={isActive}
-                      tooltip={item.title}
-                      className={cn(
-                        "rounded-xl transition-all duration-200 mx-1.5 mb-0.5",
-                        isActive
-                          ? "bg-gradient-to-r from-teal-50 to-teal-50/50 text-[#0d9488] font-semibold relative"
-                          : "hover:bg-slate-50 text-slate-600 hover:text-slate-900"
-                      )}
-                    >
-                      {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[60%] rounded-r-full" style={{ background: 'linear-gradient(180deg, #0d9488, #14b8a6)', boxShadow: '0 0 8px rgba(13,148,136,0.4)' }} />}
-                      <item.icon className={cn("h-4 w-4", isActive ? "text-[#0d9488]" : "text-slate-400")} />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* ── Super Admin: Platform navigation ── */}
+        {showPlatformNav && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-bold px-3 mt-2">
+              Platform Admin
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {platformNavItems.map((item) => {
+                  const isActive = item.href === "/admin"
+                    ? pathname === "/admin"
+                    : pathname.startsWith(item.href);
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        render={<Link href={item.href} />}
+                        isActive={isActive}
+                        tooltip={item.title}
+                        className={cn(
+                          "rounded-xl transition-all duration-200 mx-1.5 mb-0.5",
+                          isActive
+                            ? "bg-gradient-to-r from-teal-50 to-teal-50/50 text-[#0d9488] font-semibold relative"
+                            : "hover:bg-slate-50 text-slate-600 hover:text-slate-900"
+                        )}
+                      >
+                        {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[60%] rounded-r-full" style={{ background: 'linear-gradient(180deg, #0d9488, #14b8a6)', boxShadow: '0 0 8px rgba(13,148,136,0.4)' }} />}
+                        <item.icon className={cn("h-4 w-4", isActive ? "text-[#0d9488]" : "text-slate-400")} />
+                        <span>{item.title}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        {/* Admin sections */}
-        {hasAdminItems && (
+        {/* ── Member self-service ── */}
+        {showMemberNav && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-bold px-3 mt-2">
+              My Account
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {memberNavItems.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        render={<Link href={item.href} />}
+                        isActive={isActive}
+                        tooltip={item.title}
+                        className={cn(
+                          "rounded-xl transition-all duration-200 mx-1.5 mb-0.5",
+                          isActive
+                            ? "bg-gradient-to-r from-teal-50 to-teal-50/50 text-[#0d9488] font-semibold relative"
+                            : "hover:bg-slate-50 text-slate-600 hover:text-slate-900"
+                        )}
+                      >
+                        {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[60%] rounded-r-full" style={{ background: 'linear-gradient(180deg, #0d9488, #14b8a6)', boxShadow: '0 0 8px rgba(13,148,136,0.4)' }} />}
+                        <item.icon className={cn("h-4 w-4", isActive ? "text-[#0d9488]" : "text-slate-400")} />
+                        <span>{item.title}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* ── Association Admin / Staff: Management navigation ── */}
+        {showAssociationNav && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-bold px-3 mt-2">
               Management
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {visibleNavItems.map((item) => {
+                {visibleAssociationItems.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                   const isExternal = item.external;
                   return (
@@ -165,36 +225,6 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
-
-        {/* Platform admin (super_admin only) */}
-        {user?.roles?.includes("super_admin") && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-bold px-3 mt-2">
-              Platform
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<Link href="/admin/org-requests" />}
-                    isActive={pathname.startsWith("/admin/org-requests")}
-                    tooltip="Org Requests"
-                    className={cn(
-                      "rounded-xl transition-all duration-200 mx-1.5 mb-0.5",
-                      pathname.startsWith("/admin/org-requests")
-                        ? "bg-gradient-to-r from-teal-50 to-teal-50/50 text-[#0d9488] font-semibold relative"
-                        : "hover:bg-slate-50 text-slate-600 hover:text-slate-900"
-                    )}
-                  >
-                    {pathname.startsWith("/admin/org-requests") && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[60%] rounded-r-full" style={{ background: 'linear-gradient(180deg, #0d9488, #14b8a6)', boxShadow: '0 0 8px rgba(13,148,136,0.4)' }} />}
-                    <Building className={cn("h-4 w-4", pathname.startsWith("/admin/org-requests") ? "text-[#0d9488]" : "text-slate-400")} />
-                    <span>Org Requests</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
       <SidebarFooter>
         <div className="px-3 py-3 border-t border-slate-100">
@@ -204,7 +234,9 @@ export function AppSidebar() {
             </div>
             <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
               <p className="text-xs font-semibold text-slate-700 truncate">{user?.email || "User"}</p>
-              <p className="text-[10px] text-slate-400 truncate">{user?.tenant_id || "Default"}</p>
+              <p className="text-[10px] text-slate-400 truncate">
+                {isSuperAdmin ? "Platform Admin" : user?.tenant_id || "Default"}
+              </p>
             </div>
           </div>
         </div>

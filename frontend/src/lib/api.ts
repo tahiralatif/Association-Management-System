@@ -873,11 +873,13 @@ async function fetchMe(token: string): Promise<MeResponse> {
 export async function login(
   email: string,
   password: string,
-  org_slug: string
+  org_slug?: string
 ): Promise<LoginResponse> {
+  const body: Record<string, string> = { email, password };
+  if (org_slug) body.org_slug = org_slug;
   const data = await apiFetch<LoginResponse>("/api/v1/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password, org_slug }),
+    body: JSON.stringify(body),
   });
 
   setToken(data.access_token);
@@ -937,7 +939,9 @@ export interface OrgRequest {
   phone?: string;
   description?: string;
   website?: string;
+  linkedin_profile?: string;
   expected_members?: string;
+  email_verified: boolean;
   status: string;
   rejection_reason?: string;
   tenant_id?: string;
@@ -955,12 +959,17 @@ export async function submitOrgRequest(data: {
   phone?: string;
   description?: string;
   website?: string;
+  linkedin_profile?: string;
   expected_members?: string;
 }): Promise<{ id: string; org_name: string; status: string; message: string }> {
   return apiFetch("/api/v1/org-requests", {
     method: "POST",
     body: JSON.stringify(data),
   });
+}
+
+export async function verifyOrgEmail(token: string): Promise<{ message: string; org_name: string; already_verified: boolean }> {
+  return apiFetch(`/api/v1/org-requests/verify-email/${token}`);
 }
 
 export async function listOrgRequests(params?: {
@@ -983,5 +992,136 @@ export async function rejectOrgRequest(id: string, reason: string): Promise<OrgR
   return apiFetch(`/api/v1/org-requests/${id}/reject`, {
     method: "PATCH",
     body: JSON.stringify({ reason }),
+  });
+}
+
+// ── Platform Admin ───────────────────────────────────────────────────
+
+export interface PlatformStats {
+  total_organizations: number;
+  active_organizations: number;
+  total_users: number;
+  total_admins: number;
+  total_members: number;
+  pending_requests: number;
+  approved_requests: number;
+  rejected_requests: number;
+  total_requests: number;
+  active_users: number;
+  inactive_users: number;
+  avg_members_per_org: number;
+}
+
+export interface OrgSummary {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  tenant_id: string;
+  user_count: number;
+  admin_email: string | null;
+}
+
+export interface PlatformUser {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  roles: string[];
+  tenant_id: string;
+  is_active: boolean;
+  email_verified: boolean;
+}
+
+export async function getPlatformStats(): Promise<PlatformStats> {
+  return apiFetch("/api/v1/admin/stats");
+}
+
+export async function listAllOrganizations(params?: {
+  page?: number;
+  per_page?: number;
+}): Promise<OrgSummary[]> {
+  const qs = new URLSearchParams();
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.per_page) qs.set("per_page", String(params.per_page));
+  return apiFetch(`/api/v1/admin/organizations?${qs}`);
+}
+
+export async function listAllUsers(params?: {
+  page?: number;
+  per_page?: number;
+}): Promise<PlatformUser[]> {
+  const qs = new URLSearchParams();
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.per_page) qs.set("per_page", String(params.per_page));
+  return apiFetch(`/api/v1/admin/users?${qs}`);
+}
+
+export interface TimeSeriesPoint {
+  label: string;
+  users: number;
+  cum_users: number;
+  organizations: number;
+  cum_organizations: number;
+  requests: number;
+  approved: number;
+  pending: number;
+  rejected: number;
+  active_users: number;
+}
+
+export interface PlatformAnalytics {
+  time_series: TimeSeriesPoint[];
+  requests_by_status: Record<string, number>;
+  users_by_role: Record<string, number>;
+  top_organizations: { name: string; slug: string; users: number }[];
+  org_size_distribution: { range: string; count: number }[];
+  monthly_summary: {
+    new_users_this_month: number;
+    new_users_last_month: number;
+    approved_this_month: number;
+    approved_last_month: number;
+  };
+}
+
+export async function getPlatformAnalytics(months?: number): Promise<PlatformAnalytics> {
+  const qs = months ? `?months=${months}` : "";
+  return apiFetch(`/api/v1/admin/analytics${qs}`);
+}
+
+// ── Organization Public Profile ──────────────────────────────────────
+
+export interface OrgProfile {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  logo_url: string | null;
+  website: string | null;
+  contact_email: string | null;
+  tagline: string | null;
+  phone: string | null;
+  address: string | null;
+  hero_image: string | null;
+  about_html: string | null;
+  social_links: Record<string, string>;
+  join_cta_text: string;
+  join_cta_url: string;
+  created_at: string | null;
+}
+
+export async function getOrgProfile(slug: string): Promise<OrgProfile> {
+  return apiFetch(`/api/v1/organizations/by-slug/${slug}`);
+}
+
+export async function getMyOrgProfile(): Promise<OrgProfile> {
+  return apiFetch(`/api/v1/organizations/my-profile`);
+}
+
+export async function updateMyOrgProfile(data: Partial<OrgProfile>): Promise<{ message: string; slug: string; public_url: string }> {
+  return apiFetch(`/api/v1/organizations/my-profile`, {
+    method: "PUT",
+    body: JSON.stringify(data),
   });
 }

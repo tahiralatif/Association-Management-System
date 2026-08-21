@@ -1,10 +1,11 @@
-"""Organization Request routes — public submission + admin review."""
+"""Organization Request routes — email verification + admin review."""
 
 import asyncio
+import json
 import logging
 import re
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_admin, TokenPayload
 from app.core.auth import hash_password
+from app.config import settings
 from app.modules.org_requests.models import OrganizationRequest, PENDING, APPROVED, REJECTED
 from app.modules.communications.models import Notification
 from app.modules.org_requests.schemas import (
@@ -29,16 +31,13 @@ from app.modules.org_requests.schemas import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-BASE_URL = "https://ams.14.jugaar.ai"
+BASE_URL = settings.APP_BASE_URL
 
 
 # ── Email Retry Helper ────────────────────────────────────────
 
 async def send_email_with_retry(to: str, subject: str, html_body: str, tenant_id: str, db: AsyncSession, max_retries: int = 3) -> bool:
-    """Send email with retry and exponential backoff.
-
-    Returns True if email sent successfully, False after all retries exhausted.
-    """
+    """Send email with retry and exponential backoff."""
     from app.core.email.service import send_email
     for attempt in range(max_retries):
         try:
@@ -54,7 +53,7 @@ async def send_email_with_retry(to: str, subject: str, html_body: str, tenant_id
                 await email_db.commit()
             return True
         except Exception as e:
-            delay = 2 ** attempt  # exponential backoff: 1s, 2s, 4s
+            delay = 2 ** attempt
             logger.warning(f"Email send attempt {attempt + 1}/{max_retries} failed to {to}: {e}. Retrying in {delay}s...")
             if attempt < max_retries - 1:
                 await asyncio.sleep(delay)
@@ -62,7 +61,37 @@ async def send_email_with_retry(to: str, subject: str, html_body: str, tenant_id
     return False
 
 
-# ── Public: Submit a request ─────────────────────────────────
+# ── Email Verification Token ─────────────────────────────────
+
+def create_verification_token(data: dict) -> str:
+    """Create a JWT token for email verification (24h expiry)."""
+    from jose import jwt
+    payload = {
+        **data,
+        "purpose": "org_request_verification",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24),
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def decode_verification_token(token: str) -> dict | None:
+    """Decode and validate a verification token. Returns None if invalid/expired."""
+    from jose import jwt, JWTError, ExpiredSignatureError
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        if payload.get("purpose") != "org_request_verification":
+            return None
+        return payload
+    except ExpiredSignatureError:
+        logger.warning("Verification token expired")
+        return None
+    except JWTError as e:
+        logger.warning(f"Invalid verification token: {e}")
+        return None
+
+
+# ── Public: Submit a request (sends verification email) ──────
 
 @router.post("", response_model=OrgRequestCreatedResponse, status_code=status.HTTP_201_CREATED)
 async def submit_org_request(
@@ -71,21 +100,25 @@ async def submit_org_request(
 ):
     """Public endpoint: submit a new organization registration request.
 
-    Creates a pending request. No tenant or user account is created until approved.
+    Instead of immediately creating a pending request, we:
+    1. Create the request with status='email_pending' and email_verified=False
+    2. Send a verification email with a unique token link
+    3. The request enters the admin pending queue only after email confirmation
     """
-    # Check for duplicate pending request by email
+    # Check for duplicate pending or email_pending request by email
     existing = await db.execute(
         select(OrganizationRequest).where(
-            OrganizationRequest.contact_email == data.contact_email,
-            OrganizationRequest.status == PENDING,
+            OrganizationRequest.contact_email == data.contact_email.lower().strip(),
+            OrganizationRequest.status.in_([PENDING, "email_pending"]),
         )
     )
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=409,
-            detail="You already have a pending request. We will review it shortly.",
+            detail="You already have a pending request. Please check your email or contact support.",
         )
 
+    # Create request in email_pending state (not yet visible to admins)
     request = OrganizationRequest(
         org_name=data.org_name.strip(),
         contact_person=data.contact_person.strip(),
@@ -93,28 +126,136 @@ async def submit_org_request(
         phone=data.phone.strip() if data.phone else None,
         description=data.description,
         website=data.website,
+        linkedin_profile=data.linkedin_profile,
         expected_members=data.expected_members,
-        status=PENDING,
+        status="email_pending",
+        email_verified=False,
     )
     db.add(request)
     await db.flush()
 
-    # Notify platform admin
+    # Create verification token with all form data
+    token = create_verification_token({
+        "request_id": str(request.id),
+        "email": request.contact_email,
+        "org_name": request.org_name,
+        "contact_person": request.contact_person,
+    })
+
+    # Send verification email
+    verify_url = f"{BASE_URL}/verify-email?token={token}"
+    org_name_escaped = request.org_name.replace("<", "&lt;").replace(">", "&gt;")
+    contact_name_escaped = request.contact_person.replace("<", "&lt;").replace(">", "&gt;")
+
     try:
         await send_email_with_retry(
-            to="tahira@jugaar.ai",
-            subject=f"New Organization Request: {data.org_name}",
+            to=request.contact_email,
+            subject=f"Verify your email — {org_name_escaped} Registration",
+            html_body=f"""
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <div style="display: inline-block; width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #0d9488, #065f46); line-height: 48px; color: white; font-size: 24px; font-weight: bold;">A</div>
+                    </div>
+                    <h2 style="color: #1e293b; text-align: center;">Verify Your Email Address</h2>
+                    <p style="color: #475569; font-size: 15px;">Hi {contact_name_escaped},</p>
+                    <p style="color: #475569; font-size: 15px;">
+                        Thank you for registering <strong>{org_name_escaped}</strong> on AssocHub.
+                        To continue with your registration, please verify your email address by clicking the button below:
+                    </p>
+                    <div style="text-align: center; margin: 32px 0;">
+                        <a href="{verify_url}" style="display: inline-block; padding: 14px 32px; background-color: #0d9488; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                            ✉️ Verify My Email
+                        </a>
+                    </div>
+                    <p style="color: #94a3b8; font-size: 13px; text-align: center;">
+                        This link expires in 24 hours.
+                    </p>
+                    <p style="color: #64748b; font-size: 14px;">
+                        If the button doesn't work, copy and paste this link into your browser:
+                    </p>
+                    <p style="color: #0d9488; font-size: 13px; word-break: break-all; background: #f0fdfa; padding: 8px 12px; border-radius: 6px;">{verify_url}</p>
+                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
+                    <p style="color: #94a3b8; font-size: 12px; text-align: center;">
+                        If you didn't request this registration, you can safely ignore this email.
+                    </p>
+                    <p style="color: #94a3b8; font-size: 12px; text-align: center;">
+                        AssocHub — Open Source Association Management
+                    </p>
+                </div>
+                """,
+            tenant_id="platform",
+            db=db,
+        )
+    except Exception as e:
+        logger.error(f"Failed to send verification email to {request.contact_email}: {e}")
+
+    return OrgRequestCreatedResponse(
+        id=request.id,
+        org_name=request.org_name,
+        status="email_pending",
+        message="Please check your email to verify your address. Your request will be submitted to our review team after verification.",
+    )
+
+
+# ── Public: Verify email via token ───────────────────────────
+
+@router.get("/verify-email/{token}")
+async def verify_email(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Public endpoint: verify email and activate the org request.
+
+    Decodes the verification token, marks the request as email_verified,
+    changes status from 'email_pending' to 'pending', and notifies admins.
+    """
+    payload = decode_verification_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired verification link. Please submit your registration again.",
+        )
+
+    request_id = payload.get("request_id")
+    if not request_id:
+        raise HTTPException(status_code=400, detail="Invalid verification token")
+
+    result = await db.execute(
+        select(OrganizationRequest).where(OrganizationRequest.id == request_id)
+    )
+    req = result.scalar_one_or_none()
+    if not req:
+        raise HTTPException(status_code=404, detail="Registration request not found")
+
+    if req.email_verified:
+        return {"message": "Email already verified", "org_name": req.org_name, "already_verified": True}
+
+    if req.status != "email_pending":
+        raise HTTPException(status_code=400, detail="This request has already been processed")
+
+    # Verify and promote to pending
+    req.email_verified = True
+    req.status = PENDING
+    await db.flush()
+
+    # ── Notify platform admin ──
+    try:
+        await send_email_with_retry(
+            to=settings.ADMIN_NOTIFICATION_EMAIL,
+            subject=f"New Organization Request: {req.org_name} ✓ (email verified)",
             html_body=f"""
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                     <h2 style="color: #0d9488;">New Organization Request</h2>
-                    <p>A new association has requested to join AssocHub.</p>
+                    <p>A new association has requested to join AssocHub. <strong style="color: #059669;">✓ Email verified</strong></p>
                     <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-                        <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Association:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{data.org_name}</td></tr>
-                        <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Contact:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{data.contact_person}</td></tr>
-                        <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Email:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{data.contact_email}</td></tr>
-                        <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Expected members:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{data.expected_members or 'Not specified'}</td></tr>
+                        <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Association:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{req.org_name}</td></tr>
+                        <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Contact:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{req.contact_person}</td></tr>
+                        <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Email:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{req.contact_email}</td></tr>
+                        <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Expected members:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{req.expected_members or 'Not specified'}</td></tr>
+                        {f'<tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Website:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{req.website}</td></tr>' if req.website else ''}
+                        {f'<tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">LinkedIn:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{req.linkedin_profile}</td></tr>' if req.linkedin_profile else ''}
                     </table>
-                    {f'<p><strong>Description:</strong> {data.description}</p>' if data.description else ''}
+                    {f'<p><strong>Description:</strong> {req.description}</p>' if req.description else ''}
                     <p style="margin-top: 20px;">
                         <a href="{BASE_URL}/admin/org-requests" style="display: inline-block; padding: 12px 24px; background-color: #0d9488; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
                             Review Request
@@ -126,50 +267,35 @@ async def submit_org_request(
             db=db,
         )
     except Exception as e:
-        logger.error(f"Failed to send admin notification for org request: {e}")
+        logger.error(f"Failed to send admin notification for verified org request: {e}")
 
-    # Create in-app notifications for all super_admin users
+    # Create in-app notifications for super_admin users
     try:
         from app.modules.members.models import User
-        from sqlalchemy import cast, String
-        # Roles is JSON — find users with super_admin in their roles array
-        admins_result = await db.execute(
-            select(User).where(User.is_active == True)
-        )
+        admins_result = await db.execute(select(User).where(User.is_active == True))
         all_users = admins_result.scalars().all()
-        super_admins = []
         for u in all_users:
             roles = u.roles or []
-            # Handle both list and string representations
             if isinstance(roles, str):
-                import json
                 try:
                     roles = json.loads(roles)
                 except (json.JSONDecodeError, TypeError):
                     roles = []
             if isinstance(roles, list) and "super_admin" in roles:
-                super_admins.append(u)
-
-        for admin in super_admins:
-            notif = Notification(
-                tenant_id=admin.tenant_id or "platform",
-                user_id=admin.id,
-                title="New Organization Request",
-                message=f"{data.org_name} ({data.contact_person}) has requested to join AssocHub.",
-                link="/admin/org-requests",
-                notification_type="system",
-            )
-            db.add(notif)
+                notif = Notification(
+                    tenant_id=u.tenant_id or "platform",
+                    user_id=u.id,
+                    title="New Organization Request (Email Verified)",
+                    message=f"{req.org_name} ({req.contact_person}) has verified their email and submitted a request to join AssocHub.",
+                    link="/admin/org-requests",
+                    notification_type="system",
+                )
+                db.add(notif)
         await db.flush()
-        logger.info(f"Created in-app notifications for {len(super_admins)} admin(s) re: {data.org_name}")
     except Exception as e:
-        logger.error(f"Failed to create in-app notifications for org request: {e}")
+        logger.error(f"Failed to create in-app notifications for verified org request: {e}")
 
-    return OrgRequestCreatedResponse(
-        id=request.id,
-        org_name=request.org_name,
-        status=request.status,
-    )
+    return {"message": "Email verified successfully", "org_name": req.org_name, "already_verified": False}
 
 
 # ── Admin: List all requests ─────────────────────────────────
@@ -236,13 +362,7 @@ async def approve_org_request(
     user: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Admin endpoint: approve an org request.
-
-    Creates:
-    1. Organization record in the organizations table
-    2. A setup token for the contact person to create their admin account
-    3. Sends a magic setup link email to the contact
-    """
+    """Admin endpoint: approve an org request."""
     result = await db.execute(
         select(OrganizationRequest).where(OrganizationRequest.id == request_id)
     )
@@ -257,7 +377,6 @@ async def approve_org_request(
     slug = re.sub(r'[^a-z0-9]+', '-', req.org_name.lower().strip()).strip('-')
     slug = slug[:64]
 
-    # Ensure uniqueness
     from app.modules.organizations.models import Organization
     existing_org = await db.execute(
         select(Organization).where(Organization.slug == slug)
@@ -354,7 +473,7 @@ async def reject_org_request(
     await db.flush()
     await db.refresh(req)
 
-    # Send rejection email to the requester
+    # Send rejection email
     try:
         contact_name_escaped = req.contact_person.replace("<", "&lt;").replace(">", "&gt;")
         org_name_escaped = req.org_name.replace("<", "&lt;").replace(">", "&gt;")
@@ -381,17 +500,14 @@ async def reject_org_request(
     except Exception as e:
         logger.error(f"Failed to send rejection email to {req.contact_email}: {e}")
 
-    # Create in-app notification for admins
+    # In-app notifications
     try:
         from app.modules.members.models import User as UserModel
-        admins_result = await db.execute(
-            select(UserModel).where(UserModel.is_active == True)
-        )
+        admins_result = await db.execute(select(UserModel).where(UserModel.is_active == True))
         all_users = admins_result.scalars().all()
         for u in all_users:
             roles = u.roles or []
             if isinstance(roles, str):
-                import json
                 try:
                     roles = json.loads(roles)
                 except (json.JSONDecodeError, TypeError):
@@ -446,10 +562,7 @@ async def setup_admin_account(
     data: OrgRequestSetupPassword,
     db: AsyncSession = Depends(get_db),
 ):
-    """Public endpoint: complete admin account setup via magic link.
-
-    Creates the admin user for the new tenant and marks the setup token as used.
-    """
+    """Public endpoint: complete admin account setup via magic link."""
     result = await db.execute(
         select(OrganizationRequest).where(
             OrganizationRequest.setup_token == token,
@@ -464,7 +577,6 @@ async def setup_admin_account(
     if not req.tenant_id:
         raise HTTPException(status_code=500, detail="Tenant not yet created. Please contact support.")
 
-    # Create the admin user
     from app.modules.members.models import User, MemberProfile, MemberStatus
 
     existing_user = await db.execute(
@@ -493,7 +605,6 @@ async def setup_admin_account(
     db.add(user)
     await db.flush()
 
-    # Create member profile
     import uuid
     from datetime import timedelta
     member_number = f"MEM-{uuid.uuid4().hex[:8].upper()}"
@@ -509,7 +620,6 @@ async def setup_admin_account(
     db.add(profile)
     await db.flush()
 
-    # Mark token as used
     req.setup_token_used = True
     await db.flush()
 

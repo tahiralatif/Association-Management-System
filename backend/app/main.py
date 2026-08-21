@@ -32,6 +32,7 @@ from app.modules.integrations.router import router as integrations_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.organizations.router import router as organizations_router
 from app.modules.org_requests.router import router as org_requests_router
+from app.modules.admin.router import router as admin_router
 
 
 @asynccontextmanager
@@ -82,6 +83,8 @@ def create_app() -> FastAPI:
     # Rate limiter
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    from slowapi.middleware import SlowAPIMiddleware
+    app.add_middleware(SlowAPIMiddleware)
 
     # CORS — restrictive defaults for production
     allowed_origins = settings.CORS_ORIGINS
@@ -122,6 +125,7 @@ def create_app() -> FastAPI:
     app.include_router(notifications_router, prefix="/api/v1/notifications", tags=["Notifications"])
     app.include_router(organizations_router, prefix="/api/v1/organizations", tags=["Organizations"])
     app.include_router(org_requests_router, prefix="/api/v1/org-requests", tags=["Organization Requests"])
+    app.include_router(admin_router, prefix="/api/v1/admin", tags=["Platform Admin"])
 
     return app
 

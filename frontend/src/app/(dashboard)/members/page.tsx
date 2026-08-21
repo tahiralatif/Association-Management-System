@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { apiFetch, type PaginatedResponse } from "@/lib/api";
+import { apiFetch, API_BASE, type PaginatedResponse } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import {
   PageHeader, StatusBadge, DataTable, Pagination, SearchInput,
@@ -57,7 +57,8 @@ interface Member {
 }
 
 interface MemberStats {
-  total: number;
+  total: number;       // active members (matches list)
+  total_all?: number;   // all members including inactive
   active: number;
   pending: number;
   lapsed: number;
@@ -89,10 +90,26 @@ export default function MembersPage() {
   const [tab, setTab] = useState("list");
   const [members, setMembers] = useState<Member[]>([]);
   const [stats, setStats] = useState<MemberStats | null>(null);
+
+  // Authenticated CSV download helper — uses API_BASE to hit the backend directly
+  async function downloadCsv(url: string, filename: string) {
+    const { getToken } = await import("@/lib/api");
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}${url}`, { headers });
+    if (!res.ok) throw new Error("Export failed");
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl; a.download = filename; a.click();
+    URL.revokeObjectURL(blobUrl);
+  }
   const [groups, setGroups] = useState<Group[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const perPage = 20;
@@ -131,12 +148,13 @@ export default function MembersPage() {
     try {
       const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
       if (search) params.set("search", search);
+      if (statusFilter) params.set("status", statusFilter);
       const r = await apiFetch<PaginatedResponse<Member>>(`/api/v1/members/?${params}`);
       setMembers(r.items || []);
       setTotal(r.total || 0);
     } catch (e: any) { toast.error(e.message || "Failed to load members"); }
     finally { setLoading(false); }
-  }, [page, search]);
+  }, [page, search, statusFilter]);
 
   const loadStats = useCallback(async () => {
     try { setStats(await apiFetch<MemberStats>("/api/v1/members/stats")); }
@@ -266,7 +284,7 @@ export default function MembersPage() {
         await handleBulkDelete(selectedIds);
         return; // handleBulkDelete already clears selection and reloads
       } else if (bulkAction === "export") {
-        window.open("/api/v1/members/export/csv", "_blank");
+        downloadCsv("/api/v1/members/export/csv", "members.csv");
       }
       toast.success(`Bulk ${bulkAction} completed`);
       setSelectedIds([]);
@@ -299,7 +317,7 @@ export default function MembersPage() {
             <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               <UserPlus className="h-4 w-4" /> Add Member
             </button>
-            <button onClick={() => window.open("/api/v1/members/export/csv", "_blank")} className="flex items-center gap-2 border px-4 py-2 rounded-lg hover:bg-gray-50 text-sm">
+            <button onClick={() => downloadCsv("/api/v1/members/export/csv", "members.csv")} className="flex items-center gap-2 border px-4 py-2 rounded-lg hover:bg-gray-50 text-sm">
               <Download className="h-4 w-4" /> Export CSV
             </button>
             <button onClick={() => { if (confirm("Delete ALL members? This cannot be undone.")) handleBulkDelete(members.map(m => m.id)); }} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm">
@@ -312,10 +330,10 @@ export default function MembersPage() {
       {/* Stats */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard label="Total Members" value={stats.total} icon="👥" />
-          <StatCard label="Active" value={stats.active} icon="✅" />
-          <StatCard label="Lapsed" value={stats.lapsed} icon="⚠️" />
-          <StatCard label="New This Month" value={stats.recent_joins ?? 0} icon="🆕" />
+          <StatCard label="Active Members" value={stats.total} icon="👥" subtitle={`${stats.total_all ?? '?'} total (incl. inactive)`} />
+          <StatCard label="Lapsed" value={stats.lapsed} icon="⚠️" subtitle="Profile status: lapsed" />
+          <StatCard label="New This Month" value={stats.recent_joins ?? 0} icon="🆕" subtitle="Joined in last 30 days" />
+          <StatCard label="At Risk" value={stats.at_risk_count ?? 0} icon="🔔" subtitle="Churn risk > 70%" />
         </div>
       )}
 
@@ -335,6 +353,18 @@ export default function MembersPage() {
         <div className="space-y-4">
           <div className="flex gap-3 items-center">
             <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search members..." />
+            <select
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            >
+              <option value="">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="pending">Pending</option>
+              <option value="lapsed">Lapsed</option>
+              <option value="suspended">Suspended</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
             {selectedIds.length > 0 && (
               <div className="flex gap-2 items-center">
                 <Select value={bulkAction} onChange={setBulkAction} options={[
