@@ -740,7 +740,7 @@ async def get_group(
             })
 
     return GroupWithMembers(
-        id=group.id, name=group.name, description=group.description,
+        id=group.id, tenant_id=group.tenant_id, name=group.name, description=group.description,
         group_type=str(group.group_type), parent_id=group.parent_id,
         max_members=group.max_members, meeting_schedule=group.meeting_schedule,
         contact_email=group.contact_email, is_active=group.is_active,
@@ -759,7 +759,7 @@ async def create_group(
     """Create a new group."""
     group = await crud.create_group(db, user.tenant_id, data.model_dump())
     return GroupResponse(
-        id=group.id, name=group.name, description=group.description,
+        id=group.id, tenant_id=group.tenant_id, name=group.name, description=group.description,
         group_type=str(group.group_type), parent_id=group.parent_id,
         max_members=group.max_members, meeting_schedule=group.meeting_schedule,
         contact_email=group.contact_email, is_active=group.is_active,
@@ -780,7 +780,7 @@ async def update_group(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     return GroupResponse(
-        id=group.id, name=group.name, description=group.description,
+        id=group.id, tenant_id=group.tenant_id, name=group.name, description=group.description,
         group_type=str(group.group_type), parent_id=group.parent_id,
         max_members=group.max_members, meeting_schedule=group.meeting_schedule,
         contact_email=group.contact_email, is_active=group.is_active,
@@ -796,11 +796,85 @@ async def add_to_group(
     user: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Add a member to a group."""
+    """Add a member to a group.
+    
+    Accepts either a user_id or member_profile_id — resolves to member_profile.id.
+    Sends in-app notification + email to the member.
+    """
+    from app.modules.members.models import MemberProfile, MemberGroup
+    from app.modules.communications.crud import create_notification
+    from app.modules.communications.models import Notification
+    from sqlalchemy import select
+
+    # Resolve to member_profile.id
+    result = await db.execute(select(MemberProfile).where(MemberProfile.user_id == data.member_id))
+    mp = result.scalar_one_or_none()
+    if not mp:
+        result2 = await db.execute(select(MemberProfile).where(MemberProfile.id == data.member_id))
+        mp = result2.scalar_one_or_none()
+    if not mp:
+        raise HTTPException(status_code=404, detail="Member profile not found for this user")
+
+    # Get group name for the notification
+    grp_result = await db.execute(select(MemberGroup).where(MemberGroup.id == group_id))
+    grp = grp_result.scalar_one_or_none()
+    group_name = grp.name if grp else "a group"
+
+    # Get the user_id for notifications (from MemberProfile.user_id)
+    target_user_id = mp.user_id
+
     try:
         membership = await crud.add_member_to_group(
-            db, group_id, data.member_id, user.tenant_id, data.role
+            db, group_id, mp.id, user.tenant_id, data.role
         )
+
+        # ── In-app notification ────────────────────────────────────────
+        await create_notification(db, user.tenant_id, {
+            "user_id": target_user_id,
+            "title": f"Added to {group_name}",
+            "message": f"You have been added to the group \"{group_name}\" as {data.role}.",
+            "notification_type": "info",
+            "link": "/members",
+        })
+
+        # ── Email notification (background, best-effort) ───────────────
+        try:
+            from app.modules.members.models import User
+            user_result = await db.execute(select(User).where(User.id == target_user_id))
+            target_user = user_result.scalar_one_or_none()
+            if target_user and target_user.email:
+                from app.core.email.service import send_email
+                from app.core.database import async_session_factory
+                import asyncio
+
+                async def _send_group_email():
+                    try:
+                        async with async_session_factory() as email_db:
+                            await send_email(
+                                to=target_user.email,
+                                subject=f"You've been added to {group_name}",
+                                html_body=f"""
+                                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                                    <h2 style="color: #0d9488;">You've been added to a group</h2>
+                                    <p>Hello {target_user.first_name},</p>
+                                    <p>You have been added to <strong>{group_name}</strong> as <em>{data.role}</em>.</p>
+                                    <p>Log in to your account to see more details.</p>
+                                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                                    <p style="color: #888; font-size: 12px;">Association Management System</p>
+                                </div>
+                                """,
+                                tenant_id=user.tenant_id,
+                                db=email_db,
+                            )
+                            await email_db.commit()
+                    except Exception as e:
+                        import logging
+                        logging.getLogger(__name__).warning(f"Failed to send group notification email: {e}")
+
+                asyncio.create_task(_send_group_email())
+        except Exception:
+            pass  # Email is best-effort, don't fail the request
+
         return {"message": "Member added to group", "membership_id": membership.id}
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
@@ -814,7 +888,15 @@ async def remove_from_group(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a member from a group."""
-    removed = await crud.remove_member_from_group(db, group_id, member_id)
+    from app.modules.members.models import MemberProfile
+    from sqlalchemy import select
+
+    # Resolve to member_profile.id if needed
+    result = await db.execute(select(MemberProfile).where(MemberProfile.user_id == member_id))
+    mp = result.scalar_one_or_none()
+    actual_id = mp.id if mp else member_id
+
+    removed = await crud.remove_member_from_group(db, group_id, actual_id)
     if not removed:
         raise HTTPException(status_code=404, detail="Membership not found")
     return {"message": "Member removed from group"}

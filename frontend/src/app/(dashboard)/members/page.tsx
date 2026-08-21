@@ -130,6 +130,8 @@ export default function MembersPage() {
   const [groupForm, setGroupForm] = useState({ name: "", description: "" });
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [groupMembers, setGroupMembers] = useState<Member[]>([]);
+  const [showAddToGroup, setShowAddToGroup] = useState(false);
+  const [addToGroupMemberId, setAddToGroupMemberId] = useState("");
 
   // Tags
   const [showCreateTag, setShowCreateTag] = useState(false);
@@ -251,9 +253,41 @@ export default function MembersPage() {
   async function loadGroupMembers(group: Group) {
     setSelectedGroup(group);
     try {
-      const r = await apiFetch<Member[] | { items: Member[] }>(`/api/v1/members/groups/${group.id}`);
-      setGroupMembers(Array.isArray(r) ? r : (r as any).items || []);
+      const r = await apiFetch<{ members: any[] }>(`/api/v1/members/groups/${group.id}`);
+      const data = r as any;
+      setGroupMembers(data.members?.map((m: any) => ({
+        id: m.member_id,
+        first_name: m.user_name?.split(" ")[0] || "",
+        last_name: m.user_name?.split(" ").slice(1).join(" ") || "",
+        email: m.email || "",
+        role: m.role,
+        joined_at: m.joined_at,
+      })) || []);
     } catch (e: any) { toast.error("Failed to load group members"); }
+  }
+
+  async function handleAddToGroup() {
+    if (!selectedGroup || !addToGroupMemberId) { toast.warning("Select a member"); return; }
+    try {
+      await apiFetch(`/api/v1/members/groups/${selectedGroup.id}/members`, {
+        method: "POST",
+        body: JSON.stringify({ member_id: addToGroupMemberId, role: "member" }),
+      });
+      toast.success("Member added to group — they've been notified!");
+      setShowAddToGroup(false);
+      setAddToGroupMemberId("");
+      loadGroupMembers(selectedGroup);
+    } catch (e: any) { toast.error(e.message || "Failed to add member"); }
+  }
+
+  async function handleRemoveFromGroup(memberId: string) {
+    if (!selectedGroup) return;
+    if (!confirm("Remove this member from the group?")) return;
+    try {
+      await apiFetch(`/api/v1/members/groups/${selectedGroup.id}/members/${memberId}`, { method: "DELETE" });
+      toast.success("Member removed from group");
+      loadGroupMembers(selectedGroup);
+    } catch (e: any) { toast.error(e.message || "Failed to remove member"); }
   }
 
   // ── Tags ─────────────────────────────────────────────────
@@ -471,18 +505,33 @@ export default function MembersPage() {
               ))}
             </div>
           )}
-          {selectedGroup && groupMembers.length > 0 && (
+          {selectedGroup && (
             <Card className="rounded-2xl border-slate-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <CardHeader><CardTitle className="text-base text-slate-800">{selectedGroup.name} — Members</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base text-slate-800">{selectedGroup.name} — Members ({groupMembers.length})</CardTitle>
+                <button onClick={() => setShowAddToGroup(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)" }}>
+                  <UserPlus className="h-3.5 w-3.5" /> Add Member
+                </button>
+              </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {groupMembers.map((m) => (
-                    <div key={m.id} className="flex justify-between items-center py-2 border-b last:border-0">
-                      <span>{m.first_name} {m.last_name}</span>
-                      <span className="text-sm text-gray-500">{m.email}</span>
-                    </div>
-                  ))}
-                </div>
+                {groupMembers.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">No members in this group yet</p>
+                ) : (
+                  <div className="space-y-2">
+                    {groupMembers.map((m: any) => (
+                      <div key={m.id} className="flex justify-between items-center py-2 border-b last:border-0">
+                        <div>
+                          <span className="text-sm font-medium text-slate-700">{m.first_name} {m.last_name}</span>
+                          <span className="text-xs text-gray-400 ml-2">{m.role}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-gray-500">{m.email}</span>
+                          <button onClick={() => handleRemoveFromGroup(m.id)} className="text-xs text-red-500 hover:text-red-700 transition-colors">Remove</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -586,6 +635,29 @@ export default function MembersPage() {
           <div className="flex justify-end gap-2">
             <button onClick={() => setShowCreateGroup(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
             <button onClick={handleCreateGroup} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Create</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Member to Group */}
+      <Modal open={showAddToGroup} onOpenChange={(v) => setShowAddToGroup(v)} title={`Add Member to ${selectedGroup?.name || "Group"}`}>
+        <div className="space-y-4">
+          <FormField label="Select Member" required>
+            <select
+              value={addToGroupMemberId}
+              onChange={(e) => setAddToGroupMemberId(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-white"
+            >
+              <option value="">Choose a member...</option>
+              {members.filter(m => !groupMembers.some(gm => gm.id === m.id)).map(m => (
+                <option key={m.id} value={m.id}>{m.first_name} {m.last_name} ({m.email})</option>
+              ))}
+            </select>
+          </FormField>
+          <p className="text-xs text-gray-400">The member will receive an in-app notification and email.</p>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setShowAddToGroup(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleAddToGroup} disabled={!addToGroupMemberId} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Add to Group</button>
           </div>
         </div>
       </Modal>
