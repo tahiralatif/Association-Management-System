@@ -432,22 +432,76 @@ async def create_tag(db: AsyncSession, tenant_id: str, name: str, color: str = "
 
 
 async def bulk_tag_members(
-    db: AsyncSession, member_ids: list[str], tag_ids: list[str]
+    db: AsyncSession, member_ids: list[str], tag_ids: list[str],
+    tenant_id: str | None = None,
 ) -> int:
+    """Add tags to multiple members.
+    
+    Accepts user IDs — resolves to member_profile.id automatically.
+    """
     count = 0
     for member_id in member_ids:
+        # Resolve user_id → member_profile.id
+        profile_id = await _resolve_profile_id(db, member_id, tenant_id)
+        if not profile_id:
+            continue
         for tag_id in tag_ids:
             existing = await db.execute(
                 select(MemberProfileTag).where(
-                    MemberProfileTag.member_id == member_id,
+                    MemberProfileTag.member_id == profile_id,
                     MemberProfileTag.tag_id == tag_id,
                 )
             )
             if not existing.scalar_one_or_none():
-                db.add(MemberProfileTag(member_id=member_id, tag_id=tag_id))
+                db.add(MemberProfileTag(member_id=profile_id, tag_id=tag_id))
                 count += 1
     await db.flush()
     return count
+
+
+async def bulk_remove_tag_members(
+    db: AsyncSession, member_ids: list[str], tag_ids: list[str],
+    tenant_id: str | None = None,
+) -> int:
+    """Remove tags from multiple members.
+    
+    Accepts user IDs — resolves to member_profile.id automatically.
+    """
+    count = 0
+    for member_id in member_ids:
+        profile_id = await _resolve_profile_id(db, member_id, tenant_id)
+        if not profile_id:
+            continue
+        for tag_id in tag_ids:
+            result = await db.execute(
+                select(MemberProfileTag).where(
+                    MemberProfileTag.member_id == profile_id,
+                    MemberProfileTag.tag_id == tag_id,
+                )
+            )
+            tag_link = result.scalar_one_or_none()
+            if tag_link:
+                await db.delete(tag_link)
+                count += 1
+    await db.flush()
+    return count
+
+
+async def _resolve_profile_id(db: AsyncSession, member_id: str, tenant_id: str | None = None) -> str | None:
+    """Resolve a user_id or profile_id to member_profile.id."""
+    from sqlalchemy import select
+    # Try as user_id first
+    query = select(MemberProfile).where(MemberProfile.user_id == member_id)
+    if tenant_id and tenant_id != "platform":
+        query = query.where(MemberProfile.tenant_id == tenant_id)
+    result = await db.execute(query)
+    mp = result.scalar_one_or_none()
+    if mp:
+        return mp.id
+    # Try as profile_id directly
+    result2 = await db.execute(select(MemberProfile).where(MemberProfile.id == member_id))
+    mp2 = result2.scalar_one_or_none()
+    return mp2.id if mp2 else None
 
 
 # ── Note Operations ──────────────────────────────────────────

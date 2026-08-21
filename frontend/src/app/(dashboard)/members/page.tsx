@@ -140,6 +140,8 @@ export default function MembersPage() {
   // Bulk
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState("");
+  const [showBulkTagModal, setShowBulkTagModal] = useState(false);
+  const [bulkTagIds, setBulkTagIds] = useState<string[]>([]);
 
   // Delete
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
@@ -314,9 +316,14 @@ export default function MembersPage() {
             status: bulkAction === "activate" ? "active" : "suspended",
           }),
         });
+      } else if (bulkAction === "add_tag" || bulkAction === "remove_tag") {
+        // Show tag selection modal
+        setBulkTagIds([]);
+        setShowBulkTagModal(true);
+        return; // Don't clear selection or show success yet
       } else if (bulkAction === "delete") {
         await handleBulkDelete(selectedIds);
-        return; // handleBulkDelete already clears selection and reloads
+        return;
       } else if (bulkAction === "export") {
         downloadCsv("/api/v1/members/export/csv", "members.csv");
       }
@@ -324,6 +331,25 @@ export default function MembersPage() {
       setSelectedIds([]);
       loadMembers(); loadStats();
     } catch (e: any) { toast.error(e.message || "Bulk action failed"); }
+  }
+
+  async function handleBulkTagSubmit() {
+    if (bulkTagIds.length === 0) { toast.warning("Select at least one tag"); return; }
+    try {
+      const endpoint = bulkAction === "add_tag" ? "/api/v1/members/bulk/tag" : "/api/v1/members/bulk/remove-tag";
+      await apiFetch(endpoint, {
+        method: "POST",
+        body: JSON.stringify({
+          member_ids: selectedIds,
+          tag_ids: bulkTagIds,
+        }),
+      });
+      toast.success(`${bulkAction === "add_tag" ? "Tagged" : "Untagged"} ${selectedIds.length} member(s)`);
+      setShowBulkTagModal(false);
+      setSelectedIds([]);
+      setBulkAction("");
+      loadMembers(); loadStats();
+    } catch (e: any) { toast.error(e.message || "Bulk tag failed"); }
   }
 
   async function handleBulkDelete(ids: string[]) {
@@ -404,6 +430,8 @@ export default function MembersPage() {
                 <Select value={bulkAction} onChange={setBulkAction} options={[
                   { value: "activate", label: "Activate" },
                   { value: "deactivate", label: "Deactivate" },
+                  { value: "add_tag", label: "Add Tag" },
+                  { value: "remove_tag", label: "Remove Tag" },
                   { value: "delete", label: "Delete Selected" },
                   { value: "export", label: "Export Selected" },
                 ]} />
@@ -674,6 +702,42 @@ export default function MembersPage() {
           <div className="flex justify-end gap-2">
             <button onClick={() => setShowCreateTag(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
             <button onClick={handleCreateTag} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Create</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk Tag Modal */}
+      <Modal open={showBulkTagModal} onOpenChange={(v) => { setShowBulkTagModal(v); if (!v) { setBulkAction(""); } }} title={bulkAction === "add_tag" ? "Add Tag to Members" : "Remove Tag from Members"}>
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">Select tags to {bulkAction === "add_tag" ? "add to" : "remove from"} {selectedIds.length} member(s):</p>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {tags.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">No tags created yet. Create a tag first.</p>
+            ) : (
+              tags.map((t) => (
+                <label key={t.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={bulkTagIds.includes(t.id)}
+                    onChange={(e) => {
+                      setBulkTagIds(e.target.checked
+                        ? [...bulkTagIds, t.id]
+                        : bulkTagIds.filter(id => id !== t.id)
+                      );
+                    }}
+                    className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color || "#3b82f6" }} />
+                  <span className="text-sm font-medium text-slate-700">{t.name}</span>
+                </label>
+              ))
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => { setShowBulkTagModal(false); setBulkAction(""); }} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleBulkTagSubmit} disabled={bulkTagIds.length === 0} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
+              {bulkAction === "add_tag" ? "Add Tag" : "Remove Tag"}
+            </button>
           </div>
         </div>
       </Modal>

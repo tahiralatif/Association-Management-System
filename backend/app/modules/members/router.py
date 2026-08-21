@@ -553,9 +553,20 @@ async def bulk_tag_members(
     user: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Add tags to multiple members."""
-    count = await crud.bulk_tag_members(db, data.member_ids, data.tag_ids)
+    """Add tags to multiple members (accepts user IDs)."""
+    count = await crud.bulk_tag_members(db, data.member_ids, data.tag_ids, tenant_id=user.tenant_id)
     return {"message": f"Tagged {count} members"}
+
+
+@router.post("/bulk/remove-tag")
+async def bulk_remove_tag_members(
+    data: BulkTagRequest,
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove tags from multiple members (accepts user IDs)."""
+    count = await crud.bulk_remove_tag_members(db, data.member_ids, data.tag_ids, tenant_id=user.tenant_id)
+    return {"message": f"Untagged {count} members"}
 
 
 @router.post("/bulk/status")
@@ -564,14 +575,27 @@ async def bulk_update_status(
     user: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update status for multiple members."""
+    """Update status for multiple members (accepts user IDs)."""
+    from app.modules.members.models import MemberProfile
+    from sqlalchemy import select
     count = 0
     for member_id in data.member_ids:
-        member = await crud.get_user_by_id(db, member_id, user.tenant_id)
-        if member and member.member_profile:
-            await crud.update_member_profile(
-                db, member.member_profile.id, user.tenant_id, {"status": data.status}
+        # Direct profile update — more reliable than going through get_user_by_id
+        result = await db.execute(
+            select(MemberProfile).where(
+                MemberProfile.user_id == member_id,
             )
+        )
+        profile = result.scalar_one_or_none()
+        if not profile:
+            # Maybe already a profile ID
+            result2 = await db.execute(
+                select(MemberProfile).where(MemberProfile.id == member_id)
+            )
+            profile = result2.scalar_one_or_none()
+        if profile:
+            profile.status = data.status
+            await db.flush()
             count += 1
     return {"message": f"Updated {count} members to {data.status}"}
 
