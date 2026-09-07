@@ -2,8 +2,7 @@
 
 import { useRef, useMemo, useState, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, MeshDistortMaterial, MeshWobbleMaterial, Sphere, Torus, Icosahedron } from "@react-three/drei";
-import { motion, useScroll, useSpring } from "framer-motion";
+import { Float, MeshDistortMaterial, MeshWobbleMaterial, Sphere, Icosahedron } from "@react-three/drei";
 import Link from "next/link";
 import * as THREE from "three";
 import Logo from "@/components/logo";
@@ -139,8 +138,50 @@ function Counter({ end, label, prefix = "", suffix = "" }: { end: number; label:
   }, [end]);
   return (
     <div className="text-center">
-      <div className="text-4xl md:text-5xl font-bold tracking-tight" style={{ color: C.greenDark }}>{prefix}{count.toLocaleString()}{suffix}</div>
-      <div className="text-xs uppercase tracking-[0.18em] font-medium mt-2" style={{ color: C.teal }}>{label}</div>
+      <div className="text-4xl md:text-5xl font-bold tracking-tight" style={{ color: "#fff" }}>{prefix}{count.toLocaleString()}{suffix}</div>
+      <div className="text-xs uppercase tracking-[0.18em] font-medium mt-2" style={{ color: C.tealLight }}>{label}</div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Intersection Observer hook for scroll animations
+   ═══════════════════════════════════════════════════════════ */
+
+function useInView(threshold = 0.15) {
+  const [inView, setInView] = useState(false);
+  const callbackRef = useRef<HTMLElement | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  useEffect(() => {
+    return () => { if (observerRef.current) observerRef.current.disconnect(); };
+  }, []);
+  const ref = (node: HTMLElement | null) => {
+    if (observerRef.current) observerRef.current.disconnect();
+    callbackRef.current = node;
+    if (!node) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setInView(true); obs.disconnect(); } },
+      { threshold }
+    );
+    observerRef.current = obs;
+    obs.observe(node);
+  };
+  return { ref, inView };
+}
+
+function FadeIn({ children, className = "", delay = 0, y = 30 }: { children: React.ReactNode; className?: string; delay?: number; y?: number }) {
+  const { ref, inView } = useInView();
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        opacity: inView ? 1 : 0,
+        transform: inView ? "translateY(0)" : `translateY(${y}px)`,
+        transition: `opacity 0.7s cubic-bezier(0.22,1,0.36,1) ${delay}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${delay}s`,
+      }}
+    >
+      {children}
     </div>
   );
 }
@@ -152,22 +193,24 @@ function Counter({ end, label, prefix = "", suffix = "" }: { end: number; label:
 function Navbar() {
   const { isAuthenticated, user, logout } = useAuth();
   const [scrolled, setScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
+    setMounted(true);
     const fn = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", fn, { passive: true });
     return () => window.removeEventListener("scroll", fn);
   }, []);
   return (
-    <motion.header
-      initial={{ y: -60, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+    <header
       className="fixed top-0 left-0 right-0 z-50 transition-all duration-400"
       style={{
         backgroundColor: scrolled ? "rgba(255,255,255,0.85)" : "transparent",
         backdropFilter: scrolled ? "blur(16px) saturate(180%)" : "none",
         borderBottom: scrolled ? `1px solid ${C.border}` : "1px solid transparent",
         boxShadow: scrolled ? "0 1px 3px rgba(0,0,0,0.04)" : "none",
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? "translateY(0)" : "translateY(-60px)",
+        transition: "opacity 0.7s cubic-bezier(0.22,1,0.36,1), transform 0.7s cubic-bezier(0.22,1,0.36,1), background-color 0.4s, backdrop-filter 0.4s, border-color 0.4s, box-shadow 0.4s",
       }}
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -224,21 +267,33 @@ function Navbar() {
           )}
         </div>
       </div>
-    </motion.header>
+    </header>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════
-   Scroll progress
+   Scroll progress (CSS-based, no framer-motion)
    ═══════════════════════════════════════════════════════════ */
 
 function ScrollProgress() {
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
+  const [scaleX, setScaleX] = useState(0);
+  useEffect(() => {
+    const fn = () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      setScaleX(docHeight > 0 ? scrollTop / docHeight : 0);
+    };
+    window.addEventListener("scroll", fn, { passive: true });
+    return () => window.removeEventListener("scroll", fn);
+  }, []);
   return (
-    <motion.div
-      style={{ scaleX, background: `linear-gradient(90deg, ${C.green}, ${C.teal}, ${C.tealLight})` }}
+    <div
       className="fixed top-0 left-0 right-0 h-[2px] origin-left z-[60]"
+      style={{
+        background: `linear-gradient(90deg, ${C.green}, ${C.teal}, ${C.tealLight})`,
+        transform: `scaleX(${scaleX})`,
+        transition: "transform 0.1s linear",
+      }}
     />
   );
 }
@@ -249,24 +304,21 @@ function ScrollProgress() {
 
 function FeatureCard({ icon, title, description, delay }: { icon: string; title: string; description: string; delay: number }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ y: -4, boxShadow: "0 8px 30px rgba(13,148,136,0.1)" }}
-      className="rounded-2xl p-7 transition-all duration-300 cursor-default"
-      style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-    >
+    <FadeIn delay={delay}>
       <div
-        className="w-11 h-11 rounded-xl flex items-center justify-center text-lg mb-5"
-        style={{ backgroundColor: C.tealPalest, border: `1px solid ${C.tealPale}` }}
+        className="rounded-2xl p-7 transition-all duration-300 cursor-default hover:-translate-y-1"
+        style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
       >
-        {icon}
+        <div
+          className="w-11 h-11 rounded-xl flex items-center justify-center text-lg mb-5"
+          style={{ backgroundColor: C.tealPalest, border: `1px solid ${C.tealPale}` }}
+        >
+          {icon}
+        </div>
+        <h3 className="text-[17px] font-semibold mb-2" style={{ color: C.text }}>{title}</h3>
+        <p className="text-[13px] leading-relaxed" style={{ color: C.textSecondary }}>{description}</p>
       </div>
-      <h3 className="text-[17px] font-semibold mb-2" style={{ color: C.text }}>{title}</h3>
-      <p className="text-[13px] leading-relaxed" style={{ color: C.textSecondary }}>{description}</p>
-    </motion.div>
+    </FadeIn>
   );
 }
 
@@ -276,8 +328,11 @@ function FeatureCard({ icon, title, description, delay }: { icon: string; title:
 
 export default function HomePage() {
   const { isAuthenticated } = useAuth();
+  const [heroReady, setHeroReady] = useState(false);
+  useEffect(() => { setHeroReady(true); }, []);
+
   return (
-    <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: C.bg, color: C.text }}>
+    <div className="min-h-screen overflow-x-hidden homepage" style={{ backgroundColor: C.bg, color: C.text }}>
       <ScrollProgress />
       <Navbar />
 
@@ -294,7 +349,13 @@ export default function HomePage() {
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, rgba(13,148,136,0.04) 0%, transparent 65%)" }} />
 
         <div className="relative z-10 text-center max-w-4xl mx-auto px-6">
-          <motion.div initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.8, delay: 0.3 }}>
+          <div
+            style={{
+              opacity: heroReady ? 1 : 0,
+              transform: heroReady ? "translateY(0) scale(1)" : "translateY(20px) scale(0.95)",
+              transition: "opacity 0.8s cubic-bezier(0.22,1,0.36,1) 0.3s, transform 0.8s cubic-bezier(0.22,1,0.36,1) 0.3s",
+            }}
+          >
             <div
               className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-8"
               style={{ backgroundColor: C.tealPalest, border: `1px solid ${C.tealPale}` }}
@@ -302,38 +363,45 @@ export default function HomePage() {
               <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.teal }} />
               <span className="text-[11px] font-semibold tracking-[0.15em] uppercase" style={{ color: C.teal }}>AI-Powered Platform</span>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 40, filter: "blur(8px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            transition={{ duration: 1, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          <h1
             className="text-5xl md:text-7xl lg:text-[80px] font-bold leading-[1.05] tracking-tight mb-7"
+            style={{
+              opacity: heroReady ? 1 : 0,
+              filter: heroReady ? "blur(0px)" : "blur(8px)",
+              transform: heroReady ? "translateY(0)" : "translateY(40px)",
+              transition: "opacity 1s cubic-bezier(0.22,1,0.36,1) 0.5s, filter 1s cubic-bezier(0.22,1,0.36,1) 0.5s, transform 1s cubic-bezier(0.22,1,0.36,1) 0.5s",
+            }}
           >
             <span style={{ color: C.text }}>Manage</span>{" "}
             <span style={{ color: C.teal }}>Smarter</span>
             <br />
             <span style={{ color: C.text }}>Grow</span>{" "}
             <span style={{ color: C.green }}>Faster</span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 25 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.75 }}
+          <p
             className="text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed"
-            style={{ color: C.textSecondary }}
+            style={{
+              color: C.textSecondary,
+              opacity: heroReady ? 1 : 0,
+              transform: heroReady ? "translateY(0)" : "translateY(25px)",
+              transition: "opacity 0.8s cubic-bezier(0.22,1,0.36,1) 0.75s, transform 0.8s cubic-bezier(0.22,1,0.36,1) 0.75s",
+            }}
           >
             One platform to manage members, finances, events, and communications.
             <br className="hidden md:block" />
             AI insights built in. Zero complexity.
-          </motion.p>
+          </p>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 1 }}
+          <div
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
+            style={{
+              opacity: heroReady ? 1 : 0,
+              transform: heroReady ? "translateY(0)" : "translateY(20px)",
+              transition: "opacity 0.7s cubic-bezier(0.22,1,0.36,1) 1s, transform 0.7s cubic-bezier(0.22,1,0.36,1) 1s",
+            }}
           >
             {isAuthenticated ? (
               <Link
@@ -377,41 +445,37 @@ export default function HomePage() {
             >
               📖 Read the Docs
             </a>
-          </motion.div>
+          </div>
         </div>
 
         {/* Scroll indicator */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2, duration: 1 }} className="absolute bottom-10 left-1/2 -translate-x-1/2">
-          <motion.div
-            animate={{ y: [0, 8, 0] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+        <div
+          className="absolute bottom-10 left-1/2 -translate-x-1/2"
+          style={{
+            opacity: heroReady ? 1 : 0,
+            transition: "opacity 1s ease 2s",
+          }}
+        >
+          <div
             className="w-5 h-8 rounded-full flex justify-center pt-1.5"
             style={{ border: `1.5px solid ${C.borderHover}` }}
           >
-            <motion.div
-              animate={{ height: [4, 10, 4] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-              className="w-[2px] rounded-full"
-              style={{ backgroundColor: C.teal }}
+            <div
+              className="w-[2px] rounded-full animate-bounce"
+              style={{ backgroundColor: C.teal, animationDuration: "2.5s" }}
             />
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       </section>
 
       {/* ─── Features ──────────────────────────────────── */}
       <section id="features" className="relative py-32 px-6" style={{ backgroundColor: C.surface }}>
         <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
-            className="text-center mb-16"
-          >
+          <FadeIn className="text-center mb-16">
             <span className="text-[11px] font-semibold tracking-[0.2em] uppercase mb-3 block" style={{ color: C.teal }}>Capabilities</span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4" style={{ color: C.text }}>Everything You Need</h2>
             <p className="text-lg max-w-xl mx-auto" style={{ color: C.textMuted }}>A complete suite built to replace your entire software stack</p>
-          </motion.div>
+          </FadeIn>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <FeatureCard icon="👥" title="Member Management" description="Full lifecycle from registration to renewal. Profiles, dues, groups, tags, and engagement scoring." delay={0} />
@@ -427,39 +491,31 @@ export default function HomePage() {
       {/* ─── Stats ─────────────────────────────────────── */}
       <section id="stats" className="relative py-24 px-6" style={{ backgroundColor: C.bg }}>
         <div className="max-w-5xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="rounded-3xl p-10 md:p-14 relative overflow-hidden"
-            style={{ backgroundColor: C.greenDark, boxShadow: "0 20px 60px rgba(6,78,59,0.15)" }}
-          >
-            <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle at 30% 50%, ${C.tealLight}, transparent 60%)` }} />
-            <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-10">
-              <Counter end={57} label="Active Members" suffix="+" />
-              <Counter end={15} label="Events Hosted" />
-              <Counter end={199} label="API Endpoints" suffix="+" />
-              <Counter end={12} label="Modules" />
+          <FadeIn>
+            <div
+              className="rounded-3xl p-10 md:p-14 relative overflow-hidden"
+              style={{ backgroundColor: C.greenDark, boxShadow: "0 20px 60px rgba(6,78,59,0.15)" }}
+            >
+              <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle at 30% 50%, ${C.tealLight}, transparent 60%)` }} />
+              <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-10">
+                <Counter end={57} label="Active Members" suffix="+" />
+                <Counter end={15} label="Events Hosted" />
+                <Counter end={199} label="API Endpoints" suffix="+" />
+                <Counter end={12} label="Modules" />
+              </div>
             </div>
-          </motion.div>
+          </FadeIn>
         </div>
       </section>
 
       {/* ─── Modules ───────────────────────────────────── */}
       <section id="modules" className="relative py-32 px-6" style={{ backgroundColor: C.surface }}>
         <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
-            className="text-center mb-16"
-          >
+          <FadeIn className="text-center mb-16">
             <span className="text-[11px] font-semibold tracking-[0.2em] uppercase mb-3 block" style={{ color: C.teal }}>Architecture</span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4" style={{ color: C.text }}>12 Integrated Modules</h2>
             <p className="text-lg max-w-xl mx-auto" style={{ color: C.textMuted }}>Each module is powerful alone. Together, they transform your operations.</p>
-          </motion.div>
+          </FadeIn>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {[
@@ -476,20 +532,16 @@ export default function HomePage() {
               { name: "Integrations", icon: "🔗", desc: "Webhooks & APIs" },
               { name: "Health", icon: "💓", desc: "System monitoring" },
             ].map((mod, i) => (
-              <motion.div
-                key={mod.name}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.04 }}
-                whileHover={{ y: -3, boxShadow: "0 6px 20px rgba(13,148,136,0.08)" }}
-                className="rounded-xl p-5 text-center cursor-default transition-all duration-300"
-                style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-              >
-                <div className="text-2xl mb-2.5">{mod.icon}</div>
-                <div className="font-medium text-[13px]" style={{ color: C.text }}>{mod.name}</div>
-                <div className="text-[11px] mt-1" style={{ color: C.textMuted }}>{mod.desc}</div>
-              </motion.div>
+              <FadeIn key={mod.name} delay={i * 0.04}>
+                <div
+                  className="rounded-xl p-5 text-center cursor-default transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+                >
+                  <div className="text-2xl mb-2.5">{mod.icon}</div>
+                  <div className="font-medium text-[13px]" style={{ color: C.text }}>{mod.name}</div>
+                  <div className="text-[11px] mt-1" style={{ color: C.textMuted }}>{mod.desc}</div>
+                </div>
+              </FadeIn>
             ))}
           </div>
         </div>
@@ -498,68 +550,60 @@ export default function HomePage() {
       {/* ─── Why AssocHub Teaser ──────────────────────────── */}
       <section className="relative py-20 px-6" style={{ backgroundColor: C.bg }}>
         <div className="max-w-5xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
-            className="rounded-3xl p-10 md:p-16 text-center relative overflow-hidden"
-            style={{ background: `linear-gradient(135deg, ${C.greenDark} 0%, #0f4a3a 50%, ${C.teal} 100%)`, color: "#fff", boxShadow: "0 24px 60px rgba(6,78,59,0.2)" }}
-          >
-            <div className="absolute inset-0 opacity-5" style={{ background: `radial-gradient(circle at 70% 30%, ${C.tealLight}, transparent 50%)` }} />
-            <div className="relative z-10">
-              <span className="text-[11px] font-semibold tracking-[0.2em] uppercase mb-4 block opacity-70">Why AssocHub</span>
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-5">Not Just Another AMS</h2>
-              <p className="text-lg max-w-2xl mx-auto mb-10 opacity-80 leading-relaxed">
-                AI built into every module · No per-contact pricing · Elections · Workflows · Open source · Self-hosted.
-                <br />Compare us feature-by-feature against Wild Apricot, MemberClicks, and CiviCRM.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link
-                  href="/why"
-                  className="font-semibold px-8 py-3.5 rounded-xl text-[15px] transition-all hover:-translate-y-0.5"
-                  style={{ backgroundColor: "#fff", color: C.greenDark, boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }}
-                >
-                  See the Full Comparison →
-                </Link>
-                <a
-                  href="https://github.com/tahiralatif/Association-Management-System/blob/main/docs/COMPARISON.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium px-8 py-3.5 rounded-xl text-[15px] transition-all"
-                  style={{ color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }}
-                >
-                  📄 Read the Full Report
-                </a>
+          <FadeIn>
+            <div
+              className="rounded-3xl p-10 md:p-16 text-center relative overflow-hidden"
+              style={{ background: `linear-gradient(135deg, ${C.greenDark} 0%, #0f4a3a 50%, ${C.teal} 100%)`, color: "#fff", boxShadow: "0 24px 60px rgba(6,78,59,0.2)" }}
+            >
+              <div className="absolute inset-0 opacity-5" style={{ background: `radial-gradient(circle at 70% 30%, ${C.tealLight}, transparent 50%)` }} />
+              <div className="relative z-10">
+                <span className="text-[11px] font-semibold tracking-[0.2em] uppercase mb-4 block opacity-70">Why AssocHub</span>
+                <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-5">Not Just Another AMS</h2>
+                <p className="text-lg max-w-2xl mx-auto mb-10 opacity-80 leading-relaxed">
+                  AI built into every module · No per-contact pricing · Elections · Workflows · Open source · Self-hosted.
+                  <br />Compare us feature-by-feature against Wild Apricot, MemberClicks, and CiviCRM.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <Link
+                    href="/why"
+                    className="font-semibold px-8 py-3.5 rounded-xl text-[15px] transition-all hover:-translate-y-0.5"
+                    style={{ backgroundColor: "#fff", color: C.greenDark, boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }}
+                  >
+                    See the Full Comparison →
+                  </Link>
+                  <a
+                    href="https://github.com/tahiralatif/Association-Management-System/blob/main/docs/COMPARISON.md"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium px-8 py-3.5 rounded-xl text-[15px] transition-all"
+                    style={{ color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }}
+                  >
+                    📄 Read the Full Report
+                  </a>
+                </div>
               </div>
             </div>
-          </motion.div>
+          </FadeIn>
         </div>
       </section>
 
       {/* ─── Tech Stack ────────────────────────────────── */}
       <section className="py-16 px-6" style={{ backgroundColor: C.bg }}>
         <div className="max-w-4xl mx-auto text-center">
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
+          <FadeIn>
             <span className="text-[11px] font-semibold tracking-[0.2em] uppercase mb-6 block" style={{ color: C.textMuted }}>Built With</span>
             <div className="flex flex-wrap items-center justify-center gap-6">
               {["FastAPI", "Next.js 16", "React 19", "PostgreSQL", "Groq AI", "Tailwind CSS", "SQLAlchemy", "Redis"].map((tech, i) => (
-                <motion.span
+                <span
                   key={tech}
-                  initial={{ opacity: 0, y: 8 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.05 }}
-                  className="text-sm font-medium cursor-default transition-colors duration-300"
+                  className="text-sm font-medium cursor-default transition-colors duration-300 hover:text-teal-500"
                   style={{ color: C.textMuted }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = C.teal)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = C.textMuted)}
                 >
                   {tech}
-                </motion.span>
+                </span>
               ))}
             </div>
-          </motion.div>
+          </FadeIn>
         </div>
       </section>
 
@@ -573,12 +617,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-b from-white/50 to-white" />
 
         <div className="relative z-10 text-center max-w-3xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          >
+          <FadeIn>
             <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
               <span style={{ color: C.text }}>Ready to </span>
               <span style={{ color: C.teal }}>Get Started?</span>
@@ -624,7 +663,7 @@ export default function HomePage() {
               </a>
             </div>
             <p className="text-xs mt-6" style={{ color: C.textMuted }}>No credit card required · Free tier available</p>
-          </motion.div>
+          </FadeIn>
         </div>
       </section>
 
