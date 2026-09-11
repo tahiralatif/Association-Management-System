@@ -51,3 +51,19 @@ backend/alembic/versions/*.pyc
 /tmp/
 *.tmp
 test-invoice.pdf
+backend/assoc_hub.db
+
+# Temp/test artifacts
+*.tmp
+*.bak
+
+# SQLite databases
+*.db
+
+# Saved ML models (regenerated on training)
+backend/app/ai/ml/saved_models/*.joblib
+
+# Docusaurus build artifacts
+website/.docusaurus/
+website/node_modules/
+website/build/
