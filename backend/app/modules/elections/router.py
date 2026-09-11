@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import require_admin, require_staff, get_current_user, TokenPayload
+from app.core.auth import require_admin, require_staff, require_member, get_current_user, TokenPayload
 from app.core.database import get_db
 from app.modules.elections import crud
 from app.modules.elections.schemas import (
@@ -19,6 +19,8 @@ from app.modules.elections.schemas import (
     PositionResponse,
     ResultResponse,
 )
+from sqlalchemy import select
+from app.modules.members.models import MemberProfile, User
 
 router = APIRouter()
 
@@ -30,7 +32,7 @@ async def list_elections(
     status_filter: str | None = Query(None, alias="status"),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    user: TokenPayload = Depends(require_staff),
+    user: TokenPayload = Depends(require_member),
     db: AsyncSession = Depends(get_db),
 ):
     items, total = await crud.list_elections(db, user.tenant_id, status=status_filter, page=page, per_page=per_page)
@@ -39,7 +41,7 @@ async def list_elections(
 
 @router.get("/stats", response_model=ElectionStats)
 async def get_stats(
-    user: TokenPayload = Depends(require_staff),
+    user: TokenPayload = Depends(require_member),
     db: AsyncSession = Depends(get_db),
 ):
     stats = await crud.get_election_stats(db, user.tenant_id)
@@ -49,7 +51,7 @@ async def get_stats(
 @router.get("/{election_id}", response_model=ElectionResponse)
 async def get_election(
     election_id: str,
-    user: TokenPayload = Depends(require_staff),
+    user: TokenPayload = Depends(require_member),
     db: AsyncSession = Depends(get_db),
 ):
     election = await crud.get_election(db, election_id, user.tenant_id)
@@ -83,6 +85,19 @@ async def update_election(
         setattr(election, key, value)
     await db.flush()
     return ElectionResponse.model_validate(election)
+
+
+@router.delete("/{election_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_election(
+    election_id: str,
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    election = await crud.get_election(db, election_id, user.tenant_id)
+    if not election:
+        raise HTTPException(status_code=404, detail="Election not found")
+    await db.delete(election)
+    await db.flush()
 
 
 @router.post("/{election_id}/open-nominations")
@@ -137,7 +152,7 @@ async def publish_results(
 @router.get("/{election_id}/positions", response_model=list[PositionResponse])
 async def list_positions(
     election_id: str,
-    user: TokenPayload = Depends(require_staff),
+    user: TokenPayload = Depends(require_member),
     db: AsyncSession = Depends(get_db),
 ):
     election = await crud.get_election(db, election_id, user.tenant_id)
@@ -157,13 +172,48 @@ async def add_position(
     return PositionResponse.model_validate(pos)
 
 
+# ── Candidates (for voting) ─────────────────────────────────
+
+@router.get("/{election_id}/candidates")
+async def list_candidates(
+    election_id: str,
+    user: TokenPayload = Depends(require_member),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return accepted nominations grouped by position — the ballot a voter sees."""
+    noms = await crud.list_nominations(db, election_id, position_id=None)
+    accepted = [n for n in noms if n.status.value == "accepted"]
+
+    # Group by position
+    positions_map: dict[str, dict] = {}
+    for n in accepted:
+        pid = n.position_id
+        if pid not in positions_map:
+            positions_map[pid] = {
+                "position_id": pid,
+                "position_title": n.position.title if n.position else "",
+                "seats": n.position.seats if n.position else 1,
+                "candidates": [],
+            }
+        member_name = ""
+        if n.member and hasattr(n.member, "user") and n.member.user:
+            member_name = f"{n.member.user.first_name} {n.member.user.last_name}"
+        positions_map[pid]["candidates"].append({
+            "member_id": n.member_id,
+            "member_name": member_name,
+            "nomination_id": n.id,
+            "statement": n.statement or "",
+        })
+    return {"items": list(positions_map.values())}
+
+
 # ── Nominations ──────────────────────────────────────────────
 
 @router.get("/{election_id}/nominations")
 async def list_nominations(
     election_id: str,
     position_id: str | None = Query(None),
-    user: TokenPayload = Depends(require_staff),
+    user: TokenPayload = Depends(require_member),
     db: AsyncSession = Depends(get_db),
 ):
     noms = await crud.list_nominations(db, election_id, position_id)
@@ -181,8 +231,16 @@ async def submit_nomination(
     user: TokenPayload = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Resolve member_profile.id from user.sub (user.id)
+    from app.modules.members.models import MemberProfile
+    mp_result = await db.execute(
+        select(MemberProfile.id).where(MemberProfile.user_id == user.sub, MemberProfile.tenant_id == user.tenant_id)
+    )
+    member_profile_id = mp_result.scalar_one_or_none()
+    if not member_profile_id:
+        raise HTTPException(status_code=400, detail="No member profile found for this user")
     try:
-        nom = await crud.create_nomination(db, election_id, user.sub, user.tenant_id, data.model_dump())
+        nom = await crud.create_nomination(db, election_id, member_profile_id, user.tenant_id, data.model_dump())
         return NominationResponse(
             id=nom.id, election_id=nom.election_id, position_id=nom.position_id,
             member_id=nom.member_id, status=nom.status.value,
@@ -219,28 +277,43 @@ async def decline_nomination(
 
 # ── Voting ───────────────────────────────────────────────────
 
+@router.get("/{election_id}/vote-status")
+async def vote_status(
+    election_id: str,
+    user: TokenPayload = Depends(require_member),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.modules.members.models import MemberProfile
+    mp_result = await db.execute(
+        select(MemberProfile.id).where(MemberProfile.user_id == user.sub, MemberProfile.tenant_id == user.tenant_id)
+    )
+    member_profile_id = mp_result.scalar_one_or_none()
+    if not member_profile_id:
+        return {"has_voted": False, "verification_code": None, "cast_at": None}
+    return await crud.get_voter_status(db, election_id, member_profile_id)
+
+
 @router.post("/{election_id}/vote", response_model=BallotResponse, status_code=status.HTTP_201_CREATED)
 async def cast_vote(
     election_id: str,
     data: CastBallot,
-    user: TokenPayload = Depends(get_current_user),
+    user: TokenPayload = Depends(require_member),
     db: AsyncSession = Depends(get_db),
 ):
+    # Resolve member_profile.id from user.sub
+    from app.modules.members.models import MemberProfile
+    mp_result = await db.execute(
+        select(MemberProfile.id).where(MemberProfile.user_id == user.sub, MemberProfile.tenant_id == user.tenant_id)
+    )
+    member_profile_id = mp_result.scalar_one_or_none()
+    if not member_profile_id:
+        raise HTTPException(status_code=400, detail="No member profile found for this user")
     try:
-        ballot = await crud.cast_ballot(db, election_id, user.sub, user.tenant_id, data.model_dump())
+        ballot = await crud.cast_ballot(db, election_id, member_profile_id, user.tenant_id, data.model_dump())
         return BallotResponse(id=ballot.id, election_id=ballot.election_id,
                               verification_code=ballot.verification_code, cast_at=ballot.cast_at)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/{election_id}/vote-status")
-async def vote_status(
-    election_id: str,
-    user: TokenPayload = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    return await crud.get_voter_status(db, election_id, user.sub)
 
 
 # ── Results ──────────────────────────────────────────────────
@@ -248,13 +321,40 @@ async def vote_status(
 @router.get("/{election_id}/results")
 async def get_results(
     election_id: str,
-    user: TokenPayload = Depends(require_staff),
+    user: TokenPayload = Depends(require_member),
     db: AsyncSession = Depends(get_db),
 ):
     results = await crud.get_results(db, election_id)
-    return [ResultResponse(
-        id=r.id, election_id=r.election_id, position_id=r.position_id,
-        position_title=r.position.title if r.position else "",
-        total_votes=r.total_votes, results_detail=r.results_detail,
-        winners=r.winners, is_final=r.is_final, published_at=r.published_at,
-    ) for r in results]
+
+    # Resolve member names for results_detail
+    out = []
+    for r in results:
+        resp = ResultResponse(
+            id=r.id, election_id=r.election_id, position_id=r.position_id,
+            position_title=r.position.title if r.position else "",
+            total_votes=r.total_votes, results_detail=r.results_detail,
+            winners=r.winners, is_final=r.is_final, published_at=r.published_at,
+        )
+        # Resolve member names
+        all_ids = set(r.results_detail.keys()) if r.results_detail else set()
+        all_ids.update(r.winners)
+        all_ids = {x for x in all_ids if x}  # Filter empty strings
+        names = {}
+        if all_ids:
+            uid_rows = await db.execute(
+                select(MemberProfile.id, MemberProfile.user_id).where(MemberProfile.id.in_(all_ids))
+            )
+            uid_map = {str(row[0]): str(row[1]) for row in uid_rows.all()}
+            if uid_map:
+                user_rows = await db.execute(
+                    select(User.id, User.first_name, User.last_name).where(User.id.in_(uid_map.values()))
+                )
+                name_map = {str(row[0]): f"{row[1]} {row[2]}".strip() for row in user_rows.all()}
+                for mid, uid in uid_map.items():
+                    names[mid] = name_map.get(uid, "")
+        # Inject names into all_candidates
+        for c in resp.all_candidates:
+            c.member_name = names.get(c.member_id, c.member_name)
+        resp.winner_names = [names.get(w, "") for w in resp.winners]
+        out.append(resp)
+    return out

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getMyOrgProfile, updateMyOrgProfile, type OrgProfile } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { Globe, Link, Save, ExternalLink, Loader2 } from "lucide-react";
+import { Globe, Link, Save, ExternalLink, Loader2, Copy, Check, Share2 } from "lucide-react";
 
 export default function OrgProfilePage() {
   const { user } = useAuth();
@@ -11,6 +11,7 @@ export default function OrgProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -121,6 +122,49 @@ export default function OrgProfilePage() {
           </button>
         </div>
       </div>
+
+      {/* Shareable Join Link */}
+      {profile && (
+        <div className="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 rounded-2xl p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <Share2 className="h-5 w-5 text-teal-600" />
+                <h2 className="text-base font-bold text-gray-900">Shareable Join Link</h2>
+              </div>
+              <p className="text-sm text-gray-600 mb-3">
+                Share this link with potential members. It takes them directly to the registration form with your association pre-selected.
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 flex items-center gap-2 px-4 py-2.5 bg-white border border-teal-200 rounded-xl font-mono text-sm text-teal-800 truncate">
+                  <span className="truncate">
+                    {typeof window !== "undefined" ? window.location.origin : ""}/join/{profile.slug}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    const url = `${window.location.origin}/join/${profile.slug}`;
+                    navigator.clipboard.writeText(url).then(() => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    });
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-all shrink-0"
+                >
+                  {copied ? (
+                    <><Check className="h-4 w-4" /> Copied!</>
+                  ) : (
+                    <><Copy className="h-4 w-4" /> Copy</>
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                Your public page: <a href={`/org/${profile.slug}`} target="_blank" rel="noopener noreferrer" className="text-teal-600 hover:underline">/org/{profile.slug}</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Basic Info */}
       <Section title="Basic Information" icon="📋">

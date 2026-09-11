@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/shared";
 import {
   DollarSign, FileText, Receipt, PiggyBank, CreditCard,
-  Plus, Trash2, Download, Send, CheckCircle,
+  Plus, Trash2, Download, Send, CheckCircle, Eye,
 } from "lucide-react";
 
 const F = "/api/v1/finances";
@@ -40,9 +40,14 @@ export default function FinancesPage() {
   const [showCreateInv, setShowCreateInv] = useState(false);
   const [delInv, setDelInv] = useState<Invoice | null>(null);
   const [payInv, setPayInv] = useState<Invoice | null>(null);
-  const [invForm, setInvForm] = useState({ member_id: "", notes: "", due_days: "30" });
+  const [viewInv, setViewInv] = useState<Invoice | null>(null);
+  const [invForm, setInvForm] = useState({ notes: "", due_days: "30" });
   const [lineItems, setLineItems] = useState([{ description: "", quantity: 1, unit_price: 0 }]);
   const [invSubmitting, setInvSubmitting] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
+  const [memberSearchResults, setMemberSearchResults] = useState<any[]>([]);
+  const [selectedMember, setSelectedMember] = useState<any | null>(null);
+  const [memberSearchOpen, setMemberSearchOpen] = useState(false);
 
   // Expenses
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -69,7 +74,7 @@ export default function FinancesPage() {
     if (tab !== "dashboard") return;
     setDashLoading(true);
     try { setDash(await apiFetch<FinanceDashboard>(`${F}/dashboard`)); }
-    catch (e: any) { toast.error("Failed to load dashboard"); }
+    catch (e: any) { toast.error(e.message || "Failed to load dashboard"); }
     finally { setDashLoading(false); }
   }, [tab]);
 
@@ -77,9 +82,9 @@ export default function FinancesPage() {
     if (tab !== "invoices") return;
     setInvLoading(true);
     try {
-      const r = await apiFetch<PaginatedResponse<Invoice>>(`${F}/invoices/?page=${invPage}&per_page=20`);
+      const r = await apiFetch<PaginatedResponse<Invoice>>(`${F}/invoices?page=${invPage}&per_page=20`);
       setInvoices(r.items || []); setInvTotal(r.total || 0);
-    } catch (e: any) { toast.error("Failed to load invoices"); }
+    } catch (e: any) { toast.error(e.message || "Failed to load invoices"); }
     finally { setInvLoading(false); }
   }, [tab, invPage]);
 
@@ -87,9 +92,9 @@ export default function FinancesPage() {
     if (tab !== "expenses") return;
     setExpLoading(true);
     try {
-      const r = await apiFetch<PaginatedResponse<Expense>>(`${F}/expenses/?page=${expPage}&per_page=20`);
+      const r = await apiFetch<PaginatedResponse<Expense>>(`${F}/expenses?page=${expPage}&per_page=20`);
       setExpenses(r.items || []); setExpTotal(r.total || 0);
-    } catch (e: any) { toast.error("Failed to load expenses"); }
+    } catch (e: any) { toast.error(e.message || "Failed to load expenses"); }
     finally { setExpLoading(false); }
   }, [tab, expPage]);
 
@@ -97,9 +102,9 @@ export default function FinancesPage() {
     if (tab !== "budgets") return;
     setBudLoading(true);
     try {
-      const r = await apiFetch<any>(`${F}/budgets/?page=1&per_page=50`);
+      const r = await apiFetch<any>(`${F}/budgets?page=1&per_page=50`);
       setBudgets(Array.isArray(r) ? r : (r.items || []));
-    } catch (e: any) { toast.error("Failed to load budgets"); }
+    } catch (e: any) { toast.error(e.message || "Failed to load budgets"); }
     finally { setBudLoading(false); }
   }, [tab]);
 
@@ -109,7 +114,7 @@ export default function FinancesPage() {
     try {
       const r = await apiFetch<any>(`${F}/dues/?page=1&per_page=50`);
       setDues(Array.isArray(r) ? r : (r.items || []));
-    } catch (e: any) { toast.error("Failed to load dues"); }
+    } catch (e: any) { toast.error(e.message || "Failed to load dues"); }
     finally { setDuesLoading(false); }
   }, [tab]);
 
@@ -119,17 +124,42 @@ export default function FinancesPage() {
   useEffect(() => { loadBudgets(); }, [loadBudgets]);
   useEffect(() => { loadDues(); }, [loadDues]);
 
+  // ── Member Search for Invoice Form ───────────────────────
+  const searchMembers = useCallback(async (q: string) => {
+    if (!q.trim() || q.length < 2) { setMemberSearchResults([]); return; }
+    try {
+      const r = await apiFetch<any>(`/api/v1/members/?search=${encodeURIComponent(q)}&per_page=10`);
+      setMemberSearchResults(r.items || []);
+    } catch { setMemberSearchResults([]); }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => searchMembers(memberSearchQuery), 300);
+    return () => clearTimeout(t);
+  }, [memberSearchQuery, searchMembers]);
+
+  // Close member search dropdown on click outside
+  useEffect(() => {
+    if (!memberSearchOpen) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-member-search]")) setMemberSearchOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [memberSearchOpen]);
+
   // ── Invoice CRUD ──────────────────────────────────────
   async function handleCreateInv() {
-    if (!invForm.member_id.trim()) { toast.warning("Member ID required"); return; }
+    if (!selectedMember) { toast.warning("Please select a member"); return; }
     const items = lineItems.filter(l => l.description.trim());
     if (!items.length) { toast.warning("Add at least one line item"); return; }
     setInvSubmitting(true);
     try {
-      await apiFetch(`${F}/invoices/`, {
+      await apiFetch(`${F}/invoices`, {
         method: "POST",
         body: JSON.stringify({
-          member_id: invForm.member_id,
+          member_id: selectedMember.id,
           line_items: items,
           due_days: parseInt(invForm.due_days) || 30,
           notes: invForm.notes,
@@ -137,10 +167,12 @@ export default function FinancesPage() {
       });
       toast.success("Invoice created");
       setShowCreateInv(false);
-      setInvForm({ member_id: "", notes: "", due_days: "30" });
+      setInvForm({ notes: "", due_days: "30" });
+      setSelectedMember(null);
+      setMemberSearchQuery("");
       setLineItems([{ description: "", quantity: 1, unit_price: 0 }]);
       loadInvoices();
-    } catch (e: any) { toast.error(e.message || "Create failed"); }
+    } catch (e: any) { console.error("Create invoice error:", e); toast.error(e.message || "Create failed"); }
     finally { setInvSubmitting(false); }
   }
 
@@ -150,14 +182,14 @@ export default function FinancesPage() {
     const method = (document.getElementById("pay-method") as HTMLSelectElement)?.value || "bank_transfer";
     if (amt <= 0) { toast.warning("Amount must be > 0"); return; }
     try {
-      await apiFetch(`${F}/payments/`, {
+      await apiFetch(`${F}/payments`, {
         method: "POST",
         body: JSON.stringify({ invoice_id: payInv.id, amount: amt, payment_method: method }),
       });
       toast.success("Payment recorded");
       setPayInv(null);
       loadInvoices();
-    } catch (e: any) { toast.error(e.message || "Payment failed"); }
+    } catch (e: any) { console.error("Record payment error:", e); toast.error(e.message || "Payment failed"); }
   }
 
   async function handleDeleteInv() {
@@ -167,7 +199,7 @@ export default function FinancesPage() {
       toast.success("Invoice deleted");
       setDelInv(null);
       loadInvoices();
-    } catch (e: any) { toast.error(e.message || "Delete failed"); }
+    } catch (e: any) { console.error("Delete invoice error:", e); toast.error(e.message || "Delete failed"); }
   }
 
   async function handleSendInvoice(inv: Invoice) {
@@ -186,11 +218,18 @@ export default function FinancesPage() {
     } catch (e: any) { toast.error(e.message || "Checkout failed"); }
   }
 
+  async function handleViewInv(inv: Invoice) {
+    try {
+      const detail = await apiFetch<Invoice>(`${F}/invoices/${inv.id}`);
+      setViewInv(detail);
+    } catch (e: any) { toast.error(e.message || "Failed to load invoice"); }
+  }
+
   // ── Expense CRUD ──────────────────────────────────────
   async function handleCreateExp() {
     if (!expForm.title.trim() || !expForm.amount) { toast.warning("Title and amount required"); return; }
     try {
-      await apiFetch(`${F}/expenses/`, {
+      await apiFetch(`${F}/expenses`, {
         method: "POST",
         body: JSON.stringify({ ...expForm, amount: parseFloat(expForm.amount), expense_date: expForm.expense_date || new Date().toISOString() }),
       });
@@ -213,7 +252,7 @@ export default function FinancesPage() {
   async function handleCreateBud() {
     if (!budForm.name || !budForm.planned_amount) { toast.warning("Name and amount required"); return; }
     try {
-      await apiFetch(`${F}/budgets/`, {
+      await apiFetch(`${F}/budgets`, {
         method: "POST",
         body: JSON.stringify({ name: budForm.name, category: budForm.category, planned_amount: parseFloat(budForm.planned_amount), period: budForm.period, start_date: budForm.start_date ? new Date(budForm.start_date).toISOString() : new Date().toISOString(), end_date: budForm.end_date ? new Date(budForm.end_date).toISOString() : new Date(Date.now() + 365*24*60*60*1000).toISOString() }),
       });
@@ -246,7 +285,7 @@ export default function FinancesPage() {
         actions={
           <button onClick={async () => {
             try {
-              const r = await fetch(`${API_BASE}${F}/invoices/?format=csv`, {
+              const r = await fetch(`${API_BASE}${F}/invoices/export/csv`, {
                 headers: { Authorization: `Bearer ${getToken()}` },
               });
               const blob = await r.blob();
@@ -315,13 +354,14 @@ export default function FinancesPage() {
                     {invoices.map((inv) => (
                       <tr key={inv.id} className="border-b hover:bg-gray-50">
                         <td className="p-3 font-mono text-xs">{inv.invoice_number}</td>
-                        <td className="p-3">{inv.member_id?.slice(0, 8)}...</td>
+                        <td className="p-3">{inv.member_name || inv.member_id?.slice(0, 8) + "..."}</td>
                         <td className="p-3 text-right font-medium">{fmt$(inv.total || inv.total_amount || inv.subtotal || 0)}</td>
                         <td className="p-3 text-right">{fmt$(inv.amount_paid || 0)}</td>
                         <td className="p-3"><StatusBadge status={inv.status || "pending"} /></td>
                         <td className="p-3 text-gray-500">{fmtDate(inv.due_at || inv.due_date)}</td>
                         <td className="p-3">
                           <div className="flex gap-1">
+                            <button onClick={() => handleViewInv(inv)} className="p-1 hover:bg-gray-100 rounded text-gray-600" title="View Details"><Eye className="h-4 w-4" /></button>
                             <button onClick={async () => { try { const res = await fetch(`${API_BASE}${F}/invoices/${inv.id}/pdf`, { headers: { Authorization: `Bearer ${getToken()}` } }); if (!res.ok) throw new Error('Failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); window.open(url, '_blank'); } catch(e) { toast.error('Failed to download PDF'); } }} className="p-1 hover:bg-gray-100 rounded text-gray-600" title="Download PDF"><Download className="h-4 w-4" /></button>
                             {inv.status === "pending" && (
                               <>
@@ -454,8 +494,41 @@ export default function FinancesPage() {
       {/* ── Modals ────────────────────────────────────── */}
       <Modal open={showCreateInv} onOpenChange={() => setShowCreateInv(false)} title="Create Invoice">
         <div className="space-y-4">
-          <FormField label="Member ID" required>
-            <Input value={invForm.member_id} onChange={(e) => setInvForm({ ...invForm, member_id: e.target.value })} placeholder="Enter member profile ID" />
+          <FormField label="Member" required>
+            {selectedMember ? (
+              <div className="flex items-center gap-2 p-2 rounded-lg border border-teal-200 bg-teal-50" data-member-search>
+                <div className="w-8 h-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-semibold">
+                  {(selectedMember.first_name || "?")[0]}{(selectedMember.last_name || "?")[0]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">{selectedMember.first_name} {selectedMember.last_name}</p>
+                  <p className="text-xs text-slate-500 truncate">{selectedMember.email}</p>
+                </div>
+                <button onClick={() => { setSelectedMember(null); setMemberSearchQuery(""); }} className="text-slate-400 hover:text-red-500 text-xs font-medium">✕</button>
+              </div>
+            ) : (
+              <div className="relative" data-member-search>
+                <Input value={memberSearchQuery} onChange={(e) => { setMemberSearchQuery(e.target.value); setMemberSearchOpen(true); }} placeholder="Search by name or email..." onFocus={() => setMemberSearchOpen(true)} />
+                {memberSearchOpen && memberSearchResults.length > 0 && (
+                  <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg">
+                    {memberSearchResults.map((m) => (
+                      <button key={m.id} onClick={() => { setSelectedMember(m); setMemberSearchOpen(false); setMemberSearchQuery(""); }} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 text-left">
+                        <div className="w-7 h-7 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                          {(m.first_name || "?")[0]}{(m.last_name || "?")[0]}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{m.first_name} {m.last_name}</p>
+                          <p className="text-xs text-slate-500 truncate">{m.email}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {memberSearchOpen && memberSearchQuery.length >= 2 && memberSearchResults.length === 0 && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg px-3 py-2 text-sm text-slate-400">No members found</div>
+                )}
+              </div>
+            )}
           </FormField>
           <FormField label="Due Days">
             <Input value={invForm.due_days} onChange={(e) => setInvForm({ ...invForm, due_days: e.target.value })} type="number" />
@@ -513,6 +586,71 @@ export default function FinancesPage() {
             <button onClick={handleRecordPayment} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">Record Payment</button>
           </div>
         </div>
+      </Modal>
+
+      {/* View Invoice Detail Modal */}
+      <Modal open={!!viewInv} onOpenChange={() => setViewInv(null)} title={`Invoice ${viewInv?.invoice_number || ""}`}>
+        {viewInv && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><span className="text-gray-500">Status</span><div className="mt-1"><StatusBadge status={viewInv.status || "pending"} /></div></div>
+              <div><span className="text-gray-500">Member</span><p className="mt-1 font-medium">{viewInv.member_name || viewInv.member_id}</p></div>
+              <div><span className="text-gray-500">Issued</span><p className="mt-1">{fmtDate(viewInv.created_at || viewInv.issued_at)}</p></div>
+              <div><span className="text-gray-500">Due Date</span><p className="mt-1">{fmtDate(viewInv.due_at)}</p></div>
+              {viewInv.paid_at && <div><span className="text-gray-500">Paid</span><p className="mt-1">{fmtDate(viewInv.paid_at)}</p></div>}
+            </div>
+
+            {/* Line Items */}
+            {viewInv.line_items && viewInv.line_items.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Line Items</h4>
+                <table className="w-full text-sm border rounded-lg overflow-hidden">
+                  <thead className="bg-gray-50"><tr>
+                    <th className="p-2 text-left">Description</th>
+                    <th className="p-2 text-right">Qty</th>
+                    <th className="p-2 text-right">Price</th>
+                    <th className="p-2 text-right">Amount</th>
+                  </tr></thead>
+                  <tbody>
+                    {viewInv.line_items.map((item, idx) => (
+                      <tr key={idx} className="border-t">
+                        <td className="p-2">{item.description}</td>
+                        <td className="p-2 text-right">{item.quantity}</td>
+                        <td className="p-2 text-right">{fmt$(item.unit_price)}</td>
+                        <td className="p-2 text-right font-medium">{fmt$(item.quantity * item.unit_price)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Totals */}
+            <div className="border-t pt-3 space-y-1 text-sm">
+              <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span>{fmt$(viewInv.subtotal || 0)}</span></div>
+              {viewInv.tax_rate ? <div className="flex justify-between"><span className="text-gray-500">Tax ({viewInv.tax_rate}%)</span><span>{fmt$(viewInv.tax_amount || 0)}</span></div> : null}
+              {viewInv.discount_amount ? <div className="flex justify-between"><span className="text-gray-500">Discount</span><span>-{fmt$(viewInv.discount_amount)}</span></div> : null}
+              <div className="flex justify-between font-bold text-base border-t pt-1"><span>Total</span><span>{fmt$(viewInv.total || 0)}</span></div>
+              <div className="flex justify-between text-green-600"><span>Paid</span><span>{fmt$(viewInv.amount_paid || 0)}</span></div>
+              {viewInv.total && viewInv.amount_paid ? <div className="flex justify-between font-medium"><span>Balance Due</span><span>{fmt$((viewInv.total || 0) - (viewInv.amount_paid || 0))}</span></div> : null}
+            </div>
+
+            {viewInv.notes && (
+              <div className="border-t pt-3">
+                <span className="text-sm text-gray-500">Notes</span>
+                <p className="text-sm mt-1 whitespace-pre-wrap">{viewInv.notes}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 border-t pt-3">
+              <button onClick={() => { setViewInv(null); }} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Close</button>
+              <button onClick={async () => { try { const res = await fetch(`${API_BASE}${F}/invoices/${viewInv.id}/pdf`, { headers: { Authorization: `Bearer ${getToken()}` } }); if (!res.ok) throw new Error('Failed'); const blob = await res.blob(); const url = URL.createObjectURL(blob); window.open(url, '_blank'); } catch(e) { toast.error('Failed to download PDF'); } }} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)" }}><Download className="h-4 w-4 inline mr-1" /> PDF</button>
+              {viewInv.status === "pending" && (
+                <button onClick={() => { setViewInv(null); setPayInv(viewInv); }} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">Record Payment</button>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal open={showCreateExp} onOpenChange={() => setShowCreateExp(false)} title="New Expense">

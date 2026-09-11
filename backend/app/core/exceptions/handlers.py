@@ -75,13 +75,13 @@ def register_exception_handlers(app: FastAPI):
             type(exc).__name__, str(exc)[:500],
             exc_info=True,
         )
+        # Return error type name (safe, non-internal) + error_id for support
+        error_type = type(exc).__name__
+        if error_type in ("Exception", "BaseException"):
+            error_type = "UnexpectedError"
         return JSONResponse(
             status_code=500,
             content={
-                "error": {
-                    "code": "INTERNAL_ERROR",
-                    "message": "An internal error occurred. Please try again later.",
-                    "error_id": error_id,
-                }
+                "detail": f"{error_type}: An internal error occurred. Reference: {error_id}",
             },
         )

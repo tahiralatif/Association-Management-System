@@ -136,6 +136,61 @@ async def publish_event(
     event = await crud.update_event_status(db, event_id, user.tenant_id, "published")
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    # Notify all members in the event's tenant about the new published event
+    try:
+        from app.modules.members.models import User, MemberProfile
+        from app.modules.communications.models import Notification
+        from sqlalchemy import select
+
+        # Find all active members in this tenant (use event's tenant, not user's token tenant)
+        event_tenant = event.tenant_id
+        mp_result = await db.execute(
+            select(MemberProfile.user_id)
+            .where(MemberProfile.tenant_id == event_tenant)
+            .distinct()
+        )
+        member_user_ids = [row[0] for row in mp_result.all()]
+
+        if member_user_ids:
+            event_date_str = event.start_date.strftime("%B %d, %Y at %I:%M %p") if event.start_date else "TBD"
+
+            # Create in-app notifications for each member
+            for uid in member_user_ids:
+                notif = Notification(
+                    tenant_id=event_tenant,
+                    user_id=uid,
+                    title=f"New Event: {event.name}",
+                    message=f"A new event '{event.name}' has been published! Date: {event_date_str}. Register now!",
+                    link=f"/my-events",
+                    notification_type="info",
+                )
+                db.add(notif)
+
+            # Send email notifications
+            users_result = await db.execute(
+                select(User).where(User.id.in_(member_user_ids))
+            )
+            users = users_result.scalars().all()
+            for u in users:
+                try:
+                    from app.core.notifications import notify_generic
+                    notify_generic(
+                        to=u.email,
+                        title=f"New Event: {event.name}",
+                        message=f"A new event '{event.name}' has been published! Date: {event_date_str}. Register now to secure your spot.",
+                        action_url="/my-events",
+                        action_label="View Event",
+                        tenant_id=event_tenant,
+                        member_name=f"{u.first_name} {u.last_name}",
+                    )
+                except Exception:
+                    pass
+
+            await db.flush()
+    except Exception:
+        pass  # Don't fail publish if notification fails
+
     return {"message": "Event published"}
 
 

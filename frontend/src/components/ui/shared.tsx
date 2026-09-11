@@ -16,7 +16,7 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="relative mb-8 overflow-hidden rounded-2xl" style={{ background: 'linear-gradient(135deg, #065f46 0%, #0d9488 50%, #14b8a6 100%)', boxShadow: '0 8px 32px rgba(13,148,136,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}>
+    <div className="relative mb-8 overflow-hidden rounded-2xl page-header-gradient" style={{ boxShadow: '0 8px 32px rgba(13,148,136,0.25), 0 2px 8px rgba(0,0,0,0.1)' }}>
       {/* Decorative circles */}
       <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }} />
       <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full" style={{ background: 'rgba(255,255,255,0.04)' }} />
@@ -25,7 +25,7 @@ export function PageHeader({
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{title}</h1>
-            {description && <p className="text-teal-100 mt-1.5 text-sm sm:text-base">{description}</p>}
+            {description && <p className="mt-1.5 text-sm sm:text-base" style={{ color: 'rgba(255,255,255,0.85)' }}>{description}</p>}
           </div>
           {actions && <div className="flex gap-3">{actions}</div>}
         </div>

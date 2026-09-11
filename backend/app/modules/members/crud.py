@@ -20,6 +20,8 @@ from app.modules.members.models import (
     MembershipTier,
     User,
 )
+# Re-export for convenience
+_MemberProfile = MemberProfile
 
 
 # ── User Operations ──────────────────────────────────────────
@@ -67,7 +69,10 @@ async def list_members(
     """List members with advanced filtering and pagination."""
     query = (
         select(User)
-        .options(selectinload(User.member_profile))
+        .options(
+            selectinload(User.member_profile)
+            .selectinload(MemberProfile.tags_relations)
+        )
         .where(User.tenant_id == tenant_id, User.is_active == True)
     )
 
@@ -135,6 +140,12 @@ async def list_members(
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
     members = list(result.scalars().unique().all())
+
+    # Populate tags from junction table into the JSON field for serialization
+    for user in members:
+        profile = user.member_profile
+        if profile and hasattr(profile, 'tags_relations') and profile.tags_relations:
+            profile.tags = [t.name for t in profile.tags_relations]
 
     return members, total
 
@@ -321,6 +332,7 @@ async def create_group(db: AsyncSession, tenant_id: str, data: dict) -> MemberGr
     group = MemberGroup(tenant_id=tenant_id, **data)
     db.add(group)
     await db.flush()
+    await db.refresh(group)
     return group
 
 

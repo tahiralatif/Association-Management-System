@@ -9,9 +9,10 @@ import {
   Textarea, Tabs, EmptyState, LoadingSpinner,
 } from "@/components/ui/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 import {
   Users, UserPlus, Download, Upload, Tag, Shield, Activity,
-  ChevronDown, Mail, Phone, Edit, Trash2, Eye, MoreHorizontal,
+  ChevronDown, Mail, Phone, Edit, Trash2, Eye, MoreHorizontal, UsersRound,
 } from "lucide-react";
 
 /**
@@ -53,6 +54,7 @@ interface Member {
     joined_at?: string;
     engagement_score?: number;
     tags?: string[];
+    avatar_url?: string;
   };
 }
 
@@ -84,9 +86,19 @@ function getTier(m: Member) { return m.member_profile?.tier || "basic"; }
 function getJoined(m: Member) { return m.member_profile?.joined_at || m.created_at; }
 function getScore(m: Member) { return m.member_profile?.engagement_score; }
 function getTags(m: Member) { return m.member_profile?.tags || []; }
+function getAvatarUrl(m: Member) { return m.member_profile?.avatar_url || ""; }
+
+/** Generate a consistent color from a name string */
+function nameColor(name: string) {
+  const palette = ["#0d9488", "#6366f1", "#ec4899", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444", "#3b82f6"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return palette[Math.abs(hash) % palette.length];
+}
 
 export default function MembersPage() {
   const toast = useToast();
+  const router = useRouter();
   const [tab, setTab] = useState("list");
   const [members, setMembers] = useState<Member[]>([]);
   const [stats, setStats] = useState<MemberStats | null>(null);
@@ -128,10 +140,8 @@ export default function MembersPage() {
   // Groups
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupForm, setGroupForm] = useState({ name: "", description: "" });
-  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
-  const [groupMembers, setGroupMembers] = useState<Member[]>([]);
-  const [showAddToGroup, setShowAddToGroup] = useState(false);
-  const [addToGroupMemberId, setAddToGroupMemberId] = useState("");
+
+  const [adding, setAdding] = useState(false);
 
   // Tags
   const [showCreateTag, setShowCreateTag] = useState(false);
@@ -142,6 +152,11 @@ export default function MembersPage() {
   const [bulkAction, setBulkAction] = useState("");
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
   const [bulkTagIds, setBulkTagIds] = useState<string[]>([]);
+
+  // Bulk Add-to-Group
+  const [showBulkGroupModal, setShowBulkGroupModal] = useState(false);
+  const [bulkGroupId, setBulkGroupId] = useState("");
+  const [bulkGroupRole, setBulkGroupRole] = useState("member");
 
   // Delete
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
@@ -252,45 +267,7 @@ export default function MembersPage() {
     } catch (e: any) { toast.error(e.message || "Failed"); }
   }
 
-  async function loadGroupMembers(group: Group) {
-    setSelectedGroup(group);
-    try {
-      const r = await apiFetch<{ members: any[] }>(`/api/v1/members/groups/${group.id}`);
-      const data = r as any;
-      setGroupMembers(data.members?.map((m: any) => ({
-        id: m.member_id,
-        first_name: m.user_name?.split(" ")[0] || "",
-        last_name: m.user_name?.split(" ").slice(1).join(" ") || "",
-        email: m.email || "",
-        role: m.role,
-        joined_at: m.joined_at,
-      })) || []);
-    } catch (e: any) { toast.error("Failed to load group members"); }
-  }
 
-  async function handleAddToGroup() {
-    if (!selectedGroup || !addToGroupMemberId) { toast.warning("Select a member"); return; }
-    try {
-      await apiFetch(`/api/v1/members/groups/${selectedGroup.id}/members`, {
-        method: "POST",
-        body: JSON.stringify({ member_id: addToGroupMemberId, role: "member" }),
-      });
-      toast.success("Member added to group — they've been notified!");
-      setShowAddToGroup(false);
-      setAddToGroupMemberId("");
-      loadGroupMembers(selectedGroup);
-    } catch (e: any) { toast.error(e.message || "Failed to add member"); }
-  }
-
-  async function handleRemoveFromGroup(memberId: string) {
-    if (!selectedGroup) return;
-    if (!confirm("Remove this member from the group?")) return;
-    try {
-      await apiFetch(`/api/v1/members/groups/${selectedGroup.id}/members/${memberId}`, { method: "DELETE" });
-      toast.success("Member removed from group");
-      loadGroupMembers(selectedGroup);
-    } catch (e: any) { toast.error(e.message || "Failed to remove member"); }
-  }
 
   // ── Tags ─────────────────────────────────────────────────
   async function handleCreateTag() {
@@ -317,10 +294,13 @@ export default function MembersPage() {
           }),
         });
       } else if (bulkAction === "add_tag" || bulkAction === "remove_tag") {
-        // Show tag selection modal
         setBulkTagIds([]);
         setShowBulkTagModal(true);
-        return; // Don't clear selection or show success yet
+        return;
+      } else if (bulkAction === "add_to_group") {
+        setBulkGroupId("");
+        setShowBulkGroupModal(true);
+        return;
       } else if (bulkAction === "delete") {
         await handleBulkDelete(selectedIds);
         return;
@@ -331,6 +311,35 @@ export default function MembersPage() {
       setSelectedIds([]);
       loadMembers(); loadStats();
     } catch (e: any) { toast.error(e.message || "Bulk action failed"); }
+  }
+
+  async function handleBulkGroupSubmit() {
+    if (!bulkGroupId) { toast.warning("Select a group"); return; }
+    setAdding(true);
+    let added = 0;
+    let failed = 0;
+    for (const memberId of selectedIds) {
+      try {
+        await apiFetch(`/api/v1/members/groups/${bulkGroupId}/members`, {
+          method: "POST",
+          body: JSON.stringify({ member_id: memberId, role: bulkGroupRole }),
+        });
+        added++;
+      } catch {
+        failed++;
+      }
+    }
+    setAdding(false);
+    setShowBulkGroupModal(false);
+    setBulkGroupId("");
+    setBulkGroupRole("member");
+    setBulkAction("");
+    if (added > 0) {
+      toast.success(`Added ${added} member(s) to group` + (failed ? ` (${failed} failed)` : ""));
+      setSelectedIds([]);
+    } else {
+      toast.error("Failed to add members to group");
+    }
   }
 
   async function handleBulkTagSubmit() {
@@ -432,6 +441,7 @@ export default function MembersPage() {
                   { value: "deactivate", label: "Deactivate" },
                   { value: "add_tag", label: "Add Tag" },
                   { value: "remove_tag", label: "Remove Tag" },
+                  { value: "add_to_group", label: "Add to Group" },
                   { value: "delete", label: "Delete Selected" },
                   { value: "export", label: "Export Selected" },
                 ]} />
@@ -457,9 +467,11 @@ export default function MembersPage() {
                         }} checked={selectedIds.length === members.length && members.length > 0} />
                       </th>
                       <th className="p-3 text-left">Name</th>
+                      <th className="p-3 text-left">Member #</th>
                       <th className="p-3 text-left">Email</th>
                       <th className="p-3 text-left">Tier</th>
                       <th className="p-3 text-left">Status</th>
+                      <th className="p-3 text-left">Tags</th>
                       <th className="p-3 text-left">Joined</th>
                       <th className="p-3 text-left">Actions</th>
                     </tr>
@@ -475,10 +487,49 @@ export default function MembersPage() {
                                 e.target.checked ? [...selectedIds, m.id] : selectedIds.filter(id => id !== m.id)
                               )} />
                           </td>
-                          <td className="p-3 font-medium">{m.first_name} {m.last_name}</td>
+                          <td className="p-3 font-medium">
+                            <div className="flex items-center gap-2.5">
+                              {(() => {
+                                const avatarUrl = getAvatarUrl(m);
+                                const fullName = `${m.first_name} ${m.last_name}`;
+                                const initials = `${m.first_name?.[0] || ""}${m.last_name?.[0] || ""}`.toUpperCase();
+                                if (avatarUrl) {
+                                  return (
+                                    <img src={avatarUrl} alt={fullName}
+                                      className="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0" />
+                                  );
+                                }
+                                return (
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                                    style={{ backgroundColor: nameColor(fullName) }}>
+                                    {initials}
+                                  </div>
+                                );
+                              })()}
+                              <span>{m.first_name} {m.last_name}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 text-gray-500 font-mono text-xs">{m.member_profile?.member_number || "—"}</td>
                           <td className="p-3 text-gray-500">{m.email}</td>
                           <td className="p-3"><StatusBadge status={getTier(m)} /></td>
                           <td className="p-3"><StatusBadge status={status} /></td>
+                          <td className="p-3">
+                            <div className="flex flex-wrap gap-1">
+                              {getTags(m).length > 0 ? (
+                                getTags(m).map((tagName) => {
+                                  const tagDef = tags.find((t) => t.name === tagName);
+                                  return (
+                                    <span key={tagName} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                                      style={{ backgroundColor: tagDef?.color || "#14b8a6" }}>
+                                      {tagName}
+                                    </span>
+                                  );
+                                })
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
+                            </div>
+                          </td>
                           <td className="p-3 text-gray-500">{fmtDate(getJoined(m))}</td>
                           <td className="p-3">
                             <div className="flex gap-1">
@@ -523,46 +574,27 @@ export default function MembersPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 stagger-children">
               {groups.map((g) => (
-                <Card key={g.id} className={`cursor-pointer hover:border-teal-400 transition-all duration-200 ${selectedGroup?.id === g.id ? "border-teal-500" : ""}`} onClick={() => loadGroupMembers(g)}>
-                  <CardHeader className="pb-2"><CardTitle className="text-base text-slate-800">{g.name}</CardTitle></CardHeader>
+                <Card key={g.id} className="cursor-pointer hover:border-teal-400 hover:shadow-md transition-all duration-200 group" onClick={() => router.push(`/members/groups/${g.id}`)}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base text-slate-800 group-hover:text-teal-700 transition-colors">{g.name}</CardTitle>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200">
+                        <Users className="h-3 w-3" /> {g.member_count || 0}
+                      </span>
+                    </div>
+                  </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-gray-500">{g.description || "No description"}</p>
-                    <p className="text-xs mt-2 text-gray-400">{g.member_count || 0} members</p>
+                    <p className="text-sm text-gray-500 line-clamp-2">{g.description || "No description"}</p>
+                    <div className="flex items-center justify-between mt-3">
+                      <p className="text-xs text-gray-400">{g.member_count || 0} members</p>
+                      <span className="text-xs text-teal-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">View details →</span>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           )}
-          {selectedGroup && (
-            <Card className="rounded-2xl border-slate-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base text-slate-800">{selectedGroup.name} — Members ({groupMembers.length})</CardTitle>
-                <button onClick={() => setShowAddToGroup(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)" }}>
-                  <UserPlus className="h-3.5 w-3.5" /> Add Member
-                </button>
-              </CardHeader>
-              <CardContent>
-                {groupMembers.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">No members in this group yet</p>
-                ) : (
-                  <div className="space-y-2">
-                    {groupMembers.map((m: any) => (
-                      <div key={m.id} className="flex justify-between items-center py-2 border-b last:border-0">
-                        <div>
-                          <span className="text-sm font-medium text-slate-700">{m.first_name} {m.last_name}</span>
-                          <span className="text-xs text-gray-400 ml-2">{m.role}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm text-gray-500">{m.email}</span>
-                          <button onClick={() => handleRemoveFromGroup(m.id)} className="text-xs text-red-500 hover:text-red-700 transition-colors">Remove</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+
         </div>
       )}
 
@@ -639,8 +671,12 @@ export default function MembersPage() {
               <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
             </FormField>
             <div className="grid grid-cols-3 gap-4 text-sm">
+              <div><span className="text-gray-500">Member #:</span> <span className="font-mono">{selected.member_profile?.member_number || "—"}</span></div>
               <div><span className="text-gray-500">Tier:</span> <StatusBadge status={getTier(selected)} /></div>
               <div><span className="text-gray-500">Status:</span> <StatusBadge status={getStatus(selected)} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><span className="text-gray-500">Joined:</span> {fmtDate(getJoined(selected))}</div>
               <div><span className="text-gray-500">Score:</span> {getScore(selected) ?? "—"}</div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -667,28 +703,7 @@ export default function MembersPage() {
         </div>
       </Modal>
 
-      {/* Add Member to Group */}
-      <Modal open={showAddToGroup} onOpenChange={(v) => setShowAddToGroup(v)} title={`Add Member to ${selectedGroup?.name || "Group"}`}>
-        <div className="space-y-4">
-          <FormField label="Select Member" required>
-            <select
-              value={addToGroupMemberId}
-              onChange={(e) => setAddToGroupMemberId(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-white"
-            >
-              <option value="">Choose a member...</option>
-              {members.filter(m => !groupMembers.some(gm => gm.id === m.id)).map(m => (
-                <option key={m.id} value={m.id}>{m.first_name} {m.last_name} ({m.email})</option>
-              ))}
-            </select>
-          </FormField>
-          <p className="text-xs text-gray-400">The member will receive an in-app notification and email.</p>
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setShowAddToGroup(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
-            <button onClick={handleAddToGroup} disabled={!addToGroupMemberId} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>Add to Group</button>
-          </div>
-        </div>
-      </Modal>
+
 
       {/* Create Tag */}
       <Modal open={showCreateTag} onOpenChange={(v) => setShowCreateTag(v)} title="New Tag">
@@ -709,7 +724,16 @@ export default function MembersPage() {
       {/* Bulk Tag Modal */}
       <Modal open={showBulkTagModal} onOpenChange={(v) => { setShowBulkTagModal(v); if (!v) { setBulkAction(""); } }} title={bulkAction === "add_tag" ? "Add Tag to Members" : "Remove Tag from Members"}>
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">Select tags to {bulkAction === "add_tag" ? "add to" : "remove from"} {selectedIds.length} member(s):</p>
+          <div className="bg-teal-50 border border-teal-100 rounded-lg p-3">
+            <p className="text-sm text-teal-800 font-medium">
+              {bulkAction === "add_tag" ? "Add tag to:" : "Remove tag from:"} {(() => {
+                const selected = members.filter((m) => selectedIds.includes(m.id));
+                if (selected.length === 1) return selected[0].first_name + (selected[0].last_name ? " " + selected[0].last_name : "");
+                return `${selected.length} members`;
+              })()}
+            </p>
+          </div>
+          <p className="text-sm text-gray-600">Select tags to {bulkAction === "add_tag" ? "add to" : "remove from"} these members:</p>
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {tags.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">No tags created yet. Create a tag first.</p>
@@ -737,6 +761,43 @@ export default function MembersPage() {
             <button onClick={() => { setShowBulkTagModal(false); setBulkAction(""); }} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
             <button onClick={handleBulkTagSubmit} disabled={bulkTagIds.length === 0} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
               {bulkAction === "add_tag" ? "Add Tag" : "Remove Tag"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk Add to Group Modal */}
+      <Modal open={showBulkGroupModal} onOpenChange={(v) => { setShowBulkGroupModal(v); if (!v) setBulkAction(""); }} title="Add Members to Group">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">Add {selectedIds.length} selected member(s) to a group:</p>
+          <FormField label="Select Group" required>
+            <select
+              value={bulkGroupId}
+              onChange={(e) => setBulkGroupId(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-white"
+            >
+              <option value="">Choose a group...</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.name} ({g.member_count || 0} members)</option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Role">
+            <select
+              value={bulkGroupRole}
+              onChange={(e) => setBulkGroupRole(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-white"
+            >
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+              <option value="moderator">Moderator</option>
+            </select>
+          </FormField>
+          <p className="text-xs text-gray-400">Selected members will be added to the group and notified.</p>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => { setShowBulkGroupModal(false); setBulkAction(""); }} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+            <button onClick={handleBulkGroupSubmit} disabled={!bulkGroupId} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
+              Add to Group
             </button>
           </div>
         </div>

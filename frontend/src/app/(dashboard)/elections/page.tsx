@@ -7,6 +7,7 @@ import {
   type ElectionPosition,
   type ElectionNomination,
   type ElectionResult,
+  type ElectionCandidatesResponse,
   type ElectionStats,
   type PaginatedResponse,
 } from "@/lib/api";
@@ -60,8 +61,9 @@ function ElectionForm({
   function validate() {
     const errs: Record<string, string> = {};
     if (!form.title.trim()) errs.title = "Title is required";
-    if (form.seats_available && (parseInt(form.seats_available) < 1)) errs.seats_available = "Must be at least 1";
-    if (form.quorum_percentage && (parseFloat(form.quorum_percentage) < 0 || parseFloat(form.quorum_percentage) > 100)) errs.quorum_percentage = "Must be 0-100";
+    if (form.seats_available && parseInt(form.seats_available) < 1) errs.seats_available = "Must be at least 1";
+    if (form.quorum_percentage && (parseFloat(form.quorum_percentage) < 0 || parseFloat(form.quorum_percentage) > 100))
+      errs.quorum_percentage = "Must be 0-100";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -94,7 +96,16 @@ function ElectionForm({
         <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Election description" />
       </FormField>
       <FormField label="Election Type">
-        <Select value={form.election_type} onChange={(v) => set("election_type", v)} options={[{ value: "board", label: "Board" }, { value: "officer", label: "Officer" }, { value: "committee", label: "Committee" }, { value: "general", label: "General" }]} />
+        <Select
+          value={form.election_type}
+          onChange={(v) => set("election_type", v)}
+          options={[
+            { value: "board", label: "Board" },
+            { value: "officer", label: "Officer" },
+            { value: "committee", label: "Committee" },
+            { value: "general", label: "General" },
+          ]}
+        />
       </FormField>
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Seats Available" error={errors.seats_available}>
@@ -106,7 +117,9 @@ function ElectionForm({
       </div>
       <div className="flex items-center gap-2">
         <input type="checkbox" id="secret_ballot" checked={form.secret_ballot} onChange={(e) => set("secret_ballot", e.target.checked)} className="rounded" />
-        <label htmlFor="secret_ballot" className="text-sm font-medium">Secret Ballot</label>
+        <label htmlFor="secret_ballot" className="text-sm font-medium">
+          Secret Ballot
+        </label>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Nominations Open">
@@ -125,8 +138,19 @@ function ElectionForm({
         </FormField>
       </div>
       <div className="flex justify-end gap-2 pt-4 border-t">
-        <button type="button" onClick={onCancel} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all" disabled={loading}>Cancel</button>
-        <button type="submit" disabled={loading} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 transition-all"
+          disabled={loading}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+        >
           {loading ? "Saving..." : initial?.id ? "Update" : "Create Election"}
         </button>
       </div>
@@ -150,16 +174,16 @@ function ElectionDetail({
   const [positions, setPositions] = useState<ElectionPosition[]>([]);
   const [nominations, setNominations] = useState<ElectionNomination[]>([]);
   const [results, setResults] = useState<ElectionResult[]>([]);
+  const [candidates, setCandidates] = useState<ElectionCandidatesResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<ElectionStats | null>(null);
 
   // Position form
   const [posForm, setPosForm] = useState({ title: "", description: "", seats: "1" });
   const [showPosForm, setShowPosForm] = useState(false);
   const [posLoading, setPosLoading] = useState(false);
 
-  // Vote form
+  // Vote form: { position_id: candidate_member_id }
   const [votes, setVotes] = useState<Record<string, string>>({});
 
   const loadTab = useCallback(async () => {
@@ -168,14 +192,19 @@ function ElectionDetail({
     try {
       const eid = election.id;
       if (activeTab === "positions") {
-        const res = await apiFetch<PaginatedResponse<ElectionPosition>>(`/api/v1/elections/${eid}/positions`);
+        const res = await apiFetch<{ items: ElectionPosition[] }>(`/api/v1/elections/${eid}/positions`);
         setPositions(res.items || []);
       } else if (activeTab === "nominations") {
-        const res = await apiFetch<PaginatedResponse<ElectionNomination>>(`/api/v1/elections/${eid}/nominations`);
-        setNominations(res.items || []);
-      } else if (activeTab === "voting" || activeTab === "results") {
-        const res = await apiFetch<{ results: ElectionResult[] }>(`/api/v1/elections/${eid}/results`);
-        setResults(res.results || []);
+        const res = await apiFetch<ElectionNomination[]>(`/api/v1/elections/${eid}/nominations`);
+        // Handle both array and paginated response
+        setNominations(Array.isArray(res) ? res : (res as any).items || []);
+      } else if (activeTab === "voting") {
+        // Fetch accepted candidates grouped by position
+        const res = await apiFetch<{ items: ElectionCandidatesResponse[] }>(`/api/v1/elections/${eid}/candidates`);
+        setCandidates(res.items || []);
+      } else if (activeTab === "results") {
+        const res = await apiFetch<ElectionResult[]>(`/api/v1/elections/${eid}/results`);
+        setResults(Array.isArray(res) ? res : (res as any).items || []);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load";
@@ -186,15 +215,9 @@ function ElectionDetail({
     }
   }, [activeTab, election.id]);
 
-  const loadStats = useCallback(async () => {
-    try {
-      const s = await apiFetch<ElectionStats>(`/api/v1/elections/${election.id}/stats`);
-      setStats(s);
-    } catch { /* ignore */ }
-  }, [election.id]);
-
-  useEffect(() => { loadTab(); }, [loadTab]);
-  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => {
+    loadTab();
+  }, [loadTab]);
 
   // ── Position CRUD ──
 
@@ -225,7 +248,7 @@ function ElectionDetail({
 
   async function acceptNomination(nom: ElectionNomination) {
     try {
-      await apiFetch(`/api/v1/elections/${election.id}/nominations/${nom.id}/accept`, { method: "POST" });
+      await apiFetch(`/api/v1/elections/nominations/${nom.id}/accept`, { method: "POST" });
       toast.success("Nomination accepted");
       loadTab();
     } catch (err) {
@@ -235,7 +258,7 @@ function ElectionDetail({
 
   async function declineNomination(nom: ElectionNomination) {
     try {
-      await apiFetch(`/api/v1/elections/${election.id}/nominations/${nom.id}/decline`, { method: "POST" });
+      await apiFetch(`/api/v1/elections/nominations/${nom.id}/decline`, { method: "POST" });
       toast.success("Nomination declined");
       loadTab();
     } catch (err) {
@@ -246,13 +269,14 @@ function ElectionDetail({
   // ── Vote Submission ──
 
   async function submitVotes() {
-    const votePayload = Object.entries(votes)
-      .filter(([, candidateId]) => candidateId)
-      .map(([positionId, candidateIds]) => ({
-        position_id: positionId,
-        candidate_ids: [candidateIds],
-      }));
-    if (votePayload.length === 0) {
+    // Build payload: { votes: { position_id: [candidate_member_id] } }
+    const votePayload: Record<string, string[]> = {};
+    for (const [positionId, candidateId] of Object.entries(votes)) {
+      if (candidateId) {
+        votePayload[positionId] = [candidateId];
+      }
+    }
+    if (Object.keys(votePayload).length === 0) {
       toast.warning("Please select at least one candidate");
       return;
     }
@@ -263,6 +287,7 @@ function ElectionDetail({
       });
       toast.success("Votes submitted!");
       setActiveTab("results");
+      loadTab();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to submit votes");
     }
@@ -273,7 +298,7 @@ function ElectionDetail({
   async function statusAction(action: string) {
     try {
       await apiFetch(`/api/v1/elections/${election.id}/${action}`, { method: "POST" });
-      toast.success(`Workflow: ${action}`);
+      toast.success(`Election updated`);
       onUpdate();
       onBack();
     } catch (err) {
@@ -284,7 +309,7 @@ function ElectionDetail({
   const tabs = [
     { key: "positions", label: "Positions" },
     { key: "nominations", label: "Nominations" },
-    ...(election.status === "voting" || election.status === "active" ? [{ key: "voting", label: "Vote" }] : []),
+    ...(election.status === "voting" ? [{ key: "voting", label: "Vote" }] : []),
     { key: "results", label: "Results" },
   ];
 
@@ -304,20 +329,47 @@ function ElectionDetail({
           <StatusBadge status={election.status} />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 text-sm">
-          <div><span className="text-muted-foreground">Type:</span> <span className="capitalize">{election.election_type}</span></div>
-          <div><span className="text-muted-foreground">Seats:</span> {election.seats_available}</div>
-          <div><span className="text-muted-foreground">Quorum:</span> {election.quorum_percentage}%</div>
-          <div><span className="text-muted-foreground">Secret Ballot:</span> {election.secret_ballot ? "Yes" : "No"}</div>
-          <div><span className="text-muted-foreground">Nominations:</span> {election.nominations_open ? new Date(election.nominations_open).toLocaleDateString() : "—"} → {election.nominations_close ? new Date(election.nominations_close).toLocaleDateString() : "—"}</div>
-          <div><span className="text-muted-foreground">Voting:</span> {election.voting_start ? new Date(election.voting_start).toLocaleDateString() : "—"} → {election.voting_end ? new Date(election.voting_end).toLocaleDateString() : "—"}</div>
-          <div><span className="text-muted-foreground">Total Votes:</span> {election.total_votes ?? stats?.total_votes_cast ?? 0}</div>
+          <div>
+            <span className="text-muted-foreground">Type: </span>
+            <span className="capitalize">{election.election_type}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Seats: </span>
+            {election.seats_available}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Quorum: </span>
+            {election.quorum_percentage}%
+          </div>
+          <div>
+            <span className="text-muted-foreground">Secret Ballot: </span>
+            {election.secret_ballot ? "Yes" : "No"}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Nominations: </span>
+            {election.nominations_open ? new Date(election.nominations_open).toLocaleDateString() : "—"} →{" "}
+            {election.nominations_close ? new Date(election.nominations_close).toLocaleDateString() : "—"}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Voting: </span>
+            {election.voting_start ? new Date(election.voting_start).toLocaleDateString() : "—"} →{" "}
+            {election.voting_end ? new Date(election.voting_end).toLocaleDateString() : "—"}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Total Votes: </span>
+            {election.total_votes ?? 0}
+          </div>
         </div>
       </div>
 
       {/* Status Workflow Buttons */}
       <div className="flex flex-wrap gap-2">
         {election.status === "draft" && (
-          <button onClick={() => statusAction("open-nominations")} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all" style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}>
+          <button
+            onClick={() => statusAction("open-nominations")}
+            className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+            style={{ background: "linear-gradient(135deg, #0d9488, #065f46)", boxShadow: "0 4px 12px rgba(13,148,136,0.3)" }}
+          >
             Open Nominations
           </button>
         )}
@@ -326,7 +378,7 @@ function ElectionDetail({
             Start Voting
           </button>
         )}
-        {(election.status === "voting" || election.status === "active") && (
+        {election.status === "voting" && (
           <button onClick={() => statusAction("close")} className="px-4 py-2 bg-yellow-600 text-white rounded-md text-sm font-medium hover:bg-yellow-700">
             Close Election
           </button>
@@ -381,7 +433,9 @@ function ElectionDetail({
                         <div className="font-medium">{p.title}</div>
                         {p.description && <p className="text-sm text-muted-foreground">{p.description}</p>}
                       </div>
-                      <span className="text-sm text-muted-foreground">{p.seats} seat{p.seats !== 1 ? "s" : ""}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {p.seats} seat{p.seats !== 1 ? "s" : ""}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -409,8 +463,12 @@ function ElectionDetail({
                           <StatusBadge status={n.status} />
                           {n.status === "pending" && (
                             <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => acceptNomination(n)} className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">Accept</button>
-                              <button onClick={() => declineNomination(n)} className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">Decline</button>
+                              <button onClick={() => acceptNomination(n)} className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
+                                Accept
+                              </button>
+                              <button onClick={() => declineNomination(n)} className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">
+                                Decline
+                              </button>
                             </div>
                           )}
                         </div>
@@ -424,49 +482,54 @@ function ElectionDetail({
 
           {/* Voting Tab */}
           {activeTab === "voting" && (
-            <>
-              <div className="rounded-lg border p-4">
-                <h3 className="font-medium mb-4">Cast Your Vote</h3>
-                {results.length === 0 && positions.length === 0 ? (
-                  <EmptyState title="No positions available" description="Positions and accepted nominations are needed for voting" />
-                ) : (
-                  <div className="space-y-4">
-                    {results.length > 0 ? results.map((r) => (
-                      <div key={r.position_id} className="space-y-2">
-                        <div className="font-medium text-sm">{r.position_title}</div>
-                        {r.all_candidates.map((c) => (
-                          <label key={c.member_id} className="flex items-center gap-2 p-2 rounded border hover:bg-muted/50 cursor-pointer">
-                            <input
-                              type="radio"
-                              name={`vote_${r.position_id}`}
-                              value={c.member_id}
-                              checked={votes[r.position_id] === c.member_id}
-                              onChange={() => setVotes((v) => ({ ...v, [r.position_id]: c.member_id }))}
-                              className="rounded"
-                            />
-                            <span className="text-sm">{c.member_name}</span>
-                          </label>
-                        ))}
+            <div className="rounded-lg border p-4">
+              <h3 className="font-medium mb-4">Cast Your Vote</h3>
+              {candidates.length === 0 ? (
+                <EmptyState title="No candidates available" description="No accepted nominations found. Accept nominations first." />
+              ) : (
+                <div className="space-y-6">
+                  {candidates.map((pos) => (
+                    <div key={pos.position_id} className="space-y-3">
+                      <div className="font-medium text-sm border-b pb-2">
+                        {pos.position_title} ({pos.seats} seat{pos.seats !== 1 ? "s" : ""})
                       </div>
-                    )) : (
-                      <p className="text-sm text-muted-foreground">No positions with accepted candidates available for voting.</p>
-                    )}
-                    {results.length > 0 && (
-                      <button onClick={submitVotes} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">
-                        Submit Vote
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
+                      {pos.candidates.map((c) => (
+                        <label
+                          key={c.member_id}
+                          className={cn(
+                            "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all",
+                            votes[pos.position_id] === c.member_id ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name={`vote_${pos.position_id}`}
+                            value={c.member_id}
+                            checked={votes[pos.position_id] === c.member_id}
+                            onChange={() => setVotes((v) => ({ ...v, [pos.position_id]: c.member_id }))}
+                            className="rounded mt-0.5"
+                          />
+                          <div>
+                            <span className="text-sm font-medium">{c.member_name}</span>
+                            {c.statement && <p className="text-xs text-muted-foreground mt-1">{c.statement}</p>}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                  <button onClick={submitVotes} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">
+                    Submit Vote
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Results Tab */}
           {activeTab === "results" && (
             <>
               {results.length === 0 ? (
-                <EmptyState title="No results yet" description="Results will appear after voting closes" />
+                <EmptyState title="No results yet" description="Results will appear after voting closes and results are published" />
               ) : (
                 <div className="space-y-4">
                   {results.map((r) => (
@@ -475,19 +538,21 @@ function ElectionDetail({
                       <div className="space-y-2">
                         {r.all_candidates.map((c) => {
                           const maxVotes = Math.max(...r.all_candidates.map((x) => x.votes), 1);
-                          const isWinner = r.winners.some((w) => w.member_id === c.member_id);
+                          const isWinner = r.winners.includes(c.member_id);
                           return (
-                            <div key={c.member_id} className={cn("p-2 rounded", isWinner && "bg-green-50 border border-green-200")}>
+                            <div key={c.member_id} className={cn("p-3 rounded-lg", isWinner && "bg-green-50 border border-green-200")}>
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium">
-                                  {c.member_name}
+                                  {c.member_name || "Unknown"}
                                   {isWinner && <span className="ml-2 text-xs text-green-600 font-semibold">★ WINNER</span>}
                                 </span>
-                                <span className="text-sm text-muted-foreground">{c.votes} vote{c.votes !== 1 ? "s" : ""}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {c.votes} vote{c.votes !== 1 ? "s" : ""} ({c.percentage}%)
+                                </span>
                               </div>
-                              <div className="w-full bg-muted rounded-full h-1.5 mt-1">
+                              <div className="w-full bg-muted rounded-full h-1.5 mt-2">
                                 <div
-                                  className={cn("h-1.5 rounded-full", isWinner ? "bg-green-500" : "bg-primary")}
+                                  className={cn("h-1.5 rounded-full transition-all", isWinner ? "bg-green-500" : "bg-primary")}
                                   style={{ width: `${maxVotes > 0 ? (c.votes / maxVotes) * 100 : 0}%` }}
                                 />
                               </div>
@@ -495,6 +560,12 @@ function ElectionDetail({
                           );
                         })}
                       </div>
+                      {r.winner_names && r.winner_names.length > 0 && (
+                        <div className="mt-3 pt-3 border-t text-sm">
+                          <span className="text-muted-foreground">Winner(s): </span>
+                          <span className="font-medium text-green-700">{r.winner_names.join(", ")}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -553,12 +624,20 @@ export default function ElectionsPage() {
     try {
       const s = await apiFetch<ElectionStats>("/api/v1/elections/stats");
       setStats(s);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
-  useEffect(() => { loadElections(); }, [loadElections]);
-  useEffect(() => { loadStats(); }, [loadStats]);
-  useEffect(() => { setPage(1); }, [search, tab]);
+  useEffect(() => {
+    loadElections();
+  }, [loadElections]);
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+  useEffect(() => {
+    setPage(1);
+  }, [search, tab]);
 
   async function handleCreate(data: Record<string, unknown>) {
     setCreateLoading(true);
@@ -609,7 +688,14 @@ export default function ElectionsPage() {
   if (detailElection) {
     return (
       <div>
-        <ElectionDetail election={detailElection} onBack={() => { setDetailElection(null); loadElections(); }} onUpdate={loadElections} />
+        <ElectionDetail
+          election={detailElection}
+          onBack={() => {
+            setDetailElection(null);
+            loadElections();
+          }}
+          onUpdate={loadElections}
+        />
       </div>
     );
   }
@@ -664,8 +750,16 @@ export default function ElectionsPage() {
           { key: "status", header: "Status", render: (r) => <StatusBadge status={(r as unknown as Election).status} /> },
           { key: "seats_available", header: "Seats", render: (r) => (r as unknown as Election).seats_available },
           { key: "total_votes", header: "Votes", render: (r) => (r as unknown as Election).total_votes ?? 0 },
-          { key: "voting_start", header: "Start", render: (r) => (r as unknown as Election).voting_start ? new Date((r as unknown as Election).voting_start!).toLocaleDateString() : "—" },
-          { key: "voting_end", header: "End", render: (r) => (r as unknown as Election).voting_end ? new Date((r as unknown as Election).voting_end!).toLocaleDateString() : "—" },
+          {
+            key: "voting_start",
+            header: "Start",
+            render: (r) => ((r as unknown as Election).voting_start ? new Date((r as unknown as Election).voting_start!).toLocaleDateString() : "—"),
+          },
+          {
+            key: "voting_end",
+            header: "End",
+            render: (r) => ((r as unknown as Election).voting_end ? new Date((r as unknown as Election).voting_end!).toLocaleDateString() : "—"),
+          },
           {
             key: "actions",
             header: "Actions",
@@ -674,8 +768,12 @@ export default function ElectionsPage() {
               const el = r as unknown as Election;
               return (
                 <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                  <button onClick={() => setEditElection(el)} className="px-2 py-1 text-xs border rounded hover:bg-muted">Edit</button>
-                  <button onClick={() => setDeleteElection(el)} className="px-2 py-1 text-xs border rounded text-red-600 hover:bg-red-50">Delete</button>
+                  <button onClick={() => setEditElection(el)} className="px-2 py-1 text-xs border rounded hover:bg-muted">
+                    Edit
+                  </button>
+                  <button onClick={() => setDeleteElection(el)} className="px-2 py-1 text-xs border rounded text-red-600 hover:bg-red-50">
+                    Delete
+                  </button>
                 </div>
               );
             },

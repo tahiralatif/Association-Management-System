@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     """Application settings loaded from environment."""
 
     # General
-    ENV: str = "development"
-    DEBUG: bool = True
+    ENV: str = "production"
+    DEBUG: bool = False
     VERSION: str = "0.1.0"
     SECRET_KEY: str = "change-me-in-production"
 
@@ -35,14 +35,25 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
 
-    # LLM / AI (Groq — OpenAI-compatible)
+    # LLM / AI
     LLM_PROVIDER: str = "openrouter"  # openrouter, groq, openai, local
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_MODEL: str = "meta-llama/llama-3.1-8b-instruct"
     LLM_API_KEY: str = ""
     LLM_MODEL: str = "meta-llama/llama-3.1-8b-instruct"
     LLM_BASE_URL: str = "https://openrouter.ai/api/v1"
+
+    # 2FA (TOTP)
+    TOTP_ISSUER: str = "AssocHub"
+    TOTP_VALIDITY_SECONDS: int = 30
+
+    # Backups
+    BACKUP_DIR: str = "/var/backups/assochub"
+    BACKUP_RETENTION_DAYS: int = 7
+    BACKUP_RETENTION_WEEKLY: int = 4
 
     # Embeddings (Groq does NOT support embeddings — use hash fallback)
     EMBEDDING_MODEL: str = "hash-fallback"
@@ -69,7 +80,7 @@ class Settings(BaseSettings):
     SMTP_FROM: str = "noreply@assochub.com"
     EMAIL_FROM: str = "noreply@assochub.com"
     EMAIL_FROM_NAME: str = "AssocHub"
-    EMAIL_PROVIDER: str = "smtp"  # smtp, sendgrid, ses, resend
+    EMAIL_PROVIDER: str = "resend"  # smtp, sendgrid, ses, resend
     RESEND_API_KEY: str = ""
 
     # Platform

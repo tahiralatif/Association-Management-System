@@ -54,6 +54,7 @@ const memberNavItems: NavItem[] = [
   { title: "My Profile", href: "/profile", icon: UserCircle },
   { title: "My Invoices", href: "/my-invoices", icon: Receipt },
   { title: "My Events", href: "/my-events", icon: CalendarCheck },
+  { title: "Elections", href: "/elections", icon: Vote },
 ];
 
 const associationNavItems: NavItem[] = [

@@ -1,7 +1,11 @@
 """Integration routes — API endpoints."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+log = logging.getLogger(__name__)
 
 from app.core.auth import require_admin, require_member, require_staff, TokenPayload
 from app.core.database import get_db
@@ -158,6 +162,16 @@ async def receive_stripe_webhook(
     data = event.get("data", {})
 
     result = await StripeService.handle_webhook_event(db, tenant_id, event_type, data)
+
+    # Process finance-related Stripe events (checkout completions, refunds, etc.)
+    try:
+        from app.modules.finances.stripe_webhook import handle_stripe_event
+        finance_result = await handle_stripe_event(db, event_type, data)
+        result["finance"] = finance_result
+        await db.commit()
+    except Exception as exc:
+        log.warning("Finance webhook processing failed: %s", exc)
+        await db.rollback()
 
     webhooks = await crud.get_active_webhooks_for_event(db, tenant_id, f"stripe.{event_type}")
     for webhook in webhooks:

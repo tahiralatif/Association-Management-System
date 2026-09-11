@@ -256,8 +256,26 @@ async def tally_results(db: AsyncSession, election_id: str, tenant_id: str) -> l
         sorted_candidates = sorted(votes_detail.items(), key=lambda x: (-x[1]["points"], -x[1]["votes"]))
         winners = [cid for cid, _ in sorted_candidates[:pos.seats]]
 
+        # Resolve member names
+        all_cids = [cid for cid, _ in sorted_candidates if cid]  # Filter empty
+        member_names = {}
+        if all_cids:
+            from app.modules.members.models import MemberProfile, User
+            uid_rows = await db.execute(
+                select(MemberProfile.id, MemberProfile.user_id).where(MemberProfile.id.in_(all_cids))
+            )
+            uid_map = {str(row[0]): str(row[1]) for row in uid_rows.all()}
+            if uid_map:
+                user_rows = await db.execute(
+                    select(User.id, User.first_name, User.last_name).where(User.id.in_(uid_map.values()))
+                )
+                name_map = {str(row[0]): f"{row[1]} {row[2]}".strip() for row in user_rows.all()}
+                for mid, uid in uid_map.items():
+                    member_names[mid] = name_map.get(uid, "")
+
         for rank, (cid, data) in enumerate(sorted_candidates, 1):
             votes_detail[cid]["rank"] = rank
+            votes_detail[cid]["member_name"] = member_names.get(cid, "")
 
         # Check or create result
         existing_result = await db.execute(

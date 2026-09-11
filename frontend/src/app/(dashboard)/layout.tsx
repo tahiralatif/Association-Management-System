@@ -19,14 +19,14 @@ const PLATFORM_ROUTES = ["/admin", "/admin/analytics", "/admin/organizations", "
 const ADMIN_ROUTES = ["/dashboard", "/members", "/finances", "/events", "/communications", "/elections", "/documents", "/analytics", "/workflows", "/ai", "/integrations", "/marketing"];
 
 // Pages non-staff (member) users can access
-const MEMBER_ROUTES = ["/profile", "/my-events", "/my-invoices"];
+const MEMBER_ROUTES = ["/profile", "/my-events", "/my-invoices", "/elections"];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, loading, isStaff } = useAuth();
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
-  const isDark = theme === "dark";
+  const isDark = resolvedTheme === "dark";
   const isSuperAdmin = user?.roles?.includes("super_admin") ?? false;
 
   useEffect(() => {
@@ -76,6 +76,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Non-staff users on /profile get a minimal layout without sidebar
   if (!isStaff) {
+    // Force light mode for member portal — prevent dark overrides
     return (
       <div className="min-h-screen member-portal" style={{ background: 'linear-gradient(160deg, #f0fdfa 0%, #ffffff 40%, #f8fafc 100%)' }}>
         {/* Top teal accent line */}
@@ -86,6 +87,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-medium">Member Portal</span>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationCenter />
             <span className="text-sm text-slate-600 font-medium hidden sm:inline">{user?.email}</span>
             <Button variant="ghost" size="sm" onClick={logout} className="text-slate-400 hover:text-[#0d9488] hover:bg-teal-50 rounded-xl px-3 py-2 h-auto transition-all font-medium">
               <LogOut className="h-4 w-4 mr-1.5" />

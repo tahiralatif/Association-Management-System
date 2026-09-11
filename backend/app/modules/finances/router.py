@@ -150,20 +150,35 @@ async def create_invoice(
     user: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    # Accept both user_id and member_profile_id for member_id
-    member_id = data.member_id
+    # Accept user_id, member_profile_id, or MEM-XXXXXXXX display ID for member_id
+    member_id = data.member_id.strip() if data.member_id else None
     if member_id:
+        import re
         from app.modules.members.models import MemberProfile, User
         from sqlalchemy import select
-        # Check if this is a user_id (no matching profile) and resolve
-        result = await db.execute(select(MemberProfile).where(MemberProfile.id == member_id))
-        profile = result.scalar_one_or_none()
-        if not profile:
-            # Try as user_id
-            result2 = await db.execute(select(MemberProfile).where(MemberProfile.user_id == member_id))
-            profile = result2.scalar_one_or_none()
+        
+        # Check if it's a valid UUID format first to avoid asyncpg casting errors
+        is_uuid = bool(re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', member_id, re.I))
+        
+        profile = None
+        if is_uuid:
+            # Try as MemberProfile.id
+            result = await db.execute(select(MemberProfile).where(MemberProfile.id == member_id))
+            profile = result.scalar_one_or_none()
+            if not profile:
+                # Try as user_id
+                result2 = await db.execute(select(MemberProfile).where(MemberProfile.user_id == member_id))
+                profile = result2.scalar_one_or_none()
+                if profile:
+                    member_id = profile.id
+        
+        if not profile and member_id.upper().startswith("MEM-"):
+            # Try as MEM-XXXXXXXX display ID (member_number)
+            result3 = await db.execute(select(MemberProfile).where(MemberProfile.member_number == member_id))
+            profile = result3.scalar_one_or_none()
             if profile:
                 member_id = profile.id
+        
         data_dict = data.model_dump()
         data_dict["member_id"] = member_id
     else:
@@ -231,6 +246,60 @@ async def update_invoice(
         invoice.discount_amount = data.discount_amount
     await db.flush()
     return InvoiceResponse(**{c.key: getattr(invoice, c.key) for c in invoice.__table__.columns})
+
+
+@router.delete("/invoices/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_invoice(
+    invoice_id: str,
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete an invoice (only if no payments recorded)."""
+    try:
+        deleted = await crud.delete_invoice(db, invoice_id, user.tenant_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    from app.core.audit import log_financial_event
+    await log_financial_event(db, user.tenant_id, user.sub, "delete", "invoice", invoice_id)
+
+
+@router.get("/invoices/export/csv")
+async def export_invoices_csv(
+    status_filter: str | None = Query(None, alias="status"),
+    user: TokenPayload = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export all invoices as CSV."""
+    from fastapi.responses import StreamingResponse
+    import csv
+    import io
+
+    invoices, _ = await crud.list_invoices(db, user.tenant_id, status=status_filter, page=1, per_page=10000)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Invoice Number", "Member", "Status", "Subtotal", "Tax", "Discount", "Total", "Paid", "Due Date", "Issued", "Notes"])
+    for inv in invoices:
+        writer.writerow([
+            inv.get("invoice_number", ""),
+            inv.get("member_name", ""),
+            inv.get("status", ""),
+            inv.get("subtotal", 0),
+            inv.get("tax_amount", 0),
+            inv.get("discount_amount", 0),
+            inv.get("total", 0),
+            inv.get("amount_paid", 0),
+            inv.get("due_at", ""),
+            inv.get("issued_at", ""),
+            inv.get("notes", ""),
+        ])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=invoices.csv"},
+    )
 
 
 @router.post("/invoices/{invoice_id}/send")
@@ -552,8 +621,8 @@ async def process_recurring(
 @router.post("/invoices/{invoice_id}/checkout")
 async def create_checkout(
     invoice_id: str,
-    success_url: str = Query("/finances?paid=true"),
-    cancel_url: str = Query("/finances?cancelled=true"),
+    success_url: str = Query("/my-invoices?paid=true"),
+    cancel_url: str = Query("/my-invoices?cancelled=true"),
     user: TokenPayload = Depends(require_member),
     db: AsyncSession = Depends(get_db),
 ):
@@ -566,8 +635,9 @@ async def create_checkout(
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    # Members can only pay their own invoices
-    if str(invoice.member_id) != str(user.sub):
+    # Members can only pay their own invoices; admins/staff can pay any
+    is_admin_or_staff = any(r in ("super_admin", "tenant_admin", "staff") for r in user.roles)
+    if not is_admin_or_staff:
         # Check if the user's member profile matches
         result = await db.execute(
             select(MemberProfile).where(
@@ -588,13 +658,20 @@ async def create_checkout(
     if remaining <= 0:
         raise HTTPException(status_code=400, detail="No balance due")
 
-    # Get member email
+    # Get member email — load explicitly for async
     member_email = ""
     member_name = ""
-    if invoice.member and invoice.member.user:
-        member_email = invoice.member.user.email
-        member_name = f"{invoice.member.user.first_name} {invoice.member.user.last_name}"
-    else:
+    mp_result = await db.execute(
+        select(MemberProfile).where(MemberProfile.id == invoice.member_id)
+    )
+    mp = mp_result.scalar_one_or_none()
+    if mp:
+        u_result = await db.execute(select(User).where(User.id == mp.user_id))
+        u = u_result.scalar_one_or_none()
+        if u:
+            member_email = u.email
+            member_name = f"{u.first_name} {u.last_name}"
+    if not member_email:
         raise HTTPException(status_code=400, detail="Member email not found")
 
     checkout = await create_checkout_session(

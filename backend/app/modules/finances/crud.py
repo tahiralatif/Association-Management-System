@@ -113,8 +113,10 @@ async def list_invoices(
     query = (
         select(Invoice)
         .options(selectinload(Invoice.member).selectinload(MemberProfile.user))
-        .where(Invoice.tenant_id == tenant_id)
     )
+    # Super admins on 'platform' tenant see all; others are scoped
+    if tenant_id and tenant_id != "platform":
+        query = query.where(Invoice.tenant_id == tenant_id)
 
     if status:
         query = query.where(Invoice.status == status)
@@ -147,14 +149,18 @@ async def list_invoices(
 
 
 async def get_invoice(db: AsyncSession, invoice_id: str, tenant_id: str) -> Invoice | None:
-    result = await db.execute(
+    query = (
         select(Invoice)
         .options(
             selectinload(Invoice.payments),
             selectinload(Invoice.member).selectinload(MemberProfile.user),
         )
-        .where(Invoice.id == invoice_id, Invoice.tenant_id == tenant_id)
+        .where(Invoice.id == invoice_id)
     )
+    # Super admins on 'platform' tenant can access any invoice
+    if tenant_id and tenant_id != "platform":
+        query = query.where(Invoice.tenant_id == tenant_id)
+    result = await db.execute(query)
     return result.scalar_one_or_none()
 
 
@@ -169,6 +175,19 @@ async def update_invoice_status(db: AsyncSession, invoice_id: str, tenant_id: st
         invoice.cancelled_at = datetime.now(timezone.utc)
     await db.flush()
     return invoice
+
+
+async def delete_invoice(db: AsyncSession, invoice_id: str, tenant_id: str) -> bool:
+    """Delete an invoice (only if it has no payments)."""
+    invoice = await get_invoice(db, invoice_id, tenant_id)
+    if not invoice:
+        return False
+    # Check if invoice has payments
+    if invoice.amount_paid and float(invoice.amount_paid) > 0:
+        raise ValueError("Cannot delete an invoice with payments recorded. Void it instead.")
+    await db.delete(invoice)
+    await db.flush()
+    return True
 
 
 async def auto_mark_overdue(db: AsyncSession, tenant_id: str) -> int:

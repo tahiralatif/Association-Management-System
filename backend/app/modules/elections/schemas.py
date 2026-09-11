@@ -42,6 +42,7 @@ class ElectionResponse(BaseModel):
     ranked_choice: bool
     total_eligible_voters: int
     total_votes_cast: int
+    total_votes: int = 0  # alias for frontend compat
     quorum_met: bool
     voting_start: datetime | None = None
     voting_end: datetime | None = None
@@ -50,6 +51,12 @@ class ElectionResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def model_validate(cls, obj, **kwargs):
+        d = super().model_validate(obj, **kwargs)
+        d.total_votes = d.total_votes_cast
+        return d
 
 
 # ── Position ─────────────────────────────────────────────────
@@ -112,6 +119,14 @@ class BallotResponse(BaseModel):
 
 # ── Result ───────────────────────────────────────────────────
 
+class ResultCandidate(BaseModel):
+    member_id: str
+    member_name: str
+    votes: int
+    percentage: float = 0
+    rank: int = 0
+
+
 class ResultResponse(BaseModel):
     id: str
     election_id: str
@@ -119,11 +134,29 @@ class ResultResponse(BaseModel):
     position_title: str = ""
     total_votes: int
     results_detail: dict
+    all_candidates: list[ResultCandidate] = []
     winners: list[str]
+    winner_names: list[str] = []
     is_final: bool
     published_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def model_validate(cls, obj, **kwargs):
+        d = super().model_validate(obj, **kwargs)
+        # Transform results_detail into all_candidates
+        candidates = []
+        for cid, detail in (d.results_detail or {}).items():
+            candidates.append(ResultCandidate(
+                member_id=cid,
+                member_name=detail.get("member_name", ""),
+                votes=detail.get("votes", 0),
+                percentage=detail.get("percentage", 0),
+                rank=detail.get("rank", 0),
+            ))
+        d.all_candidates = sorted(candidates, key=lambda c: (-c.votes, c.rank))
+        return d
 
 
 # ── Dashboard ────────────────────────────────────────────────
@@ -135,3 +168,12 @@ class ElectionStats(BaseModel):
     average_turnout: float
     quorum_met_rate: float
     recent_elections: list[dict] = []
+    voter_turnout: float = 0  # alias for frontend compat
+
+    model_config = {"from_attributes": True}
+
+    @classmethod
+    def model_validate(cls, obj, **kwargs):
+        d = super().model_validate(obj, **kwargs)
+        d.voter_turnout = d.average_turnout
+        return d

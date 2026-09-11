@@ -59,7 +59,7 @@ class EventResponse(BaseModel):
     is_virtual: bool
     is_hybrid: bool
     start_date: datetime
-    end_date: datetime
+    end_date: datetime | None = None
     venue_name: str | None = None
     venue_city: str | None = None
     venue_country: str | None = None

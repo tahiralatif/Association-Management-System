@@ -122,7 +122,7 @@ export default function OrgProfilePage() {
           {/* CTA Button */}
           <div className="flex flex-wrap gap-4">
             <Link
-              href={profile.join_cta_url || `/register?org=${slug}`}
+              href={profile.join_cta_url || `/join/${slug}`}
               className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-teal-500 text-white font-bold text-[15px] hover:bg-teal-400 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
             >
               {profile.join_cta_text || "Join Us"}

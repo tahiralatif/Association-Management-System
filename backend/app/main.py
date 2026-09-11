@@ -10,6 +10,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config import settings
 from app.core.middleware.tenant import TenantMiddleware
@@ -19,6 +20,8 @@ from app.core.middleware.rate_limit import limiter
 from app.core.exceptions.handlers import register_exception_handlers
 from app.core.health import router as health_router
 from app.core.auth.router import router as auth_router
+from app.core.auth.two_fa import router as two_fa_router
+from app.core.backup_routes import router as backup_router
 from app.modules.members.router import router as members_router
 from app.modules.finances.router import router as finances_router
 from app.modules.events.router import router as events_router
@@ -33,6 +36,7 @@ from app.modules.notifications.router import router as notifications_router
 from app.modules.organizations.router import router as organizations_router
 from app.modules.org_requests.router import router as org_requests_router
 from app.modules.admin.router import router as admin_router
+from app.modules.website.router import router as website_router
 
 
 @asynccontextmanager
@@ -109,9 +113,14 @@ def create_app() -> FastAPI:
     # Exception handlers
     register_exception_handlers(app)
 
+    # Prometheus metrics
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=True)
+
     # Routers
     app.include_router(health_router)
     app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
+    app.include_router(two_fa_router, prefix="/api/v1/auth", tags=["Two-Factor Auth"])
+    app.include_router(backup_router, prefix="/api/v1/admin", tags=["Backups"])
     app.include_router(members_router, prefix="/api/v1/members", tags=["Members"])
     app.include_router(finances_router, prefix="/api/v1/finances", tags=["Finances"])
     app.include_router(events_router, prefix="/api/v1/events", tags=["Events"])
@@ -126,6 +135,7 @@ def create_app() -> FastAPI:
     app.include_router(organizations_router, prefix="/api/v1/organizations", tags=["Organizations"])
     app.include_router(org_requests_router, prefix="/api/v1/org-requests", tags=["Organization Requests"])
     app.include_router(admin_router, prefix="/api/v1/admin", tags=["Platform Admin"])
+    app.include_router(website_router, prefix="/api/v1/website", tags=["Website Builder"])
 
     return app
 

@@ -67,6 +67,12 @@ class User(Base):
     verification_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     verification_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # 2FA / TOTP
+    totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="Active TOTP secret")
+    totp_secret_pending: Mapped[str | None] = mapped_column(String(64), nullable=True, comment="Pending TOTP secret awaiting verification")
+    totp_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

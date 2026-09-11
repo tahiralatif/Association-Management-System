@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, StatusBadge, Pagination, EmptyState, LoadingSpinner } from "@/components/ui/shared";
-import { DollarSign, Download, FileText, Search } from "lucide-react";
+import { DollarSign, Download, FileText, Search, CreditCard, CheckCircle, ExternalLink } from "lucide-react";
 
 interface Invoice {
   id: string;
@@ -28,7 +28,21 @@ export default function MyInvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [payingId, setPayingId] = useState<string | null>(null);
   const perPage = 15;
+
+  // Check URL params for post-checkout status
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("paid") === "true") {
+      toast("success", "Payment successful! Your invoice has been updated.");
+      // Clean URL
+      window.history.replaceState({}, "", "/my-invoices");
+    } else if (params.get("cancelled") === "true") {
+      toast("info", "Payment was cancelled. You can try again anytime.");
+      window.history.replaceState({}, "", "/my-invoices");
+    }
+  }, []);
 
   useEffect(() => {
     loadInvoices();
@@ -67,6 +81,29 @@ export default function MyInvoicesPage() {
     }
   }
 
+  async function handlePayNow(inv: Invoice) {
+    setPayingId(inv.id);
+    try {
+      const balance = (inv.total || 0) - (inv.amount_paid || 0);
+      const successUrl = `${window.location.origin}/my-invoices?paid=true`;
+      const cancelUrl = `${window.location.origin}/my-invoices?cancelled=true`;
+      const r = await apiFetch<{ url: string; session_id?: string }>(
+        `/api/v1/finances/invoices/${inv.id}/checkout?success_url=${encodeURIComponent(successUrl)}&cancel_url=${encodeURIComponent(cancelUrl)}`,
+        { method: "POST" }
+      );
+      if (r?.url) {
+        window.location.href = r.url;
+      } else {
+        toast("error", "Could not create checkout session");
+      }
+    } catch (e: any) {
+      console.error("Stripe checkout error:", e);
+      toast("error", e.message || "Payment setup failed. Please try again.");
+    } finally {
+      setPayingId(null);
+    }
+  }
+
   const totalDue = invoices
     .filter((inv) => inv.status === "pending" || inv.status === "overdue")
     .reduce((sum, inv) => sum + (inv.total || 0) - (inv.amount_paid || 0), 0);
@@ -75,7 +112,7 @@ export default function MyInvoicesPage() {
     <div className="space-y-6">
       <PageHeader
         title="My Invoices"
-        description="View and download your invoices"
+        description="View and pay your invoices"
       />
 
       {/* Summary Cards */}
@@ -121,6 +158,7 @@ export default function MyInvoicesPage() {
             <div className="space-y-3">
               {invoices.map((inv) => {
                 const balance = (inv.total || 0) - (inv.amount_paid || 0);
+                const canPay = (inv.status === "pending" || inv.status === "overdue") && balance > 0;
                 return (
                   <div key={inv.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
                     <div className="flex-1 min-w-0">
@@ -153,15 +191,41 @@ export default function MyInvoicesPage() {
                           </div>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => downloadPdf(inv.id, inv.invoice_number)}
-                        title="Download PDF"
-                        className="shrink-0"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        {canPay && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handlePayNow(inv)}
+                            disabled={payingId === inv.id}
+                            className="bg-teal-600 hover:bg-teal-700 text-white shrink-0 gap-1.5"
+                          >
+                            {payingId === inv.id ? (
+                              <span className="animate-pulse">Redirecting…</span>
+                            ) : (
+                              <>
+                                <CreditCard className="h-4 w-4" />
+                                Pay Now
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        {inv.status === "paid" && (
+                          <span className="flex items-center gap-1 text-green-600 text-sm font-medium shrink-0">
+                            <CheckCircle className="h-4 w-4" />
+                            Paid
+                          </span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => downloadPdf(inv.id, inv.invoice_number)}
+                          title="Download PDF"
+                          className="shrink-0"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );

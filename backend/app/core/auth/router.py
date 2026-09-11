@@ -1,10 +1,12 @@
 """Auth routes — login, register, refresh, me, password management."""
 
 import uuid
+import json
 import logging
 import secrets
 from datetime import datetime, timezone, timedelta
 
+from jose import jwt as jose_jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
 from sqlalchemy import select, text
@@ -83,7 +85,7 @@ class ChangePasswordRequest(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
-    tenant_id: str
+    tenant_id: str | None = None
 
 
 class ResetPasswordRequest(BaseModel):
@@ -227,6 +229,92 @@ async def register(req: RegisterRequest, request: Request, background_tasks: Bac
 
     background_tasks.add_task(_send_verification)
 
+    # ── Notify association admin(s) about new member ──
+    async def _notify_admin_new_member():
+        try:
+            from app.core.database import async_session_factory
+            from app.modules.members.models import User as UserModel
+            from app.modules.communications.models import Notification
+            from app.core.email.service import send_email
+
+            async with async_session_factory() as admin_db:
+                # Find all tenant_admin / super_admin users in this tenant
+                admin_result = await admin_db.execute(
+                    select(UserModel).where(
+                        UserModel.tenant_id == tenant_id,
+                        UserModel.is_active == True,
+                    )
+                )
+                all_users = admin_result.scalars().all()
+                admin_users = []
+                for u in all_users:
+                    roles = u.roles or []
+                    if isinstance(roles, str):
+                        try:
+                            import json as _json
+                            roles = _json.loads(roles)
+                        except Exception:
+                            roles = []
+                    if isinstance(roles, list) and any(r in roles for r in ["tenant_admin", "super_admin"]):
+                        admin_users.append(u)
+
+                if not admin_users:
+                    return
+
+                member_name = f"{req.first_name} {req.last_name}"
+                member_name_escaped = member_name.replace("<", "&lt;").replace(">", "&gt;")
+
+                for admin in admin_users:
+                    # In-app notification
+                    notif = Notification(
+                        tenant_id=tenant_id,
+                        user_id=admin.id,
+                        title="New Member Joined",
+                        message=f"{member_name} ({req.email}) has joined your association.",
+                        link="/members",
+                        notification_type="info",
+                    )
+                    admin_db.add(notif)
+
+                    # Email notification to admin
+                    try:
+                        admin_name_escaped = admin.first_name.replace("<", "&lt;").replace(">", "&gt;")
+                        await send_email(
+                            to=admin.email,
+                            subject=f"New member joined: {member_name_escaped}",
+                            html_body=f"""
+                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                                <h2 style="color: #0d9488;">New Member Joined</h2>
+                                <p>Hello {admin_name_escaped},</p>
+                                <p>A new member has joined your association:</p>
+                                <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+                                    <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Name:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{member_name_escaped}</td></tr>
+                                    <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Email:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{req.email}</td></tr>
+                                    <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #eee;">Joined:</td><td style="padding: 8px; border-bottom: 1px solid #eee;">{datetime.now(timezone.utc).strftime("%B %d, %Y")}</td></tr>
+                                </table>
+                                <p style="margin-top: 20px;">
+                                    <a href="{BASE_URL}/members" style="display: inline-block; padding: 12px 24px; background-color: #0d9488; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                                        View Members
+                                    </a>
+                                </p>
+                                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
+                                <p style="color: #94a3b8; font-size: 12px; text-align: center;">AssocHub — Open Source Association Management</p>
+                            </div>
+                            """,
+                            tenant_id=tenant_id,
+                            db=admin_db,
+                            max_retries=2,
+                        )
+                    except Exception as email_err:
+                        logging.getLogger(__name__).error(f"Failed to send new member email to admin {admin.email}: {email_err}")
+
+                await admin_db.commit()
+                logging.getLogger(__name__).info(f"Admin notification sent for new member {req.email} in tenant {tenant_id}")
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Failed to notify admin about new member {req.email}: {e}")
+
+    background_tasks.add_task(_notify_admin_new_member)
+
     return TokenPair(access_token=access, refresh_token=refresh)
 
 
@@ -342,12 +430,14 @@ async def login(req: LoginRequest, request: Request, background_tasks: Backgroun
             raise HTTPException(status_code=404, detail="Organization not found")
         tenant_id = org.tenant_id
 
-    # No org_slug — super_admin can log in without specifying an org
+    # No org_slug — find user by email across all tenants
     if not tenant_id:
         fallback = await db.execute(
             select(User).where(User.email == req.email)
         )
-        for candidate in fallback.scalars().all():
+        candidates = fallback.scalars().all()
+        # Prefer super_admin, otherwise pick first active match
+        for candidate in candidates:
             roles = candidate.roles or []
             if isinstance(roles, str):
                 import json as _json
@@ -358,6 +448,14 @@ async def login(req: LoginRequest, request: Request, background_tasks: Backgroun
             if isinstance(roles, list) and "super_admin" in roles:
                 tenant_id = candidate.tenant_id
                 break
+        if not tenant_id and candidates:
+            # Pick first active user by email
+            for candidate in candidates:
+                if candidate.is_active:
+                    tenant_id = candidate.tenant_id
+                    break
+            if not tenant_id and candidates:
+                tenant_id = candidates[0].tenant_id
 
     if not tenant_id:
         raise HTTPException(status_code=422, detail="Either org_slug or tenant_id is required")
@@ -551,16 +649,49 @@ async def forgot_password(
     """Request a password reset. Always returns success to prevent email enumeration."""
     from app.modules.members.models import User
 
-    result = await db.execute(
-        select(User).where(User.email == req.email, User.tenant_id == req.tenant_id)
-    )
-    user = result.scalar_one_or_none()
+    # If tenant_id provided, search within that tenant; otherwise search across all tenants
+    if req.tenant_id:
+        result = await db.execute(
+            select(User).where(User.email == req.email, User.tenant_id == req.tenant_id)
+        )
+        user = result.scalar_one_or_none()
+    else:
+        result = await db.execute(
+            select(User).where(User.email == req.email)
+        )
+        candidates = result.scalars().all()
+        # Pick first active user, preferring tenant_admin/super_admin
+        user = None
+        for c in candidates:
+            if c.is_active:
+                roles = c.roles or []
+                if isinstance(roles, str):
+                    import json as _json
+                    try: roles = _json.loads(roles)
+                    except Exception: roles = []
+                if isinstance(roles, list) and any(r in roles for r in ["super_admin", "tenant_admin"]):
+                    user = c
+                    break
+        if not user and candidates:
+            for c in candidates:
+                if c.is_active:
+                    user = c
+                    break
+        if not user and candidates:
+            user = candidates[0]
 
     if user:
-        reset_token = create_access_token(
-            user.id, user.tenant_id, user.roles,
-            expires_delta=timedelta(hours=1),
-        )
+        # Create a minimal reset token (no roles/permissions to keep URL short)
+        expire = datetime.now(timezone.utc) + timedelta(hours=1)
+        reset_payload = {
+            "sub": str(user.id),
+            "tenant_id": user.tenant_id,
+            "roles": [],
+            "permissions": [],
+            "exp": expire,
+            "type": "access",
+        }
+        reset_token = jose_jwt.encode(reset_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
         await db.execute(
             text("""
                 INSERT INTO audit_logs (id, tenant_id, user_id, action, resource_type, resource_id, details, created_at)
@@ -568,13 +699,55 @@ async def forgot_password(
             """),
             {
                 "id": str(uuid.uuid4()),
-                "tenant_id": req.tenant_id,
+                "tenant_id": user.tenant_id,
                 "user_id": user.id,
-                "details": {"email": req.email},
+                "details": json.dumps({"email": req.email}),
                 "now": datetime.now(timezone.utc),
             },
         )
         await db.flush()
+
+        # Send password reset email
+        async def _send_reset():
+            try:
+                from app.core.database import async_session_factory
+                from app.core.email.service import send_email
+
+                reset_url = f"{BASE_URL}/reset-password?token={reset_token}"
+                first_name = user.first_name or "there"
+                first_name_escaped = first_name.replace("<", "&lt;").replace(">", "&gt;")
+
+                async with async_session_factory() as email_db:
+                    await send_email(
+                        to=req.email,
+                        subject="Reset your AssocHub password",
+                        html_body=f"""
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                            <h2 style="color: #0891b2;">Password Reset Request</h2>
+                            <p>Hi {first_name_escaped},</p>
+                            <p>We received a request to reset your password. Click the button below to set a new password:</p>
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="{reset_url}" style="display: inline-block; padding: 14px 32px; background-color: #0891b2; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                                    🔑 Reset My Password
+                                </a>
+                            </div>
+                            <p style="color: #64748b; font-size: 14px;">If the button doesn't work, copy and paste this link into your browser:</p>
+                            <p style="color: #64748b; font-size: 13px; word-break: break-all;">{reset_url}</p>
+                            <p style="color: #ef4444; font-size: 14px; margin-top: 20px;">⚠️ This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
+                            <p style="color: #94a3b8; font-size: 12px;">AssocHub — Open Source Association Management</p>
+                        </div>
+                        """,
+                        tenant_id=user.tenant_id,
+                        db=email_db,
+                        max_retries=2,
+                    )
+                    await email_db.commit()
+                    logging.getLogger(__name__).info(f"Password reset email sent to {req.email}")
+            except Exception as e:
+                logging.getLogger(__name__).error(f"Failed to send password reset email to {req.email}: {e}")
+
+        background_tasks.add_task(_send_reset)
 
     return {"message": "If an account with that email exists, a password reset link has been sent."}
 

@@ -14,6 +14,7 @@ celery_app = Celery(
         "app.tasks.integrations",
         "app.tasks.memberships",
         "app.tasks.drip",
+        "app.tasks.backup_ml",
     ],
 )
 
@@ -72,6 +73,21 @@ celery_app.conf.update(
         "enroll-trigger-members": {
             "task": "app.tasks.drip.enroll_trigger_members",
             "schedule": crontab(minute=0, hour="*/1"),  # Every hour
+        },
+        # Daily backup at 3 AM UTC
+        "daily-database-backup": {
+            "task": "app.tasks.backup_ml.daily_backup",
+            "schedule": crontab(hour=3, minute=0),  # Daily at 3 AM UTC
+        },
+        # Weekly engagement scoring (Sunday 4 AM)
+        "weekly-engagement-scores": {
+            "task": "app.tasks.backup_ml.calculate_engagement_scores",
+            "schedule": crontab(hour=4, minute=0, day_of_week=0),  # Sunday 4 AM
+        },
+        # Weekly churn predictions (Sunday 5 AM)
+        "weekly-churn-predictions": {
+            "task": "app.tasks.backup_ml.batch_churn_predictions",
+            "schedule": crontab(hour=5, minute=0, day_of_week=0),  # Sunday 5 AM
         },
     },
 )

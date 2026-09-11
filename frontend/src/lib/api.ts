@@ -176,6 +176,7 @@ export interface Invoice {
   currency?: string;
   line_items?: InvoiceLineItem[];
   created_at?: string;
+  issued_at?: string;
 }
 
 export interface InvoiceLineItem {
@@ -444,11 +445,28 @@ export interface ElectionBallot {
   submitted_at?: string;
 }
 
+export interface ElectionCandidate {
+  member_id: string;
+  member_name: string;
+  nomination_id?: string;
+  statement?: string;
+}
+
+export interface ElectionCandidatesResponse {
+  position_id: string;
+  position_title: string;
+  seats: number;
+  candidates: ElectionCandidate[];
+}
+
 export interface ElectionResult {
   position_id: string;
   position_title: string;
-  winners: { member_id: string; member_name: string; votes: number }[];
-  all_candidates: { member_id: string; member_name: string; votes: number }[];
+  total_votes: number;
+  winners: string[];
+  winner_names?: string[];
+  all_candidates: { member_id: string; member_name: string; votes: number; percentage: number; rank: number }[];
+  is_final: boolean;
 }
 
 export interface ElectionStats {
@@ -456,6 +474,7 @@ export interface ElectionStats {
   active_elections: number;
   total_votes_cast: number;
   voter_turnout: number;
+  quorum_met_rate?: number;
 }
 
 // ── Documents ────────────────────────────────────────────────

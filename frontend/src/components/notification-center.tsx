@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api";
 import { Bell, CheckCheck, ExternalLink } from "lucide-react";
 
@@ -32,8 +32,8 @@ export function NotificationCenter() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [navigatingId, setNavigatingId] = useState<string | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   // Poll unread count
   useEffect(() => {
@@ -42,16 +42,18 @@ export function NotificationCenter() {
     return () => clearInterval(interval);
   }, []);
 
-  // Click-outside handler
+  // Click-outside handler — exclude portal dropdown (it's rendered outside containerRef)
   const handleClickOutside = useCallback((e: MouseEvent) => {
     if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      // Check if click is inside our portal dropdown
+      const dropdown = document.querySelector("[data-notification-dropdown]");
+      if (dropdown && dropdown.contains(e.target as Node)) return;
       setOpen(false);
     }
   }, []);
 
   useEffect(() => {
     if (open) {
-      // Delay to avoid the same click that opened it from closing it
       const timer = setTimeout(() => {
         document.addEventListener("mousedown", handleClickOutside);
       }, 0);
@@ -103,25 +105,31 @@ export function NotificationCenter() {
     }
   }
 
-  async function handleNotificationClick(n: Notification) {
-    // Mark as read if unread, then navigate
-    if (!n.is_read) {
-      await markAsRead(n.id);
-    }
-    // Navigate to link if present
+  function handleNotificationClick(n: Notification) {
     if (n.link) {
-      setNavigatingId(n.id);
       setOpen(false);
-      router.push(n.link);
-      // Clear navigating state after brief delay for visual feedback
-      setTimeout(() => setNavigatingId(null), 300);
+      // Camoufox blocks window.location.href and router.push.
+      // Use history.pushState + popstate to trigger Next.js client-side routing.
+      window.history.pushState({ as: n.link }, '', n.link);
+      window.dispatchEvent(new PopStateEvent('popstate', { state: {}, bubbles: true }));
     }
   }
 
-  function toggle() {
+  async function toggle() {
     const next = !open;
     setOpen(next);
-    if (next) fetchNotifications();
+    if (next) {
+      fetchNotifications().then(() => {
+        // Auto-mark all as read when dropdown opens — matches social platform behavior
+        markAllAsRead();
+      });
+      // Measure bell button position for portal dropdown
+      const btn = containerRef.current?.querySelector("button");
+      if (btn) {
+        const rect = btn.getBoundingClientRect();
+        setDropdownPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+      }
+    }
   }
 
   return (
@@ -143,106 +151,108 @@ export function NotificationCenter() {
         )}
       </button>
 
-      {/* Dropdown panel */}
-      {open && (
-        <div
-          className="absolute right-0 mt-2 w-96 rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
-          style={{ zIndex: 50 }}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 bg-slate-50/50">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm text-slate-900">Notifications</span>
+      {/* Dropdown panel — portaled to body so it escapes header stacking context */}
+      {open &&
+        createPortal(
+          <div
+            data-notification-dropdown
+            className="fixed w-96 rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
+            style={{ zIndex: 9999, top: dropdownPos.top, right: dropdownPos.right }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm text-slate-900">Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-bold bg-[#0d9488] text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
               {unreadCount > 0 && (
-                <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-bold bg-[#0d9488] text-white">
-                  {unreadCount}
-                </span>
+                <button
+                  onClick={markAllAsRead}
+                  className="text-xs text-[#0d9488] hover:underline font-medium flex items-center gap-1"
+                >
+                  <CheckCheck size={12} /> Mark all read
+                </button>
               )}
             </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="text-xs text-[#0d9488] hover:underline font-medium flex items-center gap-1"
-              >
-                <CheckCheck size={12} /> Mark all read
-              </button>
-            )}
-          </div>
 
-          {/* Notification list */}
-          <div className="max-h-96 overflow-y-auto">
-            {loading ? (
-              <div className="p-8 text-center">
-                <div className="h-6 w-6 border-2 border-teal-200 border-t-[#0d9488] rounded-full animate-spin mx-auto" />
-                <p className="text-xs text-slate-400 mt-3">Loading notifications...</p>
-              </div>
-            ) : notifications.length === 0 ? (
-              <div className="p-10 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-3">
-                  <Bell size={22} className="text-slate-300" />
+            {/* Notification list */}
+            <div className="max-h-96 overflow-y-auto">
+              {loading ? (
+                <div className="p-8 text-center">
+                  <div className="h-6 w-6 border-2 border-teal-200 border-t-[#0d9488] rounded-full animate-spin mx-auto" />
+                  <p className="text-xs text-slate-400 mt-3">Loading notifications...</p>
                 </div>
-                <p className="text-sm font-medium text-slate-500">No notifications</p>
-                <p className="text-xs text-slate-400 mt-1">You&apos;re all caught up!</p>
-              </div>
-            ) : (
-              notifications.map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => handleNotificationClick(n)}
-                  className={`w-full text-left px-4 py-3.5 border-b border-slate-50 transition-all duration-150 hover:bg-slate-50/80 ${
-                    navigatingId === n.id
-                      ? "bg-teal-100/60 scale-[0.98]"
-                      : !n.is_read
-                        ? "bg-teal-50/30"
-                        : "bg-white"
-                  } ${n.link ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <div className="flex items-start gap-3">
-                    {/* Unread dot / navigating spinner */}
-                    {navigatingId === n.id ? (
-                      <div className="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 border-2 border-teal-400 border-t-transparent animate-spin" />
-                    ) : !n.is_read ? (
-                      <span
-                        className="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0"
-                        style={{
-                          background: "linear-gradient(135deg, #0d9488, #14b8a6)",
-                          boxShadow: "0 0 8px rgba(13,148,136,0.4)",
-                        }}
-                      />
-                    ) : (
-                      <span className="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 bg-slate-200" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm truncate ${!n.is_read ? "font-semibold text-slate-900" : "font-medium text-slate-700"}`}>
-                        {n.title}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <p className="text-[10px] text-slate-400">{timeAgo(n.created_at)}</p>
-                        {n.link && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] text-[#0d9488] font-medium">
-                            <ExternalLink size={9} /> View
-                          </span>
-                        )}
+              ) : notifications.length === 0 ? (
+                <div className="p-10 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-3">
+                    <Bell size={22} className="text-slate-300" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-500">No notifications</p>
+                  <p className="text-xs text-slate-400 mt-1">You&apos;re all caught up!</p>
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => handleNotificationClick(n)}
+                    className={`w-full text-left px-4 py-3.5 border-b border-slate-50 transition-all duration-150 hover:bg-slate-50/80 ${
+                      navigatingId === n.id
+                        ? "bg-teal-100/60 scale-[0.98]"
+                        : !n.is_read
+                          ? "bg-teal-50/30"
+                          : "bg-white"
+                    } ${n.link ? "cursor-pointer" : "cursor-default"}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {navigatingId === n.id ? (
+                        <div className="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 border-2 border-teal-400 border-t-transparent animate-spin" />
+                      ) : !n.is_read ? (
+                        <span
+                          className="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{
+                            background: "linear-gradient(135deg, #0d9488, #14b8a6)",
+                            boxShadow: "0 0 8px rgba(13,148,136,0.4)",
+                          }}
+                        />
+                      ) : (
+                        <span className="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0 bg-slate-200" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm truncate ${!n.is_read ? "font-semibold text-slate-900" : "font-medium text-slate-700"}`}>
+                          {n.title}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <p className="text-[10px] text-slate-400">{timeAgo(n.created_at)}</p>
+                          {n.link && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] text-[#0d9488] font-medium">
+                              <ExternalLink size={9} /> View
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
+                  </button>
+                ))
+              )}
+            </div>
 
-          {/* Footer */}
-          <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/30">
-            <button
-              onClick={() => setOpen(false)}
-              className="w-full text-center text-xs text-slate-400 hover:text-[#0d9488] font-medium transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+            {/* Footer */}
+            <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/30">
+              <button
+                onClick={() => setOpen(false)}
+                className="w-full text-center text-xs text-slate-400 hover:text-[#0d9488] font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

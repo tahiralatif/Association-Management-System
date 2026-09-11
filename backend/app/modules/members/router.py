@@ -1,6 +1,7 @@
 """Member routes — complete API endpoints."""
 
 import json
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -249,16 +250,19 @@ async def get_my_events(
     events = result.scalars().all()
 
     registered_ids: set = set()
+    reg_id_map: dict = {}
     if member_profile_id:
         reg_result = await db.execute(
-            select(EventRegistration.event_id)
+            select(EventRegistration)
             .where(
                 EventRegistration.member_id == member_profile_id,
                 EventRegistration.tenant_id == user.tenant_id,
                 EventRegistration.status != RegistrationStatus.CANCELLED,
             )
         )
-        registered_ids = {r[0] for r in reg_result.all()}
+        regs = reg_result.scalars().all()
+        registered_ids = {r.event_id for r in regs}
+        reg_id_map = {r.event_id: r.id for r in regs}
 
     return [
         {
@@ -270,6 +274,7 @@ async def get_my_events(
             "location": e.venue_name,
             "event_type": str(e.event_type),
             "is_registered": e.id in registered_ids,
+            "registration_id": reg_id_map.get(e.id),
         }
         for e in events
     ]
@@ -731,7 +736,7 @@ async def list_groups(
     for g in groups:
         result.append(GroupResponse(
             id=g.id, tenant_id=g.tenant_id, name=g.name, description=g.description,
-            group_type=str(g.group_type), parent_id=g.parent_id,
+            group_type=g.group_type.value, parent_id=g.parent_id,
             max_members=g.max_members, meeting_schedule=g.meeting_schedule,
             contact_email=g.contact_email, is_active=g.is_active,
             member_count=len([m for m in g.memberships if m.is_active]),
@@ -758,14 +763,14 @@ async def get_group(
                 "member_id": m.member_id,
                 "user_name": f"{m.member.user.first_name} {m.member.user.last_name}",
                 "email": m.member.user.email,
-                "role": str(m.role),
+                "role": m.role.value,
                 "joined_at": m.joined_at,
                 "is_active": m.is_active,
             })
 
     return GroupWithMembers(
         id=group.id, tenant_id=group.tenant_id, name=group.name, description=group.description,
-        group_type=str(group.group_type), parent_id=group.parent_id,
+        group_type=group.group_type.value, parent_id=group.parent_id,
         max_members=group.max_members, meeting_schedule=group.meeting_schedule,
         contact_email=group.contact_email, is_active=group.is_active,
         member_count=len([m for m in group.memberships if m.is_active]),
@@ -784,7 +789,7 @@ async def create_group(
     group = await crud.create_group(db, user.tenant_id, data.model_dump())
     return GroupResponse(
         id=group.id, tenant_id=group.tenant_id, name=group.name, description=group.description,
-        group_type=str(group.group_type), parent_id=group.parent_id,
+        group_type=group.group_type.value, parent_id=group.parent_id,
         max_members=group.max_members, meeting_schedule=group.meeting_schedule,
         contact_email=group.contact_email, is_active=group.is_active,
         member_count=0, created_at=group.created_at,
@@ -805,12 +810,34 @@ async def update_group(
         raise HTTPException(status_code=404, detail="Group not found")
     return GroupResponse(
         id=group.id, tenant_id=group.tenant_id, name=group.name, description=group.description,
-        group_type=str(group.group_type), parent_id=group.parent_id,
+        group_type=group.group_type.value, parent_id=group.parent_id,
         max_members=group.max_members, meeting_schedule=group.meeting_schedule,
         contact_email=group.contact_email, is_active=group.is_active,
         member_count=len([m for m in group.memberships if m.is_active]),
         created_at=group.created_at,
     )
+
+
+@router.delete("/groups/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_group(
+    group_id: str,
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a group (soft-delete by setting is_active=False and removing active memberships)."""
+    group = await crud.get_group_by_id(db, group_id, user.tenant_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Deactivate all active memberships
+    for membership in group.memberships:
+        if membership.is_active:
+            membership.is_active = False
+            membership.left_at = datetime.now(timezone.utc)
+
+    # Deactivate the group itself
+    group.is_active = False
+    await db.flush()
 
 
 @router.post("/groups/{group_id}/members")
