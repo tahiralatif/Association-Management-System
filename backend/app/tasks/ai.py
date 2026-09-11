@@ -51,6 +51,71 @@ def batch_embed_content(tenant_id: str, content_items: list[dict]):
 
 @shared_task
 def train_churn_model(tenant_id: str):
-    """Retrain churn prediction model for a tenant."""
-    # Placeholder for actual ML training pipeline
-    return {"tenant_id": tenant_id, "status": "model_retrained"}
+    """Retrain churn prediction model for a tenant using scikit-learn."""
+    import asyncio
+
+    async def _train():
+        from app.core.database import async_session_factory
+        from app.ai.ml.churn import train_model
+
+        async with async_session_factory() as db:
+            metrics = await train_model(db, tenant_id)
+            return metrics
+
+    return asyncio.get_event_loop().run_until_complete(_train())
+
+
+@shared_task
+def batch_churn_predictions(tenant_id: str):
+    """Run batch churn predictions for all members in a tenant."""
+    import asyncio
+
+    async def _predict():
+        from app.core.database import async_session_factory
+        from app.ai.ml.churn import batch_predict_all
+
+        async with async_session_factory() as db:
+            results = await batch_predict_all(db, tenant_id)
+            summary = {
+                "total": len(results),
+                "critical": sum(1 for r in results if r["risk_level"] == "critical"),
+                "high": sum(1 for r in results if r["risk_level"] == "high"),
+                "medium": sum(1 for r in results if r["risk_level"] == "medium"),
+                "low": sum(1 for r in results if r["risk_level"] == "low"),
+            }
+            return {"predictions": len(results), "summary": summary}
+
+    return asyncio.get_event_loop().run_until_complete(_predict())
+
+
+@shared_task
+def calculate_all_engagement_scores(tenant_id: str):
+    """Calculate engagement scores for all members in a tenant."""
+    import asyncio
+
+    async def _calculate():
+        from app.core.database import async_session_factory
+        from app.ai.ml.engagement import calculate_all_engagement_scores
+
+        async with async_session_factory() as db:
+            stats = await calculate_all_engagement_scores(db, tenant_id)
+            return stats
+
+    return asyncio.get_event_loop().run_until_complete(_calculate())
+
+
+@shared_task
+def run_member_segmentation(tenant_id: str):
+    """Run smart member segmentation for a tenant."""
+    import asyncio
+
+    async def _segment():
+        from app.core.database import async_session_factory
+        from app.ai.ml.segmentation import segment_all_members
+
+        async with async_session_factory() as db:
+            result = await segment_all_members(db, tenant_id)
+            summary = result["summary"]
+            return summary
+
+    return asyncio.get_event_loop().run_until_complete(_segment())

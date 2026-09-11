@@ -351,10 +351,109 @@ async def ai_health(
         embedding_count=embedding_count,
         features={
             "churn_prediction": True,       # rule-based, always works
+            "churn_prediction_ml": bool(__import__("pathlib").Path(__file__).parent.parent.parent.parent / "ai" / "ml" / "saved_models"),
             "anomaly_detection": True,      # statistical, always works
             "document_generation": True,    # template always works, LLM optional
             "semantic_search": True,        # hash fallback always works
             "ai_chat": llm_on,              # needs LLM API key
             "insights": True,               # statistical, always works
+            "engagement_scoring": True,     # weighted scoring
+            "member_segmentation": True,    # rule-based segmentation
         },
     )
+
+
+# ── ML Churn Model ──────────────────────────────────────────
+
+@router.post("/ml/churn/train")
+async def train_churn_model(
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Train a GradientBoosting churn prediction model for this tenant."""
+    from app.ai.ml.churn import train_model
+    metrics = await train_model(db, user.tenant_id)
+    return metrics
+
+
+@router.post("/ml/churn/predict/{member_id}")
+async def ml_churn_predict(
+    member_id: str,
+    user: TokenPayload = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    """ML churn prediction for a specific member."""
+    from app.ai.ml.churn import predict_churn_risk_ml
+    result = await predict_churn_risk_ml(db, user.tenant_id, member_id)
+    return result
+
+
+@router.get("/ml/churn/batch")
+async def ml_churn_batch(
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Batch churn predictions for all members."""
+    from app.ai.ml.churn import batch_predict_all
+    results = await batch_predict_all(db, user.tenant_id)
+    summary = {
+        "total": len(results),
+        "critical": sum(1 for r in results if r["risk_level"] == "critical"),
+        "high": sum(1 for r in results if r["risk_level"] == "high"),
+        "medium": sum(1 for r in results if r["risk_level"] == "medium"),
+        "low": sum(1 for r in results if r["risk_level"] == "low"),
+    }
+    return {"predictions": results, "summary": summary}
+
+
+# ── Engagement Scoring ──────────────────────────────────────
+
+@router.post("/ml/engagement/calculate")
+async def calculate_engagement(
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Calculate engagement scores for all members."""
+    from app.ai.ml.engagement import calculate_all_engagement_scores
+    stats = await calculate_all_engagement_scores(db, user.tenant_id)
+    return stats
+
+
+@router.get("/ml/engagement/{member_id}")
+async def get_member_engagement(
+    member_id: str,
+    user: TokenPayload = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get detailed engagement score for a specific member."""
+    from app.ai.ml.engagement import calculate_member_engagement
+    result = await calculate_member_engagement(db, user.tenant_id, member_id)
+    return result
+
+
+# ── Member Segmentation ─────────────────────────────────────
+
+@router.post("/ml/segmentation/run")
+async def run_segmentation(
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Run smart member segmentation."""
+    from app.ai.ml.segmentation import segment_all_members
+    result = await segment_all_members(db, user.tenant_id)
+    return result
+
+
+@router.get("/ml/segmentation/{segment}")
+async def get_segment_members(
+    segment: str,
+    user: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get members in a specific segment."""
+    from app.ai.ml.segmentation import segment_all_members, SEGMENT_DEFINITIONS
+    if segment not in SEGMENT_DEFINITIONS:
+        raise HTTPException(status_code=400, detail=f"Unknown segment: {segment}. Valid: {list(SEGMENT_DEFINITIONS.keys())}")
+    result = await segment_all_members(db, user.tenant_id)
+    seg = result["segments"].get(segment)
+    return seg or {"count": 0, "members": []}

@@ -81,13 +81,18 @@ celery_app.conf.update(
         },
         # Weekly engagement scoring (Sunday 4 AM)
         "weekly-engagement-scores": {
-            "task": "app.tasks.backup_ml.calculate_engagement_scores",
+            "task": "app.tasks.ai.calculate_all_engagement_scores",
             "schedule": crontab(hour=4, minute=0, day_of_week=0),  # Sunday 4 AM
         },
         # Weekly churn predictions (Sunday 5 AM)
         "weekly-churn-predictions": {
-            "task": "app.tasks.backup_ml.batch_churn_predictions",
+            "task": "app.tasks.ai.batch_churn_predictions",
             "schedule": crontab(hour=5, minute=0, day_of_week=0),  # Sunday 5 AM
+        },
+        # Weekly member segmentation (Sunday 6 AM)
+        "weekly-member-segmentation": {
+            "task": "app.tasks.ai.run_member_segmentation",
+            "schedule": crontab(hour=6, minute=0, day_of_week=0),  # Sunday 6 AM
         },
     },
 )
