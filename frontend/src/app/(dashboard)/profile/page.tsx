@@ -143,6 +143,18 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // 2FA
+  const [twoFAEnabled, setTwoFAEnabled] = useState(false);
+  const [twoFALoading, setTwoFALoading] = useState(true);
+  const [twoFASetupSecret, setTwoFASetupSecret] = useState("");
+  const [twoFAOtpauthUrl, setTwoFAOtpauthUrl] = useState("");
+  const [twoFAQrUrl, setTwoFAQrUrl] = useState("");
+  const [twoFAVerifyCode, setTwoFAVerifyCode] = useState("");
+  const [twoFAVerifying, setTwoFAVerifying] = useState(false);
+  const [twoFADisableCode, setTwoFADisableCode] = useState("");
+  const [twoFADisabling, setTwoFADisabling] = useState(false);
+  const [show2FASetup, setShow2FASetup] = useState(false);
+
   useEffect(() => { loadAll(); }, []);
 
   async function loadAll() {
@@ -243,6 +255,70 @@ export default function ProfilePage() {
       toast("error", e.message || "Failed to change password");
     } finally {
       setChangingPassword(false);
+    }
+  }
+
+  /* ─── 2FA Functions ─── */
+  async function load2FAStatus() {
+    try {
+      const res = await apiFetch<{ enabled: boolean; enabled_at: string | null }>("/api/v1/auth/2fa/status");
+      setTwoFAEnabled(res.enabled);
+    } catch {
+      // silently fail
+    } finally {
+      setTwoFALoading(false);
+    }
+  }
+
+  useEffect(() => { load2FAStatus(); }, []);
+
+  async function enable2FA() {
+    try {
+      const res = await apiFetch<{ secret: string; otpauth_url: string; qr_code_url: string }>("/api/v1/auth/2fa/enable", { method: "POST" });
+      setTwoFASetupSecret(res.secret);
+      setTwoFAOtpauthUrl(res.otpauth_url);
+      setTwoFAQrUrl(res.qr_code_url);
+      setShow2FASetup(true);
+    } catch (e: any) {
+      toast("error", e.message || "Failed to start 2FA setup");
+    }
+  }
+
+  async function verify2FA() {
+    if (twoFAVerifyCode.length !== 6) { toast("error", "Enter the 6-digit code"); return; }
+    setTwoFAVerifying(true);
+    try {
+      await apiFetch("/api/v1/auth/2fa/verify", {
+        method: "POST",
+        body: JSON.stringify({ code: twoFAVerifyCode }),
+      });
+      toast("success", "2FA enabled successfully!");
+      setTwoFAEnabled(true);
+      setShow2FASetup(false);
+      setTwoFAVerifyCode("");
+      setTwoFASetupSecret("");
+    } catch (e: any) {
+      toast("error", e.message || "Invalid code");
+    } finally {
+      setTwoFAVerifying(false);
+    }
+  }
+
+  async function disable2FA() {
+    if (twoFADisableCode.length !== 6) { toast("error", "Enter your 6-digit code to confirm"); return; }
+    setTwoFADisabling(true);
+    try {
+      await apiFetch("/api/v1/auth/2fa/disable", {
+        method: "POST",
+        body: JSON.stringify({ code: twoFADisableCode }),
+      });
+      toast("success", "2FA disabled");
+      setTwoFAEnabled(false);
+      setTwoFADisableCode("");
+    } catch (e: any) {
+      toast("error", e.message || "Invalid code");
+    } finally {
+      setTwoFADisabling(false);
     }
   }
 
@@ -905,6 +981,114 @@ export default function ProfilePage() {
                   {changingPassword ? "Changing..." : "Change Password"}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Two-Factor Authentication */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" /> Two-Factor Authentication (2FA)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {twoFALoading ? (
+                <div className="flex items-center gap-2 text-slate-500">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
+                  Loading...
+                </div>
+              ) : twoFAEnabled ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                    <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <Shield className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-emerald-800">2FA is Enabled</p>
+                      <p className="text-sm text-emerald-600">Your account is protected with an authenticator app.</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Enter code to disable 2FA</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder="6-digit code"
+                        maxLength={6}
+                        value={twoFADisableCode}
+                        onChange={e => setTwoFADisableCode(e.target.value.replace(/\D/g, ""))}
+                        className="max-w-[200px] font-mono text-lg tracking-widest"
+                      />
+                      <Button
+                        variant="destructive"
+                        onClick={disable2FA}
+                        disabled={twoFADisabling || twoFADisableCode.length !== 6}
+                      >
+                        {twoFADisabling ? "Disabling..." : "Disable 2FA"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : show2FASetup ? (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
+                    <p className="font-medium text-blue-800 mb-2">Step 1: Scan this QR code</p>
+                    <p className="text-sm text-blue-600 mb-3">Open your authenticator app (Google Authenticator, Authy, etc.) and scan this code:</p>
+                    <div className="flex justify-center mb-3">
+                      <img
+                        src={`${API_BASE}${twoFAQrUrl}`}
+                        alt="2FA QR Code"
+                        className="border rounded-lg p-2 bg-white"
+                        width={200}
+                        height={200}
+                      />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-slate-500 mb-1">Or enter this code manually:</p>
+                      <code className="text-sm font-mono bg-white px-3 py-1 rounded border select-all">{twoFASetupSecret}</code>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Step 2: Enter the 6-digit code from your app</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder="000000"
+                        maxLength={6}
+                        value={twoFAVerifyCode}
+                        onChange={e => setTwoFAVerifyCode(e.target.value.replace(/\D/g, ""))}
+                        className="max-w-[200px] font-mono text-lg tracking-widest"
+                      />
+                      <Button
+                        onClick={verify2FA}
+                        disabled={twoFAVerifying || twoFAVerifyCode.length !== 6}
+                        className="bg-teal-600 hover:bg-teal-700"
+                      >
+                        {twoFAVerifying ? "Verifying..." : "Verify & Enable"}
+                      </Button>
+                      <Button variant="ghost" onClick={() => { setShow2FASetup(false); setTwoFASetupSecret(""); setTwoFAVerifyCode(""); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
+                      <Lock className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-700">2FA is Not Enabled</p>
+                      <p className="text-sm text-slate-500">Add an extra layer of security to your account.</p>
+                    </div>
+                  </div>
+                  <Button onClick={enable2FA} className="bg-teal-600 hover:bg-teal-700">
+                    <Shield className="h-4 w-4 mr-2" />
+                    Enable Two-Factor Authentication
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

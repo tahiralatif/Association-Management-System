@@ -70,6 +70,7 @@ const associationNavItems: NavItem[] = [
   { title: "AI Engine", href: "/ai", icon: Brain, permission: "ai:chat" },
   { title: "Integrations", href: "/integrations", icon: Plug, permission: "integrations:read" },
   { title: "Discount Codes", href: "/discount-codes", icon: Tag, permission: "finances:write" },
+  { title: "Website Builder", href: "/website", icon: Globe, permission: "admin:manage" },
 
   { title: "My Org Profile", href: "/dashboard/org-profile", icon: Globe },
   { title: "Documentation", href: "https://tahiralatif.github.io/Association-Management-System/", icon: BookOpen, external: true },
