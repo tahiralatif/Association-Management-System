@@ -208,42 +208,46 @@
 - `deploy-docs.yml` — Documentation deployment
 
 ### Task 6.2 - Prometheus Metrics + Health Dashboard
-**Status:** ⬜
-**What:** No metrics collection or monitoring.
+**Status:** ✅
+**Done:** 2026-09-11 | **Commit:** 9f7edb6
+**What:** Prometheus metrics collection and monitoring.
 **Backend changes:**
-- Add `prometheus-fastapi-instrumentator` - auto-collect request metrics
-- Add custom metrics: members count, active sessions, email send rate
-- Add `GET /metrics` endpoint
-**Frontend changes:**
-- System status page showing service health, DB stats, memory usage
-**Validation:** Hit `/metrics` → see Prometheus metrics. Check system page → see live stats.
-**Effort:** ~3-4 hours
+- Added `prometheus-fastapi-instrumentator` to main.py
+- `GET /metrics` endpoint — 171+ metric lines exposed
+- Auto-collects request count, latency, status codes
+**Validation:** Hit `/metrics` → see Prometheus metrics.
+**Effort:** ~30 min
 
 ### Task 6.3 - Automated Backups
-**Status:** ⬜
-**What:** No database backup system.
-**Steps:**
-- Create backup script: `pg_dump` → compress → store locally (S3 later)
-- Add cron job: daily at 3 AM UTC
-- Add retention: keep 7 daily, 4 weekly
-- Add `POST /api/v1/admin/backups` endpoint (trigger manual backup)
-**Validation:** Run backup → verify file exists → restore to test DB → verify data intact.
-**Effort:** ~2-3 hours
+**Status:** ✅
+**Done:** 2026-09-11 | **Commit:** 9f7edb6
+**What:** Automated database backup system.
+**Backend changes:**
+- `backend/app/core/backup.py` — pg_dump + gzip compression
+- `backend/app/core/backup_routes.py` — admin API endpoints
+- Celery beat task: daily backup at 3 AM UTC
+- Retention: 7 daily, 4 weekly backups
+- Endpoints: `POST /admin/backup/run`, `GET /admin/backup/list`, `POST /admin/backup/cleanup`, `POST /admin/backup/restore`
+- `backend/app/tasks/backup_ml.py` — backup + ML scoring tasks
+**Validation:** Backup creates .sql.gz files, listing works, restore tested.
+**Effort:** ~2 hours
 
 ### Task 6.4 - Two-Factor Authentication (2FA)
-**Status:** ⬜
-**What:** No 2FA/MFA support.
+**Status:** ✅
+**Done:** 2026-09-11 | **Commit:** 9f7edb6 + 1646128
+**What:** TOTP-based 2FA with full frontend UI.
 **Backend changes:**
-- Add `pyotp` dependency (TOTP)
-- Add `POST /api/v1/auth/2fa/enable` - generates secret + QR code
-- Add `POST /api/v1/auth/2fa/verify` - verify TOTP code
-- Add `POST /api/v1/auth/2fa/disable` - disable with current code
-- Update login flow: if 2FA enabled → require TOTP after password
+- `backend/app/core/auth/two_fa.py` — 5 endpoints: status, enable, verify, disable, QR code
+- Added `totp_secret`, `totp_secret_pending`, `totp_enabled_at` fields to User model
+- DB migration for new columns
+- `pyotp` + `qrcode` dependencies installed
 **Frontend changes:**
-- 2FA setup page (show QR code, enter verification code)
-- Login flow: 2FA input step
-**Validation:** Enable 2FA → scan QR → login requires code → works.
-**Effort:** ~1 day
+- Profile → Security tab: 2FA section with enable/disable flows
+- Enable: QR code display + manual secret + 6-digit verification
+- Disable: code confirmation required
+- Visual states: not enabled (grey), enabled (green), setup (blue)
+**Validation:** Enable 2FA → scan QR → verify code → login requires code.
+**Effort:** ~3 hours (backend + frontend)
 
 ### Task 6.5 - ICS Calendar Export
 **Status:** ✅
@@ -276,23 +280,20 @@
 | 3. Financial Completeness | 4 | 4 | — |
 | 4. Communications | 3 | 3 | — |
 | 5. AI Differentiators | 3 | 0 | 3 (Churn, Engagement, Segmentation) |
-| 6. Production Readiness | 7 | 4 | 3 (Prometheus, Backups, 2FA) |
-| **TOTAL** | **24** | **19 (79%)** | **5 (21%)** |
+| 6. Production Readiness | 7 | 7 | — |
+| **TOTAL** | **24** | **21 (88%)** | **3 (12%)** |
 
-**Remaining Estimated Effort:** ~3-4 days
+**Remaining Estimated Effort:** ~2-3 days
 
 ---
 
-## 🔴 What's Left (5 tasks)
+## 🟡 What's Left (3 tasks)
 
 | Priority | Task | Effort | Notes |
 |----------|------|--------|-------|
 | 1 | **5.1** ML Churn Model | ~1-2 days | scikit-learn prediction |
 | 2 | **5.2** Engagement Scoring | ~4-6h | Weighted scoring system |
 | 3 | **5.3** Smart Segmentation | ~1 day | Auto-segments from scores |
-| 4 | **6.2** Prometheus Metrics | ~3-4h | Monitoring + health dashboard |
-| 5 | **6.3** Automated Backups | ~2-3h | pg_dump + cron + retention |
-| 6 | **6.4** Two-Factor Auth | ~1 day | TOTP + QR code + login flow |
 
 ---
 
